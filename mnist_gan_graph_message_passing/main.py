@@ -160,6 +160,8 @@ def save_models(name, epoch):
     torch.save(G, "models/" + name + "/G_" + str(epoch) + ".pt")
     torch.save(D, "models/" + name + "/D_" + str(epoch) + ".pt")
 
+
+#from https://github.com/EmilienDupont/wgan-gp
 def gradient_penalty(real_data, generated_data):
         batch_size = real_data.size()[0]
 
