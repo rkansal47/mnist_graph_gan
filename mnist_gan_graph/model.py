@@ -20,7 +20,7 @@ class Simple_GRU(nn.Module):
             self.fe1.append(nn.Linear(2*node_size + 1, 128))
             self.fe2.append(nn.Linear(128, fe_out_size))
 
-        self.fn1 = nn.GRU(fe_out_size + node_size, hidden_size, num_gru_layers, batch_first=True, dropout=dropout)
+        self.fn1 = GRU(fe_out_size + node_size, hidden_size, num_gru_layers, batch_first=True, dropout=dropout)
         self.fn2 = nn.Linear(hidden_size, node_size)
 
     def forward(self, x):
@@ -93,7 +93,7 @@ class Graph_Discriminator(nn.Module):
             self.fe1 = nn.Linear(2*hidden_node_size + 1, 128)
             self.fe2 = nn.Linear(128, fe_out_size)
 
-            self.fn1 = nn.GRU(fe_out_size + hidden_node_size, hidden_size, num_gru_layers, batch_first=True, dropout=dropout)
+            self.fn1 = GRU(fe_out_size + hidden_node_size, hidden_size, num_gru_layers, batch_first=True, dropout=dropout)
             self.fn2 = nn.Linear(hidden_size, hidden_node_size)
         else:
             self.fe1 = nn.ModuleList()
@@ -284,68 +284,66 @@ class Critic(nn.Module):
             x[i] = x[i][indx[i]]
         return x
 
-# class GRU(nn.Module):
-#     def __init__(self, input_size, hidden_size, num_layers, dropout):
-#         super(GRUCell, self).__init__()
-#         self.input_size = input_size
-#         self.hidden_size = hidden_size
-#         self.num_layers = num_layers
-#         self.dropout = dropout
-#         self.layers = nn.ModuleList()
-#
-#         self.layers.append(GRUCell(input_size, hidden_size))
-#         for i in range(num_layers - 1):
-#             self.layers.append(GRUCell(hidden_size, hidden_size))
-#
-#     def forward(self, x, hidden):
-#         x, hidden[:self.hidden_size] = F.dropout(self.layers[0](x, hidden[:self.hidden_size]), p = self.dropout)
-#
-#         for i in range(1, self.num_layers):
-#             x, hidden = F.dropout(self.layers[i](x, hidden), p = self.dropout)
-#         return x, hidden
-#
-# class GRUCell(nn.Module):
-#
-#     """
-#     An implementation of GRUCell.
-#
-#     """
-#
-#     def __init__(self, input_size, hidden_size, bias=True):
-#         super(GRUCell, self).__init__()
-#         self.input_size = input_size
-#         self.hidden_size = hidden_size
-#         self.bias = bias
-#         self.x2h = nn.Linear(input_size, 3 * hidden_size, bias=bias)
-#         self.h2h = nn.Linear(hidden_size, 3 * hidden_size, bias=bias)
-#         self.reset_parameters()
-#
-#
-#
-#     def reset_parameters(self):
-#         std = 1.0 / torch.sqrt(self.hidden_size)
-#         for w in self.parameters():
-#             w.data.uniform_(-std, std)
-#
-#     def forward(self, x, hidden):
-#
-#         x = x.view(-1, x.size(1))
-#
-#         gate_x = self.x2h(x)
-#         gate_h = self.h2h(hidden)
-#
-#         gate_x = gate_x.squeeze()
-#         gate_h = gate_h.squeeze()
-#
-#         i_r, i_i, i_n = gate_x.chunk(3, 1)
-#         h_r, h_i, h_n = gate_h.chunk(3, 1)
-#
-#
-#         resetgate = F.sigmoid(i_r + h_r)
-#         inputgate = F.sigmoid(i_i + h_i)
-#         newgate = F.tanh(i_n + (resetgate * h_n))
-#
-#         hy = newgate + inputgate * (hidden - newgate)
-#
-#
-#         return hy
+class GRU(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, dropout):
+        super(GRUCell, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.layers = nn.ModuleList()
+
+        self.layers.append(GRUCell(input_size, hidden_size))
+        for i in range(num_layers - 1):
+            self.layers.append(GRUCell(hidden_size, hidden_size))
+
+    def forward(self, x, hidden):
+        x = x.squeeze()
+        hidden[:, 0] = F.dropout(self.layers[0](x, hidden[:, 0]), p = self.dropout)
+
+        for i in range(1, self.num_layers):
+            hidden[:, i] = F.dropout(self.layers[i](hidden[:, i-1], hidden[:, i]), p = self.dropout)
+
+        return hidden[:, -1].unsqueeze(1), hidden
+
+class GRUCell(nn.Module):
+
+    """
+    An implementation of GRUCell.
+
+    """
+
+    def __init__(self, input_size, hidden_size, bias=True):
+        super(GRUCell, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.bias = bias
+        self.x2h = nn.Linear(input_size, 3 * hidden_size, bias=bias)
+        self.h2h = nn.Linear(hidden_size, 3 * hidden_size, bias=bias)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        std = 1.0 / torch.sqrt(self.hidden_size)
+        for w in self.parameters():
+            w.data.uniform_(-std, std)
+
+    def forward(self, x, hidden):
+
+        x = x.view(-1, x.size(1))
+
+        gate_x = self.x2h(x)
+        gate_h = self.h2h(hidden)
+
+        gate_x = gate_x.squeeze()
+        gate_h = gate_h.squeeze()
+
+        i_r, i_i, i_n = gate_x.chunk(3, 1)
+        h_r, h_i, h_n = gate_h.chunk(3, 1)
+
+        resetgate = F.sigmoid(i_r + h_r)
+        inputgate = F.sigmoid(i_i + h_i)
+        newgate = F.tanh(i_n + (resetgate * h_n))
+
+        hy = newgate + inputgate * (hidden - newgate)
+
+        return hy
