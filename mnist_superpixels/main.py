@@ -23,8 +23,12 @@ import os
 from os import listdir
 from os.path import join, isdir
 import sys
+import tarfile
+import urllib
 
 torch.cuda.set_device(0)
+
+url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
 
 #Have to specify 'name' and 'start_epoch' if True
 LOAD_MODEL = False
@@ -58,6 +62,8 @@ torch.autograd.set_detect_anomaly(True)
 
 name = "23_7s"
 
+
+
 dirs = listdir('.')
 if('models' not in dirs):
     os.mkdir('./models')
@@ -67,6 +73,12 @@ if('args' not in dirs):
     os.mkdir('./args')
 if('figs' not in dirs):
     os.mkdir('./figs')
+if('dataset' not in dirs):
+    os.mkdir('./dataset')
+
+    file_tmp = urllib.urlretrieve(url, filename=None)[0]
+    tar = tarfile.open(file_tmp)
+    tar.extractall('./dataset/')
 
 del dirs
 
