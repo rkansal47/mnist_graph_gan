@@ -43,22 +43,28 @@ INT_DIFFS = True
 GRU = True
 
 node_feat_size = 3 # 2 coords + I
+#edge network params
 fe_hidden_size = 128
 fe_out_size = 256
+#rnn network for message passing network params
 gru_hidden_size = 256
 gru_num_layers = 2
 dropout = 0.3
 leaky_relu_alpha = 0.2
 num_hits = 75
-lr = 0.00005
+#learning rates
 lr_disc = 0.00001
 lr_gen = 0.00001
+#number of critic/discriminator iterations for every generator iteration
 num_critic = 2
 num_iters = 1
+#latent vector size of each node (incl node feature size)
 hidden_node_size = 64
+#wgan gradient penalty weight
 gp_weight = 10
 beta1 = 0.5
 
+#max size possible for caltech imperium GPUs
 batch_size = 16
 
 torch.manual_seed(4)
