@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Graph_Generator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, hidden_size, num_gru_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, hidden_size, num_gru_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, gru=True):
         super(Graph_Generator, self).__init__()
         self.node_size = node_size
         self.fe_hidden_size = fe_hidden_size
@@ -14,6 +14,7 @@ class Graph_Generator(nn.Module):
         self.num_gru_layers = num_gru_layers
         self.iters = iters
         self.hidden_node_size = hidden_node_size
+        self.gru = gru
 
         self.fe_in_size = 2*hidden_node_size+2 if int_diffs else 2*hidden_node_size+1
         self.use_int_diffs = int_diffs
@@ -21,8 +22,12 @@ class Graph_Generator(nn.Module):
         self.fe1 = nn.Linear(self.fe_in_size, fe_hidden_size)
         self.fe2 = nn.Linear(fe_hidden_size, fe_out_size)
 
-        self.fn1 = GRU(fe_out_size + hidden_node_size, hidden_size, num_gru_layers, dropout)
-        self.fn2 = nn.Linear(hidden_size, hidden_node_size)
+        if(self.gru):
+            self.fn1 = GRU(fe_out_size + hidden_node_size, hidden_size, num_gru_layers, dropout)
+            self.fn2 = nn.Linear(hidden_size, hidden_node_size)
+        else:
+            self.fn1 = nn.Linear(fe_out_size + hidden_node_size, hidden_size)
+            self.fn2 = nn.Linear(hidden_size, hidden_node_size)
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -31,20 +36,53 @@ class Graph_Generator(nn.Module):
         for i in range(self.iters):
             A = self.getA(x, batch_size)
 
+            # print("A")
+            # print(A)
+
             A = F.leaky_relu(self.fe1(A), negative_slope=self.alpha)
+
+            # print("A1")
+            # print(A)
+
             A = F.leaky_relu(self.fe2(A), negative_slope=self.alpha)
+
+            # print("A2")
+            # print(A)
+
             A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
+
+            # print("A3")
+            # print(A)
 
             x = torch.cat((A, x), 2)
             del A
 
+            # print("1")
+            # print(x)
+
             x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
 
-            x, hidden = self.fn1(x, hidden)
+            # print("2")
+            # print(x)
+
+            if(self.gru):
+                x, hidden = self.fn1(x, hidden)
+            else:
+                x = self.fn1(x)
+
+            # print("3")
+            # print(x)
+
             x = torch.tanh(self.fn2(x))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
 
+            # print("4")
+            # print(x)
+
         x = x[:,:,:self.node_size]
+
+        # print("5")
+        # print(x)
 
         return x
 
@@ -52,7 +90,7 @@ class Graph_Generator(nn.Module):
         x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
         x2 = x.repeat(1, self.num_hits, 1)
 
-        dists = torch.norm(x2[:, :, :2]-x1[:, :, :2], dim=2).unsqueeze(2)
+        dists = torch.norm(x2[:, :, :2]-x1[:, :, :2]+1e-12, dim=2).unsqueeze(2)
 
         if(self.use_int_diffs):
             # int_diffs = ((x2[:, :, 2]-x1[:, :, 2])**2).unsqueeze(2)
@@ -60,14 +98,14 @@ class Graph_Generator(nn.Module):
             int_diffs = ((x2[:, :, 2]-x1[:, :, 2])).unsqueeze(2)
             A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
         else:
-            A = torch.cat((x1, x2, dists), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_ins_size)
+            A = torch.cat((x1, x2, dists), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
         return A
 
     def initHidden(self, batch_size):
         return torch.zeros(self.num_gru_layers, batch_size*self.num_hits, self.hidden_size).cuda()
 
 class Graph_Discriminator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, hidden_size, num_gru_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, hidden_size, num_gru_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, gru=False):
         super(Graph_Discriminator, self).__init__()
         self.node_size = node_size
         self.hidden_node_size = hidden_node_size
@@ -80,6 +118,7 @@ class Graph_Discriminator(nn.Module):
         self.hidden_size = hidden_size
         self.iters = iters
         self.wgan = wgan
+        self.gru = gru
 
         self.fe_in_size = 2*hidden_node_size+2 if int_diffs else 2*hidden_node_size+1
         self.use_int_diffs = int_diffs
@@ -87,8 +126,15 @@ class Graph_Discriminator(nn.Module):
         self.fe1 = nn.Linear(self.fe_in_size, fe_hidden_size)
         self.fe2 = nn.Linear(fe_hidden_size, fe_out_size)
 
-        self.fn1 = GRU(fe_out_size + hidden_node_size, hidden_size, num_gru_layers, dropout)
-        self.fn2 = nn.Linear(hidden_size, hidden_node_size)
+        if(self.gru):
+            self.fn1 = GRU(fe_out_size + hidden_node_size, hidden_size, num_gru_layers, dropout)
+            self.fn2 = nn.Linear(hidden_size, hidden_node_size)
+        else:
+            self.fn1 = nn.Linear(fe_out_size + hidden_node_size, hidden_size)
+            self.fn2 = nn.Linear(hidden_size, hidden_node_size)
+
+        # self.fn1 = GRU(fe_out_size + hidden_node_size, hidden_size, num_gru_layers, dropout)
+        # self.fn2 = nn.Linear(hidden_size, hidden_node_size)
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -108,7 +154,10 @@ class Graph_Discriminator(nn.Module):
 
             x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
 
-            x, hidden = self.fn1(x, hidden)
+            if(self.gru):
+                x, hidden = self.fn1(x, hidden)
+            else:
+                x = self.fn1(x)
             x = torch.tanh(self.fn2(x))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
 
@@ -122,7 +171,7 @@ class Graph_Discriminator(nn.Module):
         x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
         x2 = x.repeat(1, self.num_hits, 1)
 
-        dists = torch.norm(x2[:, :, :2]-x1[:, :, :2], dim=2).unsqueeze(2)
+        dists = torch.norm(x2[:, :, :2]-x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
 
         if(self.use_int_diffs):
             # int_diffs = ((x2[:, :, 2]-x1[:, :, 2])**2).unsqueeze(2)
@@ -130,7 +179,7 @@ class Graph_Discriminator(nn.Module):
             int_diffs = ((x2[:, :, 2]-x1[:, :, 2])).unsqueeze(2)
             A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
         else:
-            A = torch.cat((x1, x2, dists), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_ins_size)
+            A = torch.cat((x1, x2, dists), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
 
         return A
 

@@ -1,5 +1,8 @@
 import setGPU
 
+# from profile import profile
+# from time import sleep
+
 import torch
 from model import Graph_Generator, Graph_Discriminator
 from superpixels_dataset import SuperpixelsDataset
@@ -33,24 +36,25 @@ url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar
 #Have to specify 'name' and 'start_epoch' if True
 LOAD_MODEL = False
 
-WGAN = False
+WGAN = True
 TRAIN = True
-NUM = 7 #-1 means all numbers
+NUM = 3 #-1 means all numbers
 INT_DIFFS = True
+GRU = True
 
 node_feat_size = 3 # 2 coords + I
 fe_hidden_size = 128
 fe_out_size = 256
 gru_hidden_size = 256
-gru_num_layers = 3
+gru_num_layers = 2
 dropout = 0.3
 leaky_relu_alpha = 0.2
 num_hits = 75
 lr = 0.00005
 lr_disc = 0.00001
 lr_gen = 0.00001
-num_critic = 1
-num_iters = 4
+num_critic = 2
+num_iters = 1
 hidden_node_size = 64
 gp_weight = 10
 beta1 = 0.5
@@ -60,9 +64,7 @@ batch_size = 16
 torch.manual_seed(4)
 torch.autograd.set_detect_anomaly(True)
 
-name = "23_7s"
-
-
+name = "41_wgan_gru_num_iters_1_num_critic_2"
 
 dirs = listdir('.')
 if('models' not in dirs):
@@ -98,6 +100,8 @@ f = open("args/" + name + ".txt", "w+")
 f.write(str(locals()))
 f.close()
 
+print(name)
+
 #Change to True !!
 X = SuperpixelsDataset(num_hits, train=TRAIN, num=NUM)
 
@@ -108,13 +112,13 @@ X_loaded = DataLoader(X, shuffle=True, batch_size=batch_size)
 print("loaded")
 
 if(LOAD_MODEL):
-    start_epoch = 100
+    start_epoch = 141
     G = torch.load("models/" + name + "/G_" + str(start_epoch) + ".pt")
     D = torch.load("models/" + name + "/D_" + str(start_epoch) + ".pt")
 else:
     start_epoch = 0
-    G = Graph_Generator(node_feat_size, fe_hidden_size, fe_out_size, gru_hidden_size, gru_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS).cuda()
-    D = Graph_Discriminator(node_feat_size, fe_hidden_size, fe_out_size, gru_hidden_size, gru_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS).cuda()
+    G = Graph_Generator(node_feat_size, fe_hidden_size, fe_out_size, gru_hidden_size, gru_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+    D = Graph_Discriminator(node_feat_size, fe_hidden_size, fe_out_size, gru_hidden_size, gru_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
 
 if(WGAN):
     G_optimizer = optim.RMSprop(G.parameters(), lr = lr_gen)
@@ -132,6 +136,8 @@ if(WGAN):
     criterion = wasserstein_loss
 else:
     criterion = torch.nn.BCELoss()
+
+# print(criterion(torch.tensor([1.0]),torch.tensor([-1.0])))
 
 def gen(num_samples, noise=0):
     if(noise == 0):
@@ -170,14 +176,10 @@ def save_sample_outputs(name, epoch, dlosses, glosses):
 
     gen_out = gen_out[:num_ims]
 
-    # print(gen_out[0].astype(int))
-
     gen_out[gen_out > 0.47] = 0.47
     gen_out[gen_out < -0.5] = -0.5
 
     gen_out = gen_out*[im_px, im_px, 1] + [(im_px+node_r)/2, (im_px+node_r)/2, 0.55]
-
-    # print(gen_out[0])
 
     for i in range(1, num_ims+1):
         fig.add_subplot(10, 10, i)
@@ -188,6 +190,7 @@ def save_sample_outputs(name, epoch, dlosses, glosses):
     print("Epoch: " + str(epoch))
 
     plt.savefig("figs/" +name + "/" + str(epoch) + ".png")
+    plt.close()
 
     fig = plt.figure()
     ax1 = fig.add_subplot(1, 2, 1)
@@ -196,20 +199,9 @@ def save_sample_outputs(name, epoch, dlosses, glosses):
     ax2 = fig.add_subplot(1, 2, 2)
     ax2.plot(glosses)
     ax2.set_title('Generator')
-    plt.show()
-    # plt.savefig("losses/"+name + "_gan_" + str(epoch) + ".png")
 
     plt.savefig("losses/"+ name +"/"+ str(epoch) + ".png")
-
-def plot_loss(name, epoch, dlosses, glosses):
-    fig = plt.figure()
-    ax1 = fig.add_subplot(1, 2, 1)
-    ax1.plot(dlosses)
-    ax2 = fig.add_subplot(1, 2, 2)
-    ax2.plot(glosses)
-    plt.show()
-
-    plt.savefig("losses/"+ name +"/"+ str(epoch) + ".png")
+    plt.close()
 
 def save_models(name, epoch):
     torch.save(G, "models/" + name + "/G_" + str(epoch) + ".pt")
@@ -302,21 +294,24 @@ G_losses = []
 
 save_sample_outputs(name, 0, D_losses, G_losses)
 
-for i in range(start_epoch, 1000):
-    print("Epoch %d" % (i+1))
-    D_loss = 0
-    G_loss = 0
-    for batch_ndx, x in tqdm(enumerate(X_loaded), total=len(X_loaded)):
-        # print(x)
-        if(batch_ndx > 0 and batch_ndx % (num_critic+1) == 0):
-            G_loss += train_G()
-        else:
-            D_loss += train_D(x.cuda())
+# @profile
+def train():
+    for i in range(start_epoch, 1000):
+        print("Epoch %d %s" % ((i+1), name))
+        D_loss = 0
+        G_loss = 0
+        for batch_ndx, x in tqdm(enumerate(X_loaded), total=len(X_loaded)):
+            if(batch_ndx > 0 and batch_ndx % (num_critic+1) == 0):
+                G_loss += train_G()
+            else:
+                D_loss += train_D(x.cuda())
 
-    D_losses.append(D_loss/len(X_loaded)/2)
-    G_losses.append(G_loss/len(X_loaded))
+        D_losses.append(D_loss/len(X_loaded)/2)
+        G_losses.append(G_loss/len(X_loaded))
 
-    save_sample_outputs(name, i+1, D_losses, G_losses)
+        save_sample_outputs(name, i+1, D_losses, G_losses)
 
-    # if(i%5==4):
-    save_models(name, i+1)
+        if((i+1)%5==0):
+            save_models(name, i+1)
+
+train()
