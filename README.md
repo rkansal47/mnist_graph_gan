@@ -2,3 +2,5 @@
 
 Prize Winning Video explaining the project: https://cds.cern.ch/record/2687009
 
+Poster about the project: 
+
