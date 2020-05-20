@@ -75,8 +75,12 @@ if('figs' not in dirs):
     os.mkdir('./figs')
 if('dataset' not in dirs):
     os.mkdir('./dataset')
-
-    file_tmp = urllib.urlretrieve(url, filename=None)[0]
+    try:
+        # python2
+        file_tmp = urllib.urlretrieve(url, filename=None)[0]
+    except:
+        # python3
+        file_tmp = urllib.request.urlretrieve(url, filename=None)[0]
     tar = tarfile.open(file_tmp)
     tar.extractall('./dataset/')
 
