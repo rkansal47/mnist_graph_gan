@@ -49,7 +49,7 @@ dropout = 0.3
 leaky_relu_alpha = 0.2
 num_hits = 75
 #learning rates
-lr = 0.0001
+lr = 0.0005
 #number of critic/discriminator iterations for every generator iteration
 num_critic = 1
 #number of rnn iterations
@@ -62,11 +62,11 @@ beta1 = 0.9
 
 batch_size = 10
 
-kernel_size = 25
+kernel_size = 10
 
-num_epochs = 2000
+num_epochs = 5000
 
-name = "5_lr_0.0001_batch_size_10_kernel_size_25"
+name = "7_lr_0.0005_kernel_size_10"
 
 dirs = listdir('.')
 if('cmodels' not in dirs):
@@ -94,6 +94,11 @@ else:
     os.mkdir('./cmodels/' + name)
 
 del onlydirs
+
+f = open("cargs/" + name + ".txt", "w+")
+f.write(str(locals()))
+f.close()
+
 
 torch.manual_seed(4)
 torch.autograd.set_detect_anomaly(True)

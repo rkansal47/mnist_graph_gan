@@ -85,8 +85,8 @@ def main(args):
     onlydirs = [f for f in listdir('models/') if isdir(join('models/', f))]
     if (name in onlydirs):
         print("name already used")
-        if(not LOAD_MODEL):
-            sys.exit()
+        # if(not LOAD_MODEL):
+        #     sys.exit()
     else:
         os.mkdir('./losses/' + name)
         os.mkdir('./models/' + name)
@@ -95,7 +95,7 @@ def main(args):
     del onlydirs
 
     f = open("args/" + name + ".txt", "w+")
-    f.write(str(locals()))
+    f.write(str(args))
     f.close()
 
     print(name)

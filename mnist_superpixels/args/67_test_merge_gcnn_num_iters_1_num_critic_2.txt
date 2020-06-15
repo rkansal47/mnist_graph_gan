@@ -1,0 +1,1 @@
+Namespace(batch_size=16, beta1=0.5, dropout=0.2, fe_hidden_size=128, fe_out_size=256, gp_weight=10, gru_hidden_size=256, gru_num_layers=2, hidden_node_size=64, kernel_size=10, leaky_relu_alpha=0.2, lr_disc=1e-05, lr_gen=1e-05, name='67_test_merge', node_feat_size=3, num_critic=2, num_epochs=1000, num_hits=75, num_iters=1)
