@@ -4,7 +4,7 @@ import setGPU
 # from time import sleep
 
 import torch
-from model import Graph_Generator, Graph_Discriminator
+from model import Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
 from superpixels_dataset import SuperpixelsDataset
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
@@ -36,22 +36,26 @@ url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar
 #Have to specify 'name' and 'start_epoch' if True
 LOAD_MODEL = False
 
-WGAN = True
+GCNN = True
+WGAN = False
+LSGAN = True #WGAN must be false otherwise it'll just be WGAN
 TRAIN = True
 NUM = 3 #-1 means all numbers
 INT_DIFFS = True
-GRU = True
+GRU = False
 
 def main(args):
-    
+
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
-    
+
     name = [args.name]
     if WGAN:
         name.append('wgan')
     if GRU:
         name.append('gru')
+    if GCNN:
+        name.append('gcnn')
     name.append('num_iters_{}'.format(args.num_iters))
     name.append('num_critic_{}'.format(args.num_critic))
     name = '_'.join(name)
@@ -100,11 +104,11 @@ def main(args):
     X = SuperpixelsDataset(args.num_hits, train=TRAIN, num=NUM)
 
     print("loading")
-    
+
     X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size)
-    
+
     print("loaded")
-    
+
     if(LOAD_MODEL):
         start_epoch = 141
         G = torch.load("models/" + name + "/G_" + str(start_epoch) + ".pt")
@@ -112,7 +116,10 @@ def main(args):
     else:
         start_epoch = 0
         G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
-        D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+        if(GCNN):
+            D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+        else:
+            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
 
     if(WGAN):
         G_optimizer = optim.RMSprop(G.parameters(), lr = args.lr_gen)
@@ -129,14 +136,17 @@ def main(args):
     if(WGAN):
         criterion = wasserstein_loss
     else:
-        criterion = torch.nn.BCELoss()
+        if(LSGAN):
+            criterion = torch.nn.MSELoss()
+        else:
+            criterion = torch.nn.BCELoss()
 
     # print(criterion(torch.tensor([1.0]),torch.tensor([-1.0])))
 
     def gen(num_samples, noise=0):
         if(noise == 0):
             noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).cuda()
-            
+
         x = noise
         del noise
 
@@ -158,11 +168,11 @@ def main(args):
 
     def save_sample_outputs(name, epoch, dlosses, glosses):
         fig = plt.figure(figsize=(10,10))
-        
+
         num_ims = 100
         node_r = 30
         im_px = 1000
-        
+
         gen_out = gen(args.batch_size).cpu().detach().numpy()
 
         for i in range(int(num_ims/args.batch_size)):
@@ -193,10 +203,10 @@ def main(args):
         ax2 = fig.add_subplot(1, 2, 2)
         ax2.plot(glosses)
         ax2.set_title('Generator')
-        
+
         plt.savefig("losses/"+ name +"/"+ str(epoch) + ".png")
         plt.close()
-    
+
     def save_models(name, epoch):
         torch.save(G, "models/" + name + "/G_" + str(epoch) + ".pt")
         torch.save(D, "models/" + name + "/D_" + str(epoch) + ".pt")
@@ -204,7 +214,7 @@ def main(args):
     #from https://github.com/EmilienDupont/wgan-gp
     def gradient_penalty(real_data, generated_data):
         batch_size = real_data.size()[0]
-        
+
         # Calculate interpolation
         alpha = torch.rand(batch_size, 1, 1)
         alpha = alpha.expand_as(real_data).cuda()
@@ -236,9 +246,9 @@ def main(args):
     def train_D(x):
         D.train()
         D_optimizer.zero_grad()
-        
+
         run_batch_size = x.shape[0]
-        
+
         if(not WGAN):
             Y_real = torch.ones(run_batch_size, 1).cuda()
             Y_fake = torch.zeros(run_batch_size, 1).cuda()
@@ -275,7 +285,7 @@ def main(args):
             G_loss = -D_fake_output.mean()
         else:
             G_loss = criterion(D_fake_output, Y_real)
-        
+
         G_loss.backward()
         G_optimizer.step()
 
@@ -285,7 +295,7 @@ def main(args):
     G_losses = []
 
     # save_models(name, 0)
-    
+
     save_sample_outputs(name, 0, D_losses, G_losses)
 
     # @profile
@@ -298,7 +308,7 @@ def main(args):
                 if(batch_ndx > 0 and batch_ndx % (args.num_critic+1) == 0):
                     G_loss += train_G()
                 else:
-                    D_loss += train_D(x.cuda())
+                    D_loss += train_D(x[0].cuda())
 
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))
@@ -328,6 +338,7 @@ def parse_args():
     parser.add_argument("--num-critic", type=int, default=2, help="number of critic updates for each generator update")
     parser.add_argument("--num-iters", type=int, default=1, help="number of discriminator updates for each generator update")
     parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
+    parser.add_argument("--kernel-size", type=int, default=10, help="graph convolutional layer kernel size")
 
     parser.add_argument("--batch-size", type=int, default=16, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")

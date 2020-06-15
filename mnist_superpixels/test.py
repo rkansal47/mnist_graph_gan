@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt   
 
 dataset = torch.load("dataset/training.pt")
 
