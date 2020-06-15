@@ -4,7 +4,7 @@ import setGPU
 # from time import sleep
 
 import torch
-from model import Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
+from model import Graph_Generator, Graph_Discriminator
 from superpixels_dataset import SuperpixelsDataset
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
@@ -36,11 +36,10 @@ url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar
 #Have to specify 'name' and 'start_epoch' if True
 LOAD_MODEL = False
 
-GCNN = True
 WGAN = False
 LSGAN = True #WGAN must be false otherwise it'll just be WGAN
 TRAIN = True
-NUM = 3 #-1 means all numbers
+NUM = -1 #-1 means all numbers
 INT_DIFFS = True
 GRU = False
 
@@ -56,7 +55,7 @@ leaky_relu_alpha = 0.2
 num_hits = 75
 #learning rates
 lr_disc = 0.00001
-lr_gen = 0.0001
+lr_gen = 0.00001
 #number of critic/discriminator iterations for every generator iteration
 num_critic = 1
 #number of rnn iterations
@@ -67,20 +66,18 @@ hidden_node_size = 64
 gp_weight = 10
 beta1 = 0.5
 
-kernel_size = 10
-
 #max size possible for caltech imperium GPUs
 if(WGAN):
     batch_size = 16
 else:
-    batch_size = 64
+    batch_size = 32
 
-num_epochs = 10000
+num_epochs = 2000
 
 torch.manual_seed(4)
 torch.autograd.set_detect_anomaly(True)
 
-name = "66_gcnn_10000_epochs_lr_disc_0.00001"
+name = "58_lsgan_no_gru_all_nums"
 
 dirs = listdir('.')
 if('models' not in dirs):
@@ -99,8 +96,6 @@ if('dataset' not in dirs):
     tar.extractall('./dataset/')
 
 del dirs
-
-#UNCOMMENT BELOW AS SOON AS TESTING FINISHED!!
 
 onlydirs = [f for f in listdir('models/') if isdir(join('models/', f))]
 if (name in onlydirs):
@@ -136,11 +131,7 @@ if(LOAD_MODEL):
 else:
     start_epoch = 0
     G = Graph_Generator(node_feat_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
-
-    if(GCNN):
-        D = Gaussian_Discriminator(node_feat_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, kernel_size=kernel_size, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
-    else:
-        D = Graph_Discriminator(node_feat_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+    D = Graph_Discriminator(node_feat_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, num_iters, num_hits, dropout, leaky_relu_alpha, hidden_node_size=hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
 
 if(WGAN):
     G_optimizer = optim.RMSprop(G.parameters(), lr = lr_gen)
@@ -275,12 +266,8 @@ def train_D(x):
         Y_fake = torch.zeros(run_batch_size, 1).cuda()
 
     D_real_output = D(x)
-    # print("real output")
-    # print(D_real_output)
     gen_ims = gen(run_batch_size)
     D_fake_output = D(gen_ims)
-    # print("fake output")
-    # print(D_fake_output)
 
     if(WGAN):
         D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(x, gen_ims)
@@ -336,12 +323,12 @@ def train():
             if(batch_ndx > 0 and batch_ndx % (num_critic+1) == 0):
                 G_loss += train_G()
             else:
-                D_loss += train_D(x[0].cuda())
+                D_loss += train_D(x.cuda())
 
-        D_losses.append(D_loss/len(X_loaded))
+        D_losses.append(D_loss/len(X_loaded)/2)
         G_losses.append(G_loss/len(X_loaded))
 
-        if((i+1)%1==0):
+        if((i+1)%5==0):
             save_models(name, i+1)
             save_sample_outputs(name, i+1, D_losses, G_losses)
 

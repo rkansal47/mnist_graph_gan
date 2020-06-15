@@ -12,7 +12,6 @@ class SuperpixelsDataset(Dataset):
 
         ints = dataset[0]
         coords = dataset[3]
-        self.y = torch.tensor(dataset[4], dtype=torch.long).cuda()
 
         if(num>-1):
             ints = ints[dataset[4]==num]
@@ -31,4 +30,4 @@ class SuperpixelsDataset(Dataset):
         return len(self.X)
 
     def __getitem__(self, idx):
-        return (self.X[idx], self.y[idx])
+        return self.X[idx]
