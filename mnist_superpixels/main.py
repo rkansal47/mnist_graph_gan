@@ -45,7 +45,6 @@ INT_DIFFS = True
 GRU = False
 
 def main(args):
-
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
 
