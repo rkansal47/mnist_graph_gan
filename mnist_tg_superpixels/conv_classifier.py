@@ -1,4 +1,4 @@
-import setGPU
+# import setGPU
 
 # from profile import profile
 # from time import sleep
@@ -13,7 +13,7 @@ import torch_geometric.transforms as T
 from torch_geometric.utils import normalized_cut
 from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
 
-from models import GMMConv
+from torch_geometric.nn import GMMConv
 
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
@@ -24,7 +24,7 @@ import os
 from os import listdir
 from os.path import join, isdir
 
-torch.cuda.set_device(0)
+# torch.cuda.set_device(0)
 torch.manual_seed(4)
 torch.autograd.set_detect_anomaly(True)
 
@@ -99,9 +99,14 @@ def main(args):
     train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Polar())
     test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Polar())
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+
+    print(enumerate(train_loader))
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
-    C = MoNet(args.kernel_size).cuda()
+    for data in train_loader:
+        print(data)
+
+    C = MoNet(args.kernel_size)#.cuda()
     C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     C_scheduler = torch.optim.lr_scheduler.StepLR(C_optimizer, args.decay_step, gamma=args.lr_decay)
 

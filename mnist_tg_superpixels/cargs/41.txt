@@ -1,0 +1,1 @@
+Namespace(batch_size=16, decay_step=1, dropout=0.2, kernel_size=10, leaky_relu_alpha=0.2, lr=0.0001, lr_decay=0.99, name='41', num_epochs=300, weight_decay=0.0005)
