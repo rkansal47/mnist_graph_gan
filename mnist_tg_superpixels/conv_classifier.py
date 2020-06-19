@@ -1,10 +1,10 @@
-import setGPU
+# import setGPU
 
 # from profile import profile
 # from time import sleep
 
 import torch
-from torch.utils.data import DataLoader
+from torch_geometric.data import DataLoader
 import torch.nn.functional as F
 
 from torch_geometric.datasets import MNISTSuperpixels
@@ -24,7 +24,9 @@ import os
 from os import listdir
 from os.path import join, isdir
 
-torch.cuda.set_device(0)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# torch.cuda.set_device(0)
 torch.manual_seed(4)
 torch.autograd.set_detect_anomaly(True)
 
@@ -96,12 +98,12 @@ def init_dirs(args):
 def main(args):
     init_dirs(args)
 
-    train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Polar())
-    test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Polar())
+    train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Cartesian())
+    test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Cartesian())
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
-    C = MoNet(args.kernel_size).cuda()
+    C = MoNet(args.kernel_size).to(device)
     C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     C_scheduler = torch.optim.lr_scheduler.StepLR(C_optimizer, args.decay_step, gamma=args.lr_decay)
 
