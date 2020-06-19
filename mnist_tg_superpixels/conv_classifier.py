@@ -31,7 +31,6 @@ torch.manual_seed(4)
 torch.autograd.set_detect_anomaly(True)
 
 #Have to specify 'name' and 'start_epoch' if True
-LOAD_MODEL = False
 TRAIN=False
 
 def normalized_cut_2d(edge_index, pos):
@@ -83,27 +82,35 @@ def init_dirs(args):
     onlydirs = [f for f in listdir('cmodels/') if isdir(join('cmodels/', f))]
     if (args.name in onlydirs):
         print("name already used")
-        # if(not LOAD_MODEL):
-            # sys.exit()
+        if(not args.load_model):
+            sys.exit()
     else:
         os.mkdir('./closses/' + args.name)
         os.mkdir('./cmodels/' + args.name)
 
     del onlydirs
 
-    f = open("cargs/" + args.name + ".txt", "w+")
-    f.write(str(args))
-    f.close()
+    if(not args.load_model):
+        f = open("cargs/" + args.name + ".txt", "w+")
+        f.write(str(args))
+        f.close()
+        return args
+    else:
+
 
 def main(args):
-    init_dirs(args)
+    args = init_dirs(args)
 
     train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Cartesian())
     test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Cartesian())
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
-    C = MoNet(args.kernel_size).to(device)
+    if(args.load_model):
+        C = torch.load("cmodels/" + name + "/C_" + str(start_epoch) + ".pt").to(device)
+    else:
+        C = MoNet(args.kernel_size).to(device)
+
     C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     C_scheduler = torch.optim.lr_scheduler.StepLR(C_optimizer, args.decay_step, gamma=args.lr_decay)
 
@@ -172,6 +179,9 @@ def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--load-model", type=bool, default=False, help="loading a pretrained model?")
+    parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
     parser.add_argument("--dropout", type=float, default=0.2, help="fraction of dropout")
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
