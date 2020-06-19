@@ -165,8 +165,8 @@ def main(args):
 
         test()
         if((i+1)%10==0):
-            save_model(args.name, i+1)
-            plot_losses(args.name, i+1, train_losses, test_losses)
+            save_model(i+1)
+            plot_losses(i+1, train_losses, test_losses)
 
 def parse_args():
     import argparse
