@@ -13,7 +13,7 @@ import torch_geometric.transforms as T
 from torch_geometric.utils import normalized_cut
 from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
 
-from models import GMMConv
+from torch_geometric.nn import GMMConv
 
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
