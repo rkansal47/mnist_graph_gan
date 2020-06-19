@@ -1,4 +1,4 @@
-# import setGPU
+import setGPU
 
 # from profile import profile
 # from time import sleep
@@ -145,7 +145,7 @@ def main(args):
         correct = 0
         with torch.no_grad():
             for data in test_loader:
-                output = C(data)
+                output = C(data.to(device))
                 test_loss += F.nll_loss(output, data.y, size_average=False).item()
                 pred = output.data.max(1, keepdim=True)[1]
                 correct += pred.eq(data.y.data.view_as(pred)).sum()
@@ -158,7 +158,7 @@ def main(args):
         print("Epoch %d %s" % ((i+1), args.name))
         C_loss = 0
         for batch_ndx, data in tqdm(enumerate(train_loader), total=len(train_loader)):
-            C_loss += train_C(data, data.y)
+            C_loss += train_C(data.to(device), data.y.to(device))
 
         train_losses.append(C_loss/len(train_loader))
         C_scheduler.step()
