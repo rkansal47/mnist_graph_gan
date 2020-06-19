@@ -92,11 +92,17 @@ def init_dirs(args):
 
     if(not args.load_model):
         f = open("cargs/" + args.name + ".txt", "w+")
-        f.write(str(args))
+        f.write(vars(args))
         f.close()
         return args
     else:
-
+        # f = open("cargs/" + args.name + ".txt", "r")
+        # args2 = eval(f.read())
+        # f.close()
+        # args2.load_model = True
+        # args2.start_epoch = args.start_epoch
+        # return args2
+        return args
 
 def main(args):
     args = init_dirs(args)
@@ -161,19 +167,21 @@ def main(args):
         test_losses.append(test_loss)
         print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
-    for i in range(args.num_epochs):
+    for i in range(args.start_epoch, args.num_epochs):
         print("Epoch %d %s" % ((i+1), args.name))
         C_loss = 0
+        test()
         for batch_ndx, data in tqdm(enumerate(train_loader), total=len(train_loader)):
             C_loss += train_C(data.to(device), data.y.to(device))
 
         train_losses.append(C_loss/len(train_loader))
         C_scheduler.step()
 
-        test()
         if((i+1)%10==0):
             save_model(i+1)
             plot_losses(i+1, train_losses, test_losses)
+
+    test()
 
 def parse_args():
     import argparse
