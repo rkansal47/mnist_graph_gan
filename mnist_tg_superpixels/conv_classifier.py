@@ -98,8 +98,8 @@ def init_dirs(args):
 def main(args):
     init_dirs(args)
 
-    train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Polar())
-    test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Polar())
+    train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Cartesian())
+    test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Cartesian())
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
