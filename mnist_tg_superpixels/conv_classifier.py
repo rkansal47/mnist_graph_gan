@@ -76,16 +76,20 @@ def init_dirs(args):
         os.mkdir('./closses')
     if('cargs' not in dirs):
         os.mkdir('./cargs')
+    if('cout' not in dirs):
+        os.mkdir('./cout')
     if('dataset' not in dirs):
         os.mkdir('./dataset')
+        os.mkdir('./dataset/cartesian')
+        os.mkdir('./dataset/polar')
 
     del dirs
 
     onlydirs = [f for f in listdir('cmodels/') if isdir(join('cmodels/', f))]
     if (args.name in onlydirs):
         print("name already used")
-        if(not args.load_model):
-            sys.exit()
+        # if(not args.load_model):
+        #     sys.exit()
     else:
         os.mkdir('./closses/' + args.name)
         os.mkdir('./cmodels/' + args.name)
@@ -109,8 +113,13 @@ def init_dirs(args):
 def main(args):
     args = init_dirs(args)
 
-    train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Cartesian())
-    test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Cartesian())
+    if(args.cartesian):
+        train_dataset = MNISTSuperpixels("./dataset/cartesian", True, pre_transform=T.Cartesian())
+        test_dataset = MNISTSuperpixels("./dataset/cartesian", False, pre_transform=T.Cartesian())
+    else:
+        train_dataset = MNISTSuperpixels("./dataset/polar", True, pre_transform=T.Polar())
+        test_dataset = MNISTSuperpixels("./dataset/polar", False, pre_transform=T.Polar())
+
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
@@ -154,7 +163,7 @@ def main(args):
 
         return C_loss.item()
 
-    def test():
+    def test(epoch):
         C.eval()
         test_loss = 0
         correct = 0
@@ -167,23 +176,29 @@ def main(args):
 
         test_loss /= len(test_loader.dataset)
         test_losses.append(test_loss)
-        print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+
+        f = open('./cout/' + args.name + '.txt', 'a')
+        s = "After {} epochs, on test set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(epoch, test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset))
+        f.write(s)
+        f.close()
+
 
     for i in range(args.start_epoch, args.num_epochs):
         print("Epoch %d %s" % ((i+1), args.name))
         C_loss = 0
-        test()
+        test(i)
         for batch_ndx, data in tqdm(enumerate(train_loader), total=len(train_loader)):
             C_loss += train_C(data.to(device), data.y.to(device))
 
         train_losses.append(C_loss/len(train_loader))
-        C_scheduler.step()
+        if(args.scheduler):
+            C_scheduler.step()
 
         if((i+1)%10==0):
             save_model(i+1)
             plot_losses(i+1, train_losses, test_losses)
 
-    test()
+    test(args.num_epochs)
 
 def parse_args():
     import argparse
@@ -193,19 +208,21 @@ def parse_args():
     parser.add_argument("--load-model", type=bool, default=False, help="loading a pretrained model?")
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
-    parser.add_argument("--dropout", type=float, default=0.2, help="fraction of dropout")
-    parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
+    parser.add_argument("--dropout", type=float, default=0.5, help="fraction of dropout")
 
     parser.add_argument("--num-epochs", type=int, default=300, help="number of epochs to train")
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--lr_decay', type=float, default=0.99)
     parser.add_argument('--decay_step', type=int, default=1)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
+    parser.add_argument('--scheduler', type=bool, default=True)
 
-    parser.add_argument("--kernel-size", type=int, default=10, help="graph convolutional layer kernel size")
-    parser.add_argument("--batch-size", type=int, default=16, help="batch size")
+    parser.add_argument('--cartesian', type=bool, default=True, help="True for cartesian, False for polar")
 
-    parser.add_argument("--name", type=str, default="41", help="name or tag for model; will be appended with other info")
+    parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
+    parser.add_argument("--batch-size", type=int, default=10, help="batch size")
+
+    parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     args = parser.parse_args()
     return args
 

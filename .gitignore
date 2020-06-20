@@ -2,3 +2,4 @@
 !*.py
 !**/cargs/
 !**/args/
+!**/cout/
