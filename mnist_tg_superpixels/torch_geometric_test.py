@@ -14,7 +14,7 @@ datast = MNISTSuperpixels(".", True)
 
 datast
 
-dataset5 = MNISTSuperpixels(".", True, transform=T.Cartesian())
+dataset5 = MNISTSuperpixels("dataset", True, transform=T.Cartesian())
 
 train_loader = DataLoader(dataset5, batch_size=2)
 
@@ -26,7 +26,30 @@ for dat in train_loader:
     print(len(dat.edge_index))
     break
 
+dat.edge_index[:]
+(16-21)/x+0.5 = 0.21
+(16.07-20.9)/(0.217-0.5)
+-(5.03-4.65)/17.07+0.5
+
+
+
 dat.edge_attr
+dat.pos[dat.edge_index[0,0]]-dat.pos[dat.edge_index[1,0]]
+
+dat.edge_index
+
+dat.pos[0]
+dat.pos[3]
+dat.pos[8]
+dat.pos[10]
+
+x=torch.tensor([0,6,2,2,3,1,0,1,0])
+
+u, inv = torch.unique(x, sorted=True, return_inverse=True)
+inv.new_empty(u.size(0)).scatter_(0,inv, torch.arange(inv.size(0)))
+
+
+dat.pos[:75]
 
 dat.edge_index.shape
 

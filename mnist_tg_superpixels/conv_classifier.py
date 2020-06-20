@@ -78,6 +78,8 @@ def init_dirs(args):
         os.mkdir('./cargs')
     if('dataset' not in dirs):
         os.mkdir('./dataset')
+        os.mkdir('./dataset/cartesian')
+        os.mkdir('./dataset/polar')
 
     del dirs
 
@@ -109,8 +111,12 @@ def init_dirs(args):
 def main(args):
     args = init_dirs(args)
 
-    train_dataset = MNISTSuperpixels("./dataset", True, pre_transform=T.Cartesian())
-    test_dataset = MNISTSuperpixels("./dataset", False, pre_transform=T.Cartesian())
+    if(args.cartesian):
+        train_dataset = MNISTSuperpixels("./dataset/cartesian", True, pre_transform=T.Cartesian())
+        test_dataset = MNISTSuperpixels("./dataset/cartesian", False, pre_transform=T.Cartesian())
+    else:
+        train_dataset = MNISTSuperpixels("./dataset/polar", True, pre_transform=T.Polar())
+        test_dataset = MNISTSuperpixels("./dataset/polar", False, pre_transform=T.Polar())
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
@@ -177,7 +183,7 @@ def main(args):
             C_loss += train_C(data.to(device), data.y.to(device))
 
         train_losses.append(C_loss/len(train_loader))
-        C_scheduler.step()
+        if(args.scheduler) C_scheduler.step()
 
         if((i+1)%10==0):
             save_model(i+1)
@@ -193,19 +199,21 @@ def parse_args():
     parser.add_argument("--load-model", type=bool, default=False, help="loading a pretrained model?")
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
-    parser.add_argument("--dropout", type=float, default=0.2, help="fraction of dropout")
-    parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
+    parser.add_argument("--dropout", type=float, default=0.5, help="fraction of dropout")
 
     parser.add_argument("--num-epochs", type=int, default=300, help="number of epochs to train")
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--lr_decay', type=float, default=0.99)
     parser.add_argument('--decay_step', type=int, default=1)
     parser.add_argument('--weight_decay', type=float, default=5e-4)
+    parser.add_argument('--scheduler', type=bool, default=True)
 
-    parser.add_argument("--kernel-size", type=int, default=10, help="graph convolutional layer kernel size")
-    parser.add_argument("--batch-size", type=int, default=16, help="batch size")
+    parser.add_argument('--cartesian', type=bool, default=True, help="True for cartesian, False for polar")
 
-    parser.add_argument("--name", type=str, default="41", help="name or tag for model; will be appended with other info")
+    parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
+    parser.add_argument("--batch-size", type=int, default=10, help="batch size")
+
+    parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     args = parser.parse_args()
     return args
 
