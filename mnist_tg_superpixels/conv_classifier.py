@@ -76,6 +76,8 @@ def init_dirs(args):
         os.mkdir('./closses')
     if('cargs' not in dirs):
         os.mkdir('./cargs')
+    if('cout' not in dirs):
+        os.mkdir('./cout')
     if('dataset' not in dirs):
         os.mkdir('./dataset')
         os.mkdir('./dataset/cartesian')
@@ -86,8 +88,8 @@ def init_dirs(args):
     onlydirs = [f for f in listdir('cmodels/') if isdir(join('cmodels/', f))]
     if (args.name in onlydirs):
         print("name already used")
-        if(not args.load_model):
-            sys.exit()
+        # if(not args.load_model):
+        #     sys.exit()
     else:
         os.mkdir('./closses/' + args.name)
         os.mkdir('./cmodels/' + args.name)
@@ -117,6 +119,7 @@ def main(args):
     else:
         train_dataset = MNISTSuperpixels("./dataset/polar", True, pre_transform=T.Polar())
         test_dataset = MNISTSuperpixels("./dataset/polar", False, pre_transform=T.Polar())
+
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
@@ -160,7 +163,7 @@ def main(args):
 
         return C_loss.item()
 
-    def test():
+    def test(epoch):
         C.eval()
         test_loss = 0
         correct = 0
@@ -173,23 +176,29 @@ def main(args):
 
         test_loss /= len(test_loader.dataset)
         test_losses.append(test_loss)
-        print('\nTest set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
+
+        f = open('.cout/' + args.name + '.txt', 'a')
+        s = "After {} epochs, on test set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(epoch, test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset))
+        f.write(s)
+        f.close()
+
 
     for i in range(args.start_epoch, args.num_epochs):
         print("Epoch %d %s" % ((i+1), args.name))
         C_loss = 0
-        test()
+        test(i)
         for batch_ndx, data in tqdm(enumerate(train_loader), total=len(train_loader)):
             C_loss += train_C(data.to(device), data.y.to(device))
 
         train_losses.append(C_loss/len(train_loader))
-        if(args.scheduler) C_scheduler.step()
+        if(args.scheduler):
+            C_scheduler.step()
 
         if((i+1)%10==0):
             save_model(i+1)
             plot_losses(i+1, train_losses, test_losses)
 
-    test()
+    test(args.num_epochs)
 
 def parse_args():
     import argparse
