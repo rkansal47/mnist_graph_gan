@@ -1,4 +1,4 @@
-import setGPU
+#import setGPU
 
 # from profile import profile
 # from time import sleep
@@ -23,6 +23,8 @@ from tqdm import tqdm
 import os
 from os import listdir
 from os.path import join, isdir
+
+import sys
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -92,7 +94,7 @@ def init_dirs(args):
 
     if(not args.load_model):
         f = open("cargs/" + args.name + ".txt", "w+")
-        f.write(vars(args))
+        f.write(str(vars(args)))
         f.close()
         return args
     else:
