@@ -1,4 +1,4 @@
-#import setGPU
+import setGPU
 
 # from profile import profile
 # from time import sleep
