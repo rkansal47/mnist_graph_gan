@@ -20,9 +20,8 @@ plt.switch_backend('agg')
 
 from tqdm import tqdm
 
-import os
-from os import listdir
-from os.path import join, isdir
+from os import listdir, mkdir
+from os.path import exists, dirname, realpath
 
 import sys
 
@@ -69,40 +68,42 @@ class MoNet(torch.nn.Module):
         return F.log_softmax(self.fc2(x), dim=1)
 
 def init_dirs(args):
-    dirs = listdir('.')
-    if('cmodels' not in dirs):
-        os.mkdir('./cmodels')
-    if('closses' not in dirs):
-        os.mkdir('./closses')
-    if('cargs' not in dirs):
-        os.mkdir('./cargs')
-    if('cout' not in dirs):
-        os.mkdir('./cout')
-    if('dataset' not in dirs):
-        os.mkdir('./dataset')
-        os.mkdir('./dataset/cartesian')
-        os.mkdir('./dataset/polar')
+    args.model_path = args.dir_path + '/cmodels/'
+    args.losses_path = args.dir_path + '/closses/'
+    args.args_path = args.dir_path + '/cargs/'
+    args.out_path = args.dir_path + '/cout/'
+    args.dataset_path = args.dir_path + '/dataset/cartesian/' if args.cartesian else args.dir_path + '/dataset/polar/'
 
-    del dirs
+    if(not exists(args.model_path)):
+        mkdir(args.model_path)
+    if(not exists(args.losses_path)):
+        mkdir(args.losses_path)
+    if(not exists(args.args_path)):
+        mkdir(args.args_path)
+    if(not exists(args.out_path)):
+        mkdir(args.out_path)
+    if(not exists(args.dataset_path)):
+        mkdir(args.dir_path + '/dataset')
+        mkdir(args.dir_path + '/dataset/cartesian')
+        mkdir(args.dir_path + '/dataset/polar')
 
-    onlydirs = [f for f in listdir('cmodels/') if isdir(join('cmodels/', f))]
-    if (args.name in onlydirs):
+    prev_models = [f[:-4] for f in listdir(args.args_path)] #removing txt part
+
+    if (args.name in prev_models):
         print("name already used")
         # if(not args.load_model):
         #     sys.exit()
     else:
-        os.mkdir('./closses/' + args.name)
-        os.mkdir('./cmodels/' + args.name)
-
-    del onlydirs
+        mkdir(args.losses_path + args.name)
+        mkdir(args.model_path + args.name)
 
     if(not args.load_model):
-        f = open("cargs/" + args.name + ".txt", "w+")
+        f = open(args.args_path + args.name + ".txt", "w+")
         f.write(str(vars(args)))
         f.close()
         return args
     else:
-        # f = open("cargs/" + args.name + ".txt", "r")
+        # f = open(args.args_path + args.name + ".txt", "r")
         # args2 = eval(f.read())
         # f.close()
         # args2.load_model = True
@@ -113,18 +114,15 @@ def init_dirs(args):
 def main(args):
     args = init_dirs(args)
 
-    if(args.cartesian):
-        train_dataset = MNISTSuperpixels("./dataset/cartesian", True, pre_transform=T.Cartesian())
-        test_dataset = MNISTSuperpixels("./dataset/cartesian", False, pre_transform=T.Cartesian())
-    else:
-        train_dataset = MNISTSuperpixels("./dataset/polar", True, pre_transform=T.Polar())
-        test_dataset = MNISTSuperpixels("./dataset/polar", False, pre_transform=T.Polar())
+    pt = T.Cartesian() if args.cartesian else T.Polar()
 
+    train_dataset = MNISTSuperpixels(args.dataset_path, True, pre_transform=pt)
+    test_dataset = MNISTSuperpixels(args.dataset_path, False, pre_transform=pt)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
     if(args.load_model):
-        C = torch.load("cmodels/" + args.name + "/C_" + str(args.start_epoch) + ".pt").to(device)
+        C = torch.load(args.model_path + name + "/C_" + str(start_epoch) + ".pt").to(device)
     else:
         C = MoNet(args.kernel_size).to(device)
 
@@ -143,11 +141,11 @@ def main(args):
         ax2.plot(test_losses)
         ax2.set_title('testing')
 
-        plt.savefig("closses/"+ args.name +"/"+ str(epoch) + ".png")
+        plt.savefig(args.losses_path + args.name +"/"+ str(epoch) + ".png")
         plt.close()
 
     def save_model(epoch):
-        torch.save(C, "cmodels/" + args.name + "/C_" + str(epoch) + ".pt")
+        torch.save(C, args.model_path + args.name + "/C_" + str(epoch) + ".pt")
 
     def train_C(data, y):
         C.train()
@@ -177,7 +175,7 @@ def main(args):
         test_loss /= len(test_loader.dataset)
         test_losses.append(test_loss)
 
-        f = open('./cout/' + args.name + '.txt', 'a')
+        f = open(args.out_path + args.name + '.txt', 'a')
         s = "After {} epochs, on test set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(epoch, test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset))
         f.write(s)
         f.close()
@@ -203,7 +201,11 @@ def main(args):
 def parse_args():
     import argparse
 
+    dir_path = dirname(realpath(__file__))
+
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
 
     parser.add_argument("--load-model", type=bool, default=False, help="loading a pretrained model?")
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
