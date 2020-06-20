@@ -1,4 +1,4 @@
-import setGPU
+#import setGPU
 
 # from profile import profile
 # from time import sleep
@@ -198,6 +198,13 @@ def main(args):
 
     test(args.num_epochs)
 
+def add_bool_arg(parser, name, help, default=False):
+    varname = '_'.join(name.split('-')) # change hyphens to underscores
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('--' + name, dest=varname, action='store_true', help=help)
+    group.add_argument('--no-' + name, dest=varname, action='store_false', help="don't " + help)
+    parser.set_defaults(**{varname:default})
+
 def parse_args():
     import argparse
 
@@ -207,25 +214,31 @@ def parse_args():
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
 
-    parser.add_argument("--load-model", type=bool, default=False, help="loading a pretrained model?")
+    add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
     parser.add_argument("--dropout", type=float, default=0.5, help="fraction of dropout")
 
     parser.add_argument("--num-epochs", type=int, default=300, help="number of epochs to train")
     parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--lr_decay', type=float, default=0.99)
-    parser.add_argument('--decay_step', type=int, default=1)
-    parser.add_argument('--weight_decay', type=float, default=5e-4)
-    parser.add_argument('--scheduler', type=bool, default=True)
+    parser.add_argument('--lr-decay', type=float, default=0.99)
+    parser.add_argument('--decay-step', type=int, default=1)
+    parser.add_argument('--weight-decay', type=float, default=5e-4)
+    add_bool_arg(parser, "scheduler", "use a optimization scheduler", default=True)
 
-    parser.add_argument('--cartesian', type=bool, default=True, help="True for cartesian, False for polar")
+    parse_coords = parser.add_mutually_exclusive_group(required=False)
+    parse_coords.add_argument('--cartesian', dest="cartesian", action='store_true', help="use cartesian coordinates")
+    parse_coords.add_argument('--polar', dest="cartesian", action='store_false', help="use polar coordinates")
+    parser.set_defaults(cartesian=True)
 
     parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     args = parser.parse_args()
+
+    print(args.scheduler)
+
     return args
 
 
