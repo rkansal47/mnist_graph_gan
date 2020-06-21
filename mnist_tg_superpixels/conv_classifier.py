@@ -237,8 +237,6 @@ def parse_args():
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     args = parser.parse_args()
 
-    print(args.scheduler)
-
     return args
 
 
