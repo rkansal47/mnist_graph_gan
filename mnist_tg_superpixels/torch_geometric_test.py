@@ -7,24 +7,71 @@ from torch_geometric.data import DataLoader
 
 import torch_geometric.transforms as T
 
-dataset = torch.load('../mnist_superpixels/raw/training.pt')
-data = Data(dataset)
+dataset = torch.load('dataset/cartesian/raw/test.pt')
 
-datast = MNISTSuperpixels(".", True)
+dataset[2]
 
-datast
+ints = dataset[0]
+coords = dataset[3]
 
-dataset5 = MNISTSuperpixels("dataset", True, transform=T.Cartesian())
+# ints = ints[dataset[4]==3]
+# coords = coords[dataset[4]==3]
 
-train_loader = DataLoader(dataset5, batch_size=2)
+dataset[1][:, :10]
+dataset[3][0][:8]
 
-for dat in train_loader:
+ints = ints-0.5
+coords = (coords-13.5)/27
+
+X = torch.cat((coords, ints.unsqueeze(2)), 2)
+
+X.shape
+
+batch_size = 10000
+
+Xpos = X[:,:,:2]
+Xpos.shape
+
+x1 = Xpos.repeat(1, 1, 75).reshape(batch_size, 75*75, 2)
+x2 = Xpos.repeat(1, 75, 1)
+
+norms = torch.norm(x2 - x1 + 1e-12, dim=2).reshape(batch_size, 75, 75)
+
+cutoff = 0.3245
+
+neighborhood = torch.nonzero(norms < cutoff)
+
+neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]] #remove self-loops
+
+unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
+counts = torch.cat((torch.tensor([0]), counts.cumsum(0)))
+counts
+
+
+edge_index = neighborhood[:,1:].transpose(0,1)
+
+edge_index[:, :20]
+
+dataset[1][:, :20]
+
+dataset[2]
+
+
+
+def prefilter(data):
+    return data.y == 3
+
+tgdataset = MNISTSuperpixels("dataset/cartesian", False, transform=T.Cartesian(), pre_filter=prefilter)
+tgdataset
+
+tgloader = DataLoader(tgdataset, batch_size=batch_size)
+
+for dat in tgloader:
     print(dat)
-    #print(dat.x)
-    print(dat.edge_attr)
-    print(len(dat.edge_attr))
-    print(len(dat.edge_index))
     break
+
+dat.edge_index[:, :30]
+
 
 dat.edge_index[:]
 (16-21)/x+0.5 = 0.21

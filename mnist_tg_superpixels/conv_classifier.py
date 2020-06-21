@@ -1,8 +1,4 @@
 #import setGPU
-
-# from profile import profile
-# from time import sleep
-
 import torch
 from torch_geometric.data import DataLoader
 import torch.nn.functional as F
@@ -12,7 +8,6 @@ import torch_geometric.transforms as T
 
 from torch_geometric.utils import normalized_cut
 from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
-
 from torch_geometric.nn import GMMConv
 
 import matplotlib.pyplot as plt
@@ -127,7 +122,8 @@ def main(args):
         C = MoNet(args.kernel_size).to(device)
 
     C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    C_scheduler = torch.optim.lr_scheduler.StepLR(C_optimizer, args.decay_step, gamma=args.lr_decay)
+    if(args.scheduler):
+        C_scheduler = torch.optim.lr_scheduler.StepLR(C_optimizer, args.decay_step, gamma=args.lr_decay)
 
     train_losses = []
     test_losses = []
@@ -189,6 +185,7 @@ def main(args):
             C_loss += train_C(data.to(device), data.y.to(device))
 
         train_losses.append(C_loss/len(train_loader))
+
         if(args.scheduler):
             C_scheduler.step()
 
@@ -240,7 +237,6 @@ def parse_args():
     print(args.scheduler)
 
     return args
-
 
 if __name__ == "__main__":
     args = parse_args()
