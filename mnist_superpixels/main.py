@@ -4,7 +4,7 @@ import setGPU
 # from time import sleep
 
 import torch
-from model import Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
+from model import Graph_Generator, Graph_Discriminator, Gaussian_Discriminator, MoNet
 from superpixels_dataset import SuperpixelsDataset
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
@@ -28,6 +28,10 @@ from os.path import join, isdir
 import sys
 import tarfile
 import urllib
+
+from torch_geometric.datasets import MNISTSuperpixels
+import torch_geometric.transforms as T
+import torch_geometric.data.DataLoader as tgDataLoader
 
 #torch.cuda.set_device(0)
 
@@ -55,6 +59,7 @@ def main(args):
         name.append('gru')
     if GCNN:
         name.append('gcnn')
+
     name.append('num_iters_{}'.format(args.num_iters))
     name.append('num_critic_{}'.format(args.num_critic))
     name = '_'.join(name)
@@ -99,12 +104,19 @@ def main(args):
 
     print(name)
 
+    def pf(data):
+        return data.y == args.num
+
+    prefilter = pf if args.num != -1 else None
+
     #Change to True !!
     X = SuperpixelsDataset(args.num_hits, train=TRAIN, num=NUM)
+    tgX = MNISTSuperpixels(".", train=TRAIN, pre_transform=T.Cartesian(), prefilter=prefilter)
 
     print("loading")
 
     X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size)
+    tgX_loaded = tgDataLoader(tgX, shuffle=True, batch_size=args.batch_size)
 
     print("loaded")
 
@@ -116,7 +128,8 @@ def main(args):
         start_epoch = 0
         G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
         if(GCNN):
-            D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+            D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout)
+            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
         else:
             D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
 
@@ -303,11 +316,11 @@ def main(args):
             print("Epoch %d %s" % ((i+1), name))
             D_loss = 0
             G_loss = 0
-            for batch_ndx, x in tqdm(enumerate(X_loaded), total=len(X_loaded)):
+            for batch_ndx, x in tqdm(enumerate(tgX_loaded), total=len(tgX_loaded)):
                 if(batch_ndx > 0 and batch_ndx % (args.num_critic+1) == 0):
                     G_loss += train_G()
                 else:
-                    D_loss += train_D(x[0].cuda())
+                    D_loss += train_D(x.cuda())
 
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))
@@ -328,7 +341,7 @@ def parse_args():
     parser.add_argument("--fe-out-size", type=int, default=256, help="edge network out size")
     parser.add_argument("--gru-hidden-size", type=int, default=256, help="GRU hidden size")
     parser.add_argument("--gru-num-layers", type=int, default=2, help="GRU number of layers")
-    parser.add_argument("--dropout", type=float, default=0.2, help="fraction of dropout")
+    parser.add_argument("--dropout", type=float, default=0.5, help="fraction of dropout")
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
     parser.add_argument("--num-epochs", type=int, default=1000, help="number of epochs to train")
@@ -339,10 +352,10 @@ def parse_args():
     parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
     parser.add_argument("--kernel-size", type=int, default=10, help="graph convolutional layer kernel size")
 
-    parser.add_argument("--batch-size", type=int, default=16, help="batch size")
+    parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
     parser.add_argument("--beta1", type=float, default=0.5, help="Adam optimizer beta1")
-    parser.add_argument("--name", type=str, default="41", help="name or tag for model; will be appended with other info")
+    parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     args = parser.parse_args()
     return args
 
