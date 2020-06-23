@@ -60,6 +60,8 @@ edge_attr += 0.5
 x = X[:,:,2].reshape(batch_size*75, 1)+0.5
 pos = 27*pos.reshape(batch_size*75, 2)+13.5
 
+x[:40]
+
 edge_index[:, :20]
 dataset[1][:, :20]
 
@@ -88,13 +90,24 @@ prefilter=None
 tgdataset = MNISTSuperpixels("dataset/cartesian", False, transform=T.Cartesian(), pre_filter=prefilter)
 tgdataset
 
-tgloader = DataLoader(tgdataset, batch_size=1, shuffle=False)
+tgloader = DataLoader(tgdataset, batch_size=10, shuffle=False)
 
 for dat in tgloader:
     print(dat)
     break
 
+dat
 
+dat.batch
+
+batch_size = 10
+zeros = torch.zeros(batch_size*75, dtype=int)
+zeros[torch.arange(batch_size)*75] = 1
+batch = torch.cumsum(zeros, 0)-1
+
+batch
+
+dat
 
 dat.edge_index[:, :30]
 
@@ -163,3 +176,28 @@ edge_index
 
 dataset2[0]
 dataset2[1]
+
+
+
+
+datat = {'x':x, 'pos':pos, 'edge_attr':edge_attr, 'edge_index':edge_index}
+
+
+tdc = dict(x=x)
+
+
+testtuple = list()
+
+testtuple.append(torch.zeros(5))
+testtuple.append(torch.ones(2))
+
+torch.cat(testtuple)
+
+testtuple
+
+datat.x = x
+
+class tgData():
+    def __init__(self, x, pos, edge_index, edge_attr):
+        self.x = x
+        self.pos = pos
