@@ -320,21 +320,34 @@ def main(args):
             Y_real = torch.ones(run_batch_size, 1).to(device)
             Y_fake = torch.zeros(run_batch_size, 1).to(device)
 
-        D_real_output = D(data)
-        gen_ims = gen(run_batch_size)
+        try:
+            D_real_output = D(data)
+            gen_ims = gen(run_batch_size)
 
-        if(GCNN):
-            gen_ims = tg_transform(gen_ims)
+            if(GCNN):
+                tg_gen_ims = tg_transform(gen_ims)
 
-        D_fake_output = D(gen_ims)
+            D_fake_output = D(tg_gen_ims)
 
-        if(WGAN):
-            D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(x, gen_ims)
-        else:
-            D_real_loss = criterion(D_real_output, Y_real)
-            D_fake_loss = criterion(D_fake_output, Y_fake)
+            if(WGAN):
+                D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(x, tg_gen_ims)
+            else:
+                D_real_loss = criterion(D_real_output, Y_real)
+                D_fake_loss = criterion(D_fake_output, Y_fake)
 
-            D_loss = D_real_loss + D_fake_loss
+                D_loss = D_real_loss + D_fake_loss
+        except:
+            print("Generated Images")
+            print(gen_ims)
+
+            print("Transformed Images")
+            print(tg_gen_ims)
+
+            print("Discriminator Output")
+            print(D_fake_output)
+
+            return
+
 
         D_loss.backward()
         D_optimizer.step()
