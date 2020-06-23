@@ -46,7 +46,7 @@ LOAD_MODEL = False
 GCNN = True
 WGAN = False
 LSGAN = True #WGAN must be false otherwise it'll just be WGAN
-TRAIN = False
+TRAIN = True 
 NUM = 3 #-1 means all numbers
 INT_DIFFS = True
 GRU = False
@@ -96,8 +96,8 @@ def main(args):
 
     if (args.name in prev_models):
         print("name already used")
-        # if(not LOAD_MODEL):
-        #     sys.exit()
+        if(not LOAD_MODEL):
+            sys.exit()
     else:
         mkdir(args.losses_path + args.name)
         mkdir(args.model_path + args.name)
@@ -121,7 +121,7 @@ def main(args):
     pre_filter = pf if args.num != -1 else None
 
     #Change to True !!
-    X = SuperpixelsDataset(ars.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
+    X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
     tgX = MNISTSuperpixels(".", train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
 
     print("loading")
@@ -139,7 +139,7 @@ def main(args):
         start_epoch = 0
         G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
         if(GCNN):
-            D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device)
+            D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device).to(device)
             # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).to(device)
         else:
             D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
@@ -197,7 +197,7 @@ def main(args):
 
         neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]] #remove self-loops
         unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
-        edge_slices = torch.cat((torch.tensor([0]), counts.cumsum(0)))
+        edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
         edge_index = neighborhood[:,1:].transpose(0,1)
 
         #normalizing edge attributes
@@ -216,7 +216,7 @@ def main(args):
         pos = 27*pos.reshape(batch_size*75, 2)+13.5
 
         batch_size = 10
-        zeros = torch.zeros(batch_size*75, dtype=int)
+        zeros = torch.zeros(batch_size*75, dtype=int).to(device)
         zeros[torch.arange(batch_size)*75] = 1
         batch = torch.cumsum(zeros, 0)-1
 
