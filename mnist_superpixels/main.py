@@ -215,7 +215,6 @@ def main(args):
         x = X[:,:,2].reshape(batch_size*75, 1)+0.5
         pos = 27*pos.reshape(batch_size*75, 2)+13.5
 
-        batch_size = 10
         zeros = torch.zeros(batch_size*75, dtype=int).to(device)
         zeros[torch.arange(batch_size)*75] = 1
         batch = torch.cumsum(zeros, 0)-1

@@ -1,0 +1,3 @@
+After 0 epochs, on test set: Avg. loss: 2.3044, Accuracy: 1010/10000 (10%)
+After 1 epochs, on test set: Avg. loss: 1.8482, Accuracy: 2987/10000 (30%)
+After 2 epochs, on test set: Avg. loss: 1.7162, Accuracy: 3488/10000 (35%)
