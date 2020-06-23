@@ -336,6 +336,9 @@ def main(args):
                 D_fake_loss = criterion(D_fake_output, Y_fake)
 
                 D_loss = D_real_loss + D_fake_loss
+
+            D_loss.backward()
+            D_optimizer.step()
         except:
             print("Generated Images")
             print(gen_ims)
@@ -347,10 +350,6 @@ def main(args):
             print(D_fake_output)
 
             return
-
-
-        D_loss.backward()
-        D_optimizer.step()
 
         return D_loss.item()
 
