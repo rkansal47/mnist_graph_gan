@@ -12,7 +12,8 @@ class SuperpixelsDataset(Dataset):
 
         ints = dataset[0]
         coords = dataset[3]
-        self.y = torch.tensor(dataset[4], dtype=torch.long).to(device)
+        #self.y = torch.tensor(dataset[4], dtype=torch.long).to(device)
+        self.y = torch.tensor(dataset[4], dtype=torch.long)
 
         if(num>-1):
             ints = ints[dataset[4]==num]
@@ -23,7 +24,8 @@ class SuperpixelsDataset(Dataset):
 
         X = torch.cat((coords, ints.unsqueeze(2)), 2)
 
-        self.X = X.to(device)
+        #self.X = X.to(device)
+        self.X = X
 
         print(X.size())
 

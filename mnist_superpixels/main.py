@@ -43,10 +43,10 @@ url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar
 #Have to specify 'name' and 'start_epoch' if True
 LOAD_MODEL = False
 
-GCNN = True
+GCNN = True 
 WGAN = False
 LSGAN = True #WGAN must be false otherwise it'll just be WGAN
-TRAIN = True
+TRAIN = True 
 NUM = 3 #-1 means all numbers
 INT_DIFFS = True
 GRU = False
@@ -96,8 +96,8 @@ def main(args):
 
     if (args.name in prev_models):
         print("name already used")
-        if(not LOAD_MODEL):
-            sys.exit()
+        #if(not LOAD_MODEL):
+        #    sys.exit()
     else:
         mkdir(args.losses_path + args.name)
         mkdir(args.model_path + args.name)
@@ -120,13 +120,14 @@ def main(args):
 
     pre_filter = pf if args.num != -1 else None
 
-    #Change to True !!
-    X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
-    tgX = MNISTSuperpixels(".", train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
-
     print("loading")
 
-    X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size)
+    #Change to True !!
+    X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
+    tgX = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
+
+
+    X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
     tgX_loaded = tgDataLoader(tgX, shuffle=True, batch_size=args.batch_size)
 
     print("loaded")
@@ -144,12 +145,16 @@ def main(args):
         else:
             D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
 
+    print("Models loaded")
+
     if(WGAN):
         G_optimizer = optim.RMSprop(G.parameters(), lr = args.lr_gen)
         D_optimizer = optim.RMSprop(D.parameters(), lr = args.lr_disc)
     else:
         G_optimizer = optim.Adam(G.parameters(), lr = args.lr_gen, weight_decay=5e-4)
         D_optimizer = optim.Adam(D.parameters(), lr = args.lr_disc, weight_decay=5e-4)
+
+    print("optimizers loaded")
 
     normal_dist = Normal(0, 0.2)
 
@@ -235,6 +240,7 @@ def main(args):
         return img
 
     def save_sample_outputs(name, epoch, dlosses, glosses):
+        print("drawing figs")
         fig = plt.figure(figsize=(10,10))
 
         num_ims = 100
@@ -259,8 +265,6 @@ def main(args):
             plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
             plt.axis('off')
 
-        print("Epoch: " + str(epoch))
-
         plt.savefig(args.figs_path + args.name + "/" + str(epoch) + ".png")
         plt.close()
 
@@ -274,6 +278,8 @@ def main(args):
 
         plt.savefig(args.losses_path + args.name +"/"+ str(epoch) + ".png")
         plt.close()
+
+        print("saved figs")
 
     def save_models(name, epoch):
         torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + ".pt")
@@ -371,7 +377,7 @@ def main(args):
 
     # save_models(name, 0)
 
-    save_sample_outputs(args.name, 0, D_losses, G_losses)
+    # save_sample_outputs(args.name, 0, D_losses, G_losses)
 
     # @profile
     def train():
@@ -379,11 +385,12 @@ def main(args):
             print("Epoch %d %s" % ((i+1), args.name))
             D_loss = 0
             G_loss = 0
-            for batch_ndx, data in tqdm(enumerate(tgX_loaded), total=len(tgX_loaded)):
+            loader = tgX_loaded if GCNN else X_loaded
+            for batch_ndx, data in tqdm(enumerate(loader), total=len(loader)):
                 if(batch_ndx > 0 and batch_ndx % (args.num_critic+1) == 0):
                     G_loss += train_G()
                 else:
-                    D_loss += train_D(data.to(device))
+                    D_loss += train_D(data.to(device)) if GCNN else train_D(data[0].to(device))
 
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))
@@ -411,7 +418,7 @@ def parse_args():
     parser.add_argument("--dropout", type=float, default=0.5, help="fraction of dropout")
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
-    parser.add_argument("--num-epochs", type=int, default=1000, help="number of epochs to train")
+    parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
     parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
     parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
     parser.add_argument("--num-critic", type=int, default=2, help="number of critic updates for each generator update")
