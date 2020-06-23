@@ -40,13 +40,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
 
-#Have to specify 'name' and 'start_epoch' if True
-LOAD_MODEL = False
-
-GCNN = True 
+#Have to specify 'name' and 'args.start_epoch' if True
+GCNN = True
 WGAN = False
 LSGAN = True #WGAN must be false otherwise it'll just be WGAN
-TRAIN = True 
+TRAIN = True
 NUM = 3 #-1 means all numbers
 INT_DIFFS = True
 GRU = False
@@ -94,23 +92,24 @@ def main(args):
 
     if (args.name in prev_models):
         print("name already used")
-        #if(not LOAD_MODEL):
+        #if(not args.load_model):
         #    sys.exit()
     else:
         mkdir(args.losses_path + args.name)
         mkdir(args.model_path + args.name)
         mkdir(args.figs_path + args.name)
 
-    if(not LOAD_MODEL):
+    if(not args.load_model):
         f = open(args.args_path + args.name + ".txt", "w+")
         f.write(str(vars(args)))
         f.close()
     else:
         f = open(args.args_path + args.name + ".txt", "r")
+        temp = args.start_epoch
         args = eval(f.read())
         f.close()
         args.load_model = True
-        args.start_epoch = args.start_epoch
+        args.start_epoch = temp
         # return args2
 
     def pf(data):
@@ -130,12 +129,10 @@ def main(args):
 
     print("loaded")
 
-    if(LOAD_MODEL):
-        start_epoch = 141
-        G = torch.load(args.model_path + args.name + "/G_" + str(start_epoch) + ".pt")
-        D = torch.load(args.model_path + args.name + "/D_" + str(start_epoch) + ".pt")
+    if(args.load_model):
+        G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
+        D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
-        start_epoch = 0
         G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
         if(GCNN):
             D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device).to(device)
@@ -379,7 +376,7 @@ def main(args):
 
     # @profile
     def train():
-        for i in range(start_epoch, args.num_epochs):
+        for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i+1), args.name))
             D_loss = 0
             G_loss = 0
@@ -393,12 +390,20 @@ def main(args):
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))
 
-            save_sample_outputs(args.name, i+1, D_losses, G_losses)
+            if((i+1)%5==0):
+                save_sample_outputs(args.name, i+1, D_losses, G_losses)
 
             if((i+1)%5==0):
                 save_models(args.name, i+1)
 
     train()
+
+def add_bool_arg(parser, name, help, default=False):
+    varname = '_'.join(name.split('-')) # change hyphens to underscores
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('--' + name, dest=varname, action='store_true', help=help)
+    group.add_argument('--no-' + name, dest=varname, action='store_false', help="don't " + help)
+    parser.set_defaults(**{varname:default})
 
 def parse_args():
     import argparse
@@ -406,6 +411,9 @@ def parse_args():
     dir_path = dirname(realpath(__file__))
 
     parser = argparse.ArgumentParser()
+
+    add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
+    parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
