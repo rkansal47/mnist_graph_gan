@@ -22,9 +22,9 @@ import matplotlib.cm as cm
 
 import numpy as np
 
-import os
-from os import listdir
-from os.path import join, isdir
+from os import listdir, mkdir
+from os.path import exists, dirname, realpath
+
 import sys
 import tarfile
 import urllib
@@ -63,21 +63,26 @@ def main(args):
     if GCNN:
         name.append('gcnn')
 
-    name.append('num_iters_{}'.format(args.num_iters))
-    name.append('num_critic_{}'.format(args.num_critic))
-    name = '_'.join(name)
+    # name.append('num_iters_{}'.format(args.num_iters))
+    # name.append('num_critic_{}'.format(args.num_critic))
+    args.name = '_'.join(name)
 
-    dirs = listdir('.')
-    if('models' not in dirs):
-        os.mkdir('./models')
-    if('losses' not in dirs):
-        os.mkdir('./losses')
-    if('args' not in dirs):
-        os.mkdir('./args')
-    if('figs' not in dirs):
-        os.mkdir('./figs')
-    if('dataset' not in dirs):
-        os.mkdir('./dataset')
+    args.model_path = args.dir_path + '/models/'
+    args.losses_path = args.dir_path + '/losses/'
+    args.args_path = args.dir_path + '/args/'
+    args.figs_path = args.dir_path + '/figs/'
+    args.dataset_path = args.dir_path + '/dataset/'
+
+    if(not exists(args.model_path)):
+        mkdir(args.model_path)
+    if(not exists(args.losses_path)):
+        mkdir(args.losses_path)
+    if(not exists(args.args_path)):
+        mkdir(args.args_path)
+    if(not exists(args.figs_path)):
+        mkdir(args.figs_path)
+    if(not exists(args.dataset_path)):
+        mkdir(args.dataset_path)
         try:
             # python2
             file_tmp = urllib.urlretrieve(url, filename=None)[0]
@@ -85,28 +90,30 @@ def main(args):
             # python3
             file_tmp = urllib.request.urlretrieve(url, filename=None)[0]
 
-        tar = tarfile.open(file_tmp)
-        tar.extractall('./dataset/')
+    prev_models = [f[:-4] for f in listdir(args.args_path)] #removing .txt
 
-    del dirs
 
-    onlydirs = [f for f in listdir('models/') if isdir(join('models/', f))]
-    if (name in onlydirs):
+
+    if (args.name in prev_models):
         print("name already used")
         # if(not LOAD_MODEL):
         #     sys.exit()
     else:
-        os.mkdir('./losses/' + name)
-        os.mkdir('./models/' + name)
-        os.mkdir('./figs/' + name)
+        mkdir(args.losses_path + args.name)
+        mkdir(args.model_path + args.name)
+        mkdir(args.figs_path + args.name)
 
-    del onlydirs
-
-    f = open("args/" + name + ".txt", "w+")
-    f.write(str(args))
-    f.close()
-
-    print(name)
+    if(not LOAD_MODEL):
+        f = open(args.args_path + args.name + ".txt", "w+")
+        f.write(str(vars(args)))
+        f.close()
+    # else:
+        # f = open(args.args_path + args.name + ".txt", "r")
+        # args2 = eval(f.read())
+        # f.close()
+        # args2.load_model = True
+        # args2.start_epoch = args.start_epoch
+        # return args2
 
     def pf(data):
         return data.y == args.num
@@ -126,8 +133,8 @@ def main(args):
 
     if(LOAD_MODEL):
         start_epoch = 141
-        G = torch.load("models/" + name + "/G_" + str(start_epoch) + ".pt")
-        D = torch.load("models/" + name + "/D_" + str(start_epoch) + ".pt")
+        G = torch.load(args.model_path + args.name + "/G_" + str(start_epoch) + ".pt")
+        D = torch.load(args.model_path + args.name + "/D_" + str(start_epoch) + ".pt")
     else:
         start_epoch = 0
         G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
@@ -255,7 +262,7 @@ def main(args):
 
         print("Epoch: " + str(epoch))
 
-        plt.savefig("figs/" +name + "/" + str(epoch) + ".png")
+        plt.savefig(args.figs_path + args.name + "/" + str(epoch) + ".png")
         plt.close()
 
         fig = plt.figure()
@@ -266,12 +273,12 @@ def main(args):
         ax2.plot(glosses)
         ax2.set_title('Generator')
 
-        plt.savefig("losses/"+ name +"/"+ str(epoch) + ".png")
+        plt.savefig(args.losses_path + args.name +"/"+ str(epoch) + ".png")
         plt.close()
 
     def save_models(name, epoch):
-        torch.save(G, "models/" + name + "/G_" + str(epoch) + ".pt")
-        torch.save(D, "models/" + name + "/D_" + str(epoch) + ".pt")
+        torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + ".pt")
+        torch.save(D, args.model_path + args.name+ "/D_" + str(epoch) + ".pt")
 
     #from https://github.com/EmilienDupont/wgan-gp
     def gradient_penalty(real_data, generated_data):
@@ -365,12 +372,12 @@ def main(args):
 
     # save_models(name, 0)
 
-    save_sample_outputs(name, 0, D_losses, G_losses)
+    save_sample_outputs(args.name, 0, D_losses, G_losses)
 
     # @profile
     def train():
         for i in range(start_epoch, args.num_epochs):
-            print("Epoch %d %s" % ((i+1), name))
+            print("Epoch %d %s" % ((i+1), args.name))
             D_loss = 0
             G_loss = 0
             for batch_ndx, data in tqdm(enumerate(tgX_loaded), total=len(tgX_loaded)):
@@ -382,17 +389,21 @@ def main(args):
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))
 
-            save_sample_outputs(name, i+1, D_losses, G_losses)
+            save_sample_outputs(args.name, i+1, D_losses, G_losses)
 
             if((i+1)%5==0):
-                save_models(name, i+1)
+                save_models(args.name, i+1)
 
     train()
 
 def parse_args():
     import argparse
 
+    dir_path = dirname(realpath(__file__))
+
     parser = argparse.ArgumentParser()
+
+    parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
     parser.add_argument("--fe-hidden-size", type=int, default=128, help="edge network hidden layer size")
     parser.add_argument("--fe-out-size", type=int, default=256, help="edge network out size")
