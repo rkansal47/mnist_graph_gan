@@ -137,8 +137,8 @@ def main(args):
         G_optimizer = optim.RMSprop(G.parameters(), lr = args.lr_gen)
         D_optimizer = optim.RMSprop(D.parameters(), lr = args.lr_disc)
     else:
-        G_optimizer = optim.Adam(G.parameters(), lr = args.lr_gen, betas=(args.beta1, 0.999))
-        D_optimizer = optim.Adam(D.parameters(), lr = args.lr_disc, betas=(args.beta1, 0.999))
+        G_optimizer = optim.Adam(G.parameters(), lr = args.lr_gen, weight_decay=5e-4)
+        D_optimizer = optim.Adam(D.parameters(), lr = args.lr_disc, weight_decay=5e-4)
 
     normal_dist = Normal(0, 0.2)
 
@@ -164,6 +164,42 @@ def main(args):
 
         x = G(x)
         return x
+
+    # transform my format to torch_geometric's
+    def tg_transform(X):
+        batch_size = X.size(0)
+
+        pos = X[:,:,:2]
+
+        x1 = pos.repeat(1, 1, 75).reshape(batch_size, 75*75, 2)
+        x2 = pos.repeat(1, 75, 1)
+
+        diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
+
+        diff = x2-x1
+        diff = diff[diff_norms < cutoff]
+
+        norms = diff_norms.reshape(batch_size, 75, 75)
+        neighborhood = torch.nonzero(norms < cutoff, as_tuple=False)
+        edge_attr = diff[neighborhood[:, 1] != neighborhood[:, 2]]
+
+        neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]] #remove self-loops
+        unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
+        edge_slices = torch.cat((torch.tensor([0]), counts.cumsum(0)))
+        edge_index = neighborhood[:,1:].transpose(0,1)
+
+        for i in range(batch_size):
+            start_index = edge_slices[i]
+            end_index = edge_slices[i+1]
+            max = torch.max(edge_attr[start_index:end_index])
+            edge_attr[start_index:end_index] /= 2*max
+
+        edge_attr += 0.5
+
+        x = X[:,:,2].reshape(batch_size*75, 1)+0.5
+        pos = 27*pos.reshape(batch_size*75, 2)+13.5
+
+        return {'x':x, 'pos':pos, 'edge_attr':edge_attr, 'edge_index':edge_index}
 
     def draw_graph(graph, node_r, im_px):
         imd = im_px + node_r
@@ -266,7 +302,7 @@ def main(args):
             Y_fake = torch.zeros(run_batch_size, 1).cuda()
 
         D_real_output = D(x)
-        gen_ims = gen(run_batch_size)
+        gen_ims = tg_transform(gen(run_batch_size))
         D_fake_output = D(gen_ims)
 
         if(WGAN):
@@ -289,7 +325,7 @@ def main(args):
         if(not WGAN):
             Y_real = torch.ones(args.batch_size, 1).cuda()
 
-        gen_ims = gen(args.batch_size)
+        gen_ims = tg_transform(gen(args.batch_size))
 
         D_fake_output = D(gen_ims)
 
@@ -345,8 +381,8 @@ def parse_args():
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
     parser.add_argument("--num-epochs", type=int, default=1000, help="number of epochs to train")
-    parser.add_argument("--lr-disc", type=float, default=0.00001, help="learning rate discriminator")
-    parser.add_argument("--lr-gen", type=float, default=0.00001, help="learning rate generator")
+    parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
+    parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
     parser.add_argument("--num-critic", type=int, default=2, help="number of critic updates for each generator update")
     parser.add_argument("--num-iters", type=int, default=1, help="number of discriminator updates for each generator update")
     parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")

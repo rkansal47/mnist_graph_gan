@@ -28,47 +28,73 @@ X = torch.cat((coords, ints.unsqueeze(2)), 2)
 X.shape
 
 batch_size = 10000
+cutoff = 0.32178
 
-Xpos = X[:,:,:2]
-Xpos.shape
+pos = X[:,:,:2]
 
-x1 = Xpos.repeat(1, 1, 75).reshape(batch_size, 75*75, 2)
-x2 = Xpos.repeat(1, 75, 1)
+x1 = pos.repeat(1, 1, 75).reshape(batch_size, 75*75, 2)
+x2 = pos.repeat(1, 75, 1)
 
-norms = torch.norm(x2 - x1 + 1e-12, dim=2).reshape(batch_size, 75, 75)
+diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
 
-cutoff = 0.3245
+diff = x2-x1
+diff = diff[diff_norms < cutoff]
 
-neighborhood = torch.nonzero(norms < cutoff)
+norms = diff_norms.reshape(batch_size, 75, 75)
+neighborhood = torch.nonzero(norms < cutoff, as_tuple=False)
+edge_attr = diff[neighborhood[:, 1] != neighborhood[:, 2]]
 
 neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]] #remove self-loops
-
 unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
-counts = torch.cat((torch.tensor([0]), counts.cumsum(0)))
-counts
-
-
+edge_slices = torch.cat((torch.tensor([0]), counts.cumsum(0)))
 edge_index = neighborhood[:,1:].transpose(0,1)
 
-edge_index[:, :20]
+for i in range(batch_size):
+    start_index = edge_slices[i]
+    end_index = edge_slices[i+1]
+    max = torch.max(edge_attr[start_index:end_index])
+    edge_attr[start_index:end_index] /= 2*max
 
+edge_attr += 0.5
+
+x = X[:,:,2].reshape(batch_size*75, 1)+0.5
+pos = 27*pos.reshape(batch_size*75, 2)+13.5
+
+edge_index[:, :20]
 dataset[1][:, :20]
 
+edge_index.shape
+dataset[1].shape
+
+edge_slices.shape
+dataset[2].shape
+
+edge_attr.shape
+
+edge_attr
+
+edge_slices
 dataset[2]
+
+
 
 
 
 def prefilter(data):
     return data.y == 3
 
+prefilter=None
+
 tgdataset = MNISTSuperpixels("dataset/cartesian", False, transform=T.Cartesian(), pre_filter=prefilter)
 tgdataset
 
-tgloader = DataLoader(tgdataset, batch_size=batch_size)
+tgloader = DataLoader(tgdataset, batch_size=1, shuffle=False)
 
 for dat in tgloader:
     print(dat)
     break
+
+
 
 dat.edge_index[:, :30]
 
@@ -129,7 +155,11 @@ data.pos[0]
 
 dataset2 = torch.load('../mnist_superpixels/processed/training.pt')
 
+dat.edge_attr
 
+dat.edge_index
+
+edge_index
 
 dataset2[0]
 dataset2[1]
