@@ -263,14 +263,12 @@ def main(args):
         plt.savefig(args.figs_path + args.name + "/" + str(epoch) + ".png")
         plt.close()
 
-        fig = plt.figure()
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax1.plot(dlosses)
-        ax1.set_title('Discriminator')
-        ax2 = fig.add_subplot(1, 2, 2)
-        ax2.plot(glosses)
-        ax2.set_title('Generator')
-
+        plt.figure()
+        plt.plot(dlosses, label='Discriminitive loss')
+        plt.plot(glosses, label='Generative loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
         plt.savefig(args.losses_path + args.name +"/"+ str(epoch) + ".png")
         plt.close()
 
