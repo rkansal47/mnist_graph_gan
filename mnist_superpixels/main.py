@@ -1,4 +1,4 @@
-import setGPU
+# import setGPU
 
 # from profile import profile
 # from time import sleep
@@ -31,7 +31,10 @@ import urllib
 
 from torch_geometric.datasets import MNISTSuperpixels
 import torch_geometric.transforms as T
-import torch_geometric.data.DataLoader as tgDataLoader
+from torch_geometric.data import DataLoader as tgDataLoader
+from torch_geometric.data import Batch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 #torch.cuda.set_device(0)
 
@@ -43,7 +46,7 @@ LOAD_MODEL = False
 GCNN = True
 WGAN = False
 LSGAN = True #WGAN must be false otherwise it'll just be WGAN
-TRAIN = True
+TRAIN = False
 NUM = 3 #-1 means all numbers
 INT_DIFFS = True
 GRU = False
@@ -81,6 +84,7 @@ def main(args):
         except:
             # python3
             file_tmp = urllib.request.urlretrieve(url, filename=None)[0]
+
         tar = tarfile.open(file_tmp)
         tar.extractall('./dataset/')
 
@@ -107,11 +111,11 @@ def main(args):
     def pf(data):
         return data.y == args.num
 
-    prefilter = pf if args.num != -1 else None
+    pre_filter = pf if args.num != -1 else None
 
     #Change to True !!
-    X = SuperpixelsDataset(args.num_hits, train=TRAIN, num=NUM)
-    tgX = MNISTSuperpixels(".", train=TRAIN, pre_transform=T.Cartesian(), prefilter=prefilter)
+    X = SuperpixelsDataset(args.num_hits, train=TRAIN, num=NUM, device=device)
+    tgX = MNISTSuperpixels(".", train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
 
     print("loading")
 
@@ -126,12 +130,12 @@ def main(args):
         D = torch.load("models/" + name + "/D_" + str(start_epoch) + ".pt")
     else:
         start_epoch = 0
-        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
         if(GCNN):
-            D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout)
-            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+            D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device)
+            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).to(device)
         else:
-            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).cuda()
+            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
 
     if(WGAN):
         G_optimizer = optim.RMSprop(G.parameters(), lr = args.lr_gen)
@@ -157,7 +161,7 @@ def main(args):
 
     def gen(num_samples, noise=0):
         if(noise == 0):
-            noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).cuda()
+            noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).to(device)
 
         x = noise
         del noise
@@ -168,6 +172,7 @@ def main(args):
     # transform my format to torch_geometric's
     def tg_transform(X):
         batch_size = X.size(0)
+        cutoff = 0.32178 #found empirically to match closest to Superpixels
 
         pos = X[:,:,:2]
 
@@ -188,18 +193,27 @@ def main(args):
         edge_slices = torch.cat((torch.tensor([0]), counts.cumsum(0)))
         edge_index = neighborhood[:,1:].transpose(0,1)
 
+        #normalizing edge attributes
+        edge_attr_list = list()
         for i in range(batch_size):
             start_index = edge_slices[i]
             end_index = edge_slices[i+1]
-            max = torch.max(edge_attr[start_index:end_index])
-            edge_attr[start_index:end_index] /= 2*max
+            temp = diff[start_index:end_index]
+            max = torch.max(temp)
+            temp = temp/(2*max) + 0.5
+            edge_attr_list.append(temp)
 
-        edge_attr += 0.5
+        edge_attr = torch.cat(edge_attr_list)
 
         x = X[:,:,2].reshape(batch_size*75, 1)+0.5
         pos = 27*pos.reshape(batch_size*75, 2)+13.5
 
-        return {'x':x, 'pos':pos, 'edge_attr':edge_attr, 'edge_index':edge_index}
+        batch_size = 10
+        zeros = torch.zeros(batch_size*75, dtype=int)
+        zeros[torch.arange(batch_size)*75] = 1
+        batch = torch.cumsum(zeros, 0)-1
+
+        return Batch(batch=batch, x=x, edge_index=edge_index.contiguous(), edge_attr=edge_attr, y=None, pos=pos)
 
     def draw_graph(graph, node_r, im_px):
         imd = im_px + node_r
@@ -207,7 +221,7 @@ def main(args):
 
         circles = []
         for node in graph:
-            circles.append((draw.circle_perimeter(int(node[1]), int(node[0]), node_r), draw.circle(int(node[1]), int(node[0]), node_r), node[2]))
+            circles.append((draw.circle_perimeter(int(node[1]), int(node[0]), node_r), draw.disk((int(node[1]), int(node[0])), node_r), node[2]))
 
         for circle in circles:
             img[circle[1]] = circle[2]
@@ -265,9 +279,9 @@ def main(args):
 
         # Calculate interpolation
         alpha = torch.rand(batch_size, 1, 1)
-        alpha = alpha.expand_as(real_data).cuda()
+        alpha = alpha.expand_as(real_data).to(device)
         interpolated = alpha * real_data.data + (1 - alpha) * generated_data.data
-        interpolated = Variable(interpolated, requires_grad=True).cuda()
+        interpolated = Variable(interpolated, requires_grad=True).to(device)
 
         del alpha
         torch.cuda.empty_cache()
@@ -276,7 +290,7 @@ def main(args):
         prob_interpolated = D(interpolated)
 
         # Calculate gradients of probabilities with respect to examples
-        gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated, grad_outputs=torch.ones(prob_interpolated.size()).cuda(), create_graph=True, retain_graph=True, allow_unused=True)[0].cuda()
+        gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated, grad_outputs=torch.ones(prob_interpolated.size()).to(device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(device)
 
         gradients = gradients.contiguous()
 
@@ -291,18 +305,22 @@ def main(args):
         # Return gradient penalty
         return args.gp_weight * ((gradients_norm - 1) ** 2).mean()
 
-    def train_D(x):
+    def train_D(data):
         D.train()
         D_optimizer.zero_grad()
 
-        run_batch_size = x.shape[0]
+        run_batch_size = data.shape[0] if not GCNN else data.y.shape[0]
 
         if(not WGAN):
-            Y_real = torch.ones(run_batch_size, 1).cuda()
-            Y_fake = torch.zeros(run_batch_size, 1).cuda()
+            Y_real = torch.ones(run_batch_size, 1).to(device)
+            Y_fake = torch.zeros(run_batch_size, 1).to(device)
 
-        D_real_output = D(x)
-        gen_ims = tg_transform(gen(run_batch_size))
+        D_real_output = D(data)
+        gen_ims = gen(run_batch_size)
+
+        if(GCNN):
+            gen_ims = tg_transform(gen_ims)
+
         D_fake_output = D(gen_ims)
 
         if(WGAN):
@@ -323,9 +341,12 @@ def main(args):
         G_optimizer.zero_grad()
 
         if(not WGAN):
-            Y_real = torch.ones(args.batch_size, 1).cuda()
+            Y_real = torch.ones(args.batch_size, 1).to(device)
 
-        gen_ims = tg_transform(gen(args.batch_size))
+        gen_ims = gen(args.batch_size)
+
+        if(GCNN):
+            gen_ims = tg_transform(gen_ims)
 
         D_fake_output = D(gen_ims)
 
@@ -352,11 +373,11 @@ def main(args):
             print("Epoch %d %s" % ((i+1), name))
             D_loss = 0
             G_loss = 0
-            for batch_ndx, x in tqdm(enumerate(tgX_loaded), total=len(tgX_loaded)):
+            for batch_ndx, data in tqdm(enumerate(tgX_loaded), total=len(tgX_loaded)):
                 if(batch_ndx > 0 and batch_ndx % (args.num_critic+1) == 0):
                     G_loss += train_G()
                 else:
-                    D_loss += train_D(x.cuda())
+                    D_loss += train_D(data.to(device))
 
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))
@@ -387,6 +408,7 @@ def parse_args():
     parser.add_argument("--num-iters", type=int, default=1, help="number of discriminator updates for each generator update")
     parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
     parser.add_argument("--kernel-size", type=int, default=10, help="graph convolutional layer kernel size")
+    parser.add_argument("--num", type=int, default=3, help="number to train on")
 
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")

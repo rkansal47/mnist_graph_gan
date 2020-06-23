@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 
 class SuperpixelsDataset(Dataset):
-    def __init__(self, num_thresholded, train=True, intensities=False, num=-1, mnist8m=False):
+    def __init__(self, num_thresholded, train=True, intensities=False, num=-1, mnist8m=False, device='cpu'):
         if(train):
             dataset = torch.load('dataset/training.pt')
         else:
@@ -12,7 +12,7 @@ class SuperpixelsDataset(Dataset):
 
         ints = dataset[0]
         coords = dataset[3]
-        self.y = torch.tensor(dataset[4], dtype=torch.long).cuda()
+        self.y = torch.tensor(dataset[4], dtype=torch.long).to(device)
 
         if(num>-1):
             ints = ints[dataset[4]==num]
@@ -23,7 +23,7 @@ class SuperpixelsDataset(Dataset):
 
         X = torch.cat((coords, ints.unsqueeze(2)), 2)
 
-        self.X = X.cuda()
+        self.X = X.to(device)
 
         print(X.size())
 

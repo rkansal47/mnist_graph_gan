@@ -10,7 +10,7 @@ from torch_geometric.nn import GMMConv
 import torch_geometric.transforms as T
 
 class Graph_Generator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, gru=True):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, gru=True, device='cpu'):
         super(Graph_Generator, self).__init__()
         self.node_size = node_size
         self.fe_hidden_size = fe_hidden_size
@@ -22,6 +22,7 @@ class Graph_Generator(nn.Module):
         self.iters = iters
         self.hidden_node_size = hidden_node_size
         self.gru = gru
+        self.device = device
 
         self.fe_in_size = 2*hidden_node_size+2 if int_diffs else 2*hidden_node_size+1
         self.use_int_diffs = int_diffs
@@ -85,10 +86,10 @@ class Graph_Generator(nn.Module):
         return A
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).cuda()
+        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
 
 class Graph_Discriminator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, gru=False):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
         super(Graph_Discriminator, self).__init__()
         self.node_size = node_size
         self.hidden_node_size = hidden_node_size
@@ -102,6 +103,7 @@ class Graph_Discriminator(nn.Module):
         self.iters = iters
         self.wgan = wgan
         self.gru = gru
+        self.device = device
 
         self.fe_in_size = 2*hidden_node_size+2 if int_diffs else 2*hidden_node_size+1
         self.use_int_diffs = int_diffs
@@ -172,7 +174,7 @@ class Graph_Discriminator(nn.Module):
         return A
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).cuda()
+        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
 
 class GRU(nn.Module):
     def __init__(self, input_size, mp_hidden_size, num_layers, dropout):
@@ -235,7 +237,7 @@ class GRUCell(nn.Module):
         return hy
 
 class Gaussian_Discriminator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, kernel_size, hidden_node_size=64, wgan=False, int_diffs=False, gru=False):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, kernel_size, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
         super(Gaussian_Discriminator, self).__init__()
         self.node_size = node_size
         self.hidden_node_size = hidden_node_size
@@ -250,14 +252,15 @@ class Gaussian_Discriminator(nn.Module):
         self.wgan = wgan
         self.gru = gru
         self.kernel_size = kernel_size
+        self.device = device
 
         self.fn = nn.Linear(hidden_node_size, hidden_node_size)
         self.fc = nn.Linear(hidden_node_size, 1)
 
-        self.mu = Parameter(torch.Tensor(kernel_size, 2).cuda())
-        self.sigma = Parameter(torch.Tensor(kernel_size, 2).cuda())
+        self.mu = Parameter(torch.Tensor(kernel_size, 2).to(self.device))
+        self.sigma = Parameter(torch.Tensor(kernel_size, 2).to(self.device))
 
-        self.kernel_weight = Parameter(torch.Tensor(kernel_size).cuda())
+        self.kernel_weight = Parameter(torch.Tensor(kernel_size).to(self.device))
 
         self.glorot(self.mu)
         self.glorot(self.sigma)
@@ -277,7 +280,7 @@ class Gaussian_Discriminator(nn.Module):
             # print("test")
             # print(y.shape)
 
-            y2 = torch.zeros(y.shape).cuda()
+            y2 = torch.zeros(y.shape).to(self.device)
 
             for j in range(self.kernel_size):
                 w = self.weights(u, j)
@@ -306,7 +309,7 @@ class Gaussian_Discriminator(nn.Module):
         return torch.exp(torch.sum((u-self.mu[j])**2*self.sigma[j], dim=-1))
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).cuda()
+        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
 
     def glorot(self, tensor):
         if tensor is not None:
@@ -323,7 +326,7 @@ def normalized_cut_2d(edge_index, pos):
     return normalized_cut(edge_index, edge_attr, num_nodes=pos.size(0))
 
 class MoNet(torch.nn.Module):
-    def __init__(self, kernel_size, dropout=0.5, wgan=False):
+    def __init__(self, kernel_size, dropout=0.5, wgan=False, device='cpu'):
         super(MoNet, self).__init__()
         self.conv1 = GMMConv(1, 32, dim=2, kernel_size=kernel_size)
         self.conv2 = GMMConv(32, 64, dim=2, kernel_size=kernel_size)
@@ -331,6 +334,8 @@ class MoNet(torch.nn.Module):
         self.fc1 = torch.nn.Linear(64, 128)
         self.fc2 = torch.nn.Linear(128, 1)
         self.dropout = dropout
+        self.device = device
+        self.wgan = wgan
 
     def forward(self, data):
         data.x = F.elu(self.conv1(data.x, data.edge_index, data.edge_attr))
@@ -351,7 +356,7 @@ class MoNet(torch.nn.Module):
         x = F.dropout(x, training=self.training, p=self.dropout)
         y = self.fc2(x)
 
-        if(wgan):
+        if(self.wgan):
             return y
 
         return torch.sigmoid(y)
