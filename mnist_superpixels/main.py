@@ -46,7 +46,7 @@ LOAD_MODEL = False
 GCNN = True
 WGAN = False
 LSGAN = True #WGAN must be false otherwise it'll just be WGAN
-TRAIN = True 
+TRAIN = True
 NUM = 3 #-1 means all numbers
 INT_DIFFS = True
 GRU = False
@@ -107,12 +107,12 @@ def main(args):
         f = open(args.args_path + args.name + ".txt", "w+")
         f.write(str(vars(args)))
         f.close()
-    # else:
-        # f = open(args.args_path + args.name + ".txt", "r")
-        # args2 = eval(f.read())
-        # f.close()
-        # args2.load_model = True
-        # args2.start_epoch = args.start_epoch
+    else:
+        f = open(args.args_path + args.name + ".txt", "r")
+        args = eval(f.read())
+        f.close()
+        args.load_model = True
+        args.start_epoch = args.start_epoch
         # return args2
 
     def pf(data):
@@ -207,7 +207,7 @@ def main(args):
             end_index = edge_slices[i+1]
             temp = diff[start_index:end_index]
             max = torch.max(temp)
-            temp = temp/(2*max) + 0.5
+            temp = temp/(2*max + 1e-12) + 0.5
             edge_attr_list.append(temp)
 
         edge_attr = torch.cat(edge_attr_list)
