@@ -92,8 +92,6 @@ def main(args):
 
     prev_models = [f[:-4] for f in listdir(args.args_path)] #removing .txt
 
-
-
     if (args.name in prev_models):
         print("name already used")
         #if(not LOAD_MODEL):
