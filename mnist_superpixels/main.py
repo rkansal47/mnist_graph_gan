@@ -88,7 +88,7 @@ def main(args):
             file_tmp = urllib.urlretrieve(url, filename=None)[0]
         except:
             # python3
-            file_tmp = urllib.request.urlretrieve(url, filename=None)[0]
+            file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
 
     prev_models = [f[:-4] for f in listdir(args.args_path)] #removing .txt
 
@@ -121,7 +121,7 @@ def main(args):
     pre_filter = pf if args.num != -1 else None
 
     #Change to True !!
-    X = SuperpixelsDataset(args.num_hits, train=TRAIN, num=NUM, device=device)
+    X = SuperpixelsDataset(ars.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
     tgX = MNISTSuperpixels(".", train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
 
     print("loading")

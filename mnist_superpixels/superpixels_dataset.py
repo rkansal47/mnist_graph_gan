@@ -2,11 +2,11 @@ import torch
 from torch.utils.data import Dataset
 
 class SuperpixelsDataset(Dataset):
-    def __init__(self, num_thresholded, train=True, intensities=False, num=-1, mnist8m=False, device='cpu'):
+    def __init__(self, dataset_path, num_thresholded, train=True, intensities=False, num=-1, mnist8m=False, device='cpu'):
         if(train):
-            dataset = torch.load('dataset/training.pt')
+            dataset = torch.load(dataset_path+'training.pt')
         else:
-            dataset = torch.load('dataset/test.pt')
+            dataset = torch.load(dataset_path+'test.pt')
 
         print("Dataset Loaded. Shape: ")
 
