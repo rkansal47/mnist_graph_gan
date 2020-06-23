@@ -103,13 +103,13 @@ def main(args):
         f = open(args.args_path + args.name + ".txt", "w+")
         f.write(str(vars(args)))
         f.close()
-    else:
-        f = open(args.args_path + args.name + ".txt", "r")
-        temp = args.start_epoch
-        args = eval(f.read())
-        f.close()
-        args.load_model = True
-        args.start_epoch = temp
+    #else:
+        #f = open(args.args_path + args.name + ".txt", "r")
+        #temp = args.start_epoch
+        #args = eval(f.read())
+        #f.close()
+        #args.load_model = True
+        #args.start_epoch = temp
         # return args2
 
     def pf(data):
