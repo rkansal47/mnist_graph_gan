@@ -240,6 +240,7 @@ class GRUCell(nn.Module):
 
         return hy
 
+
 class Gaussian_Discriminator(nn.Module):
     def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, kernel_size, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
         super(Gaussian_Discriminator, self).__init__()
@@ -272,7 +273,7 @@ class Gaussian_Discriminator(nn.Module):
 
     def forward(self, x):
         batch_size = x.shape[0]
-        x = F.pad(x, (0,self.hidden_node_size - self.node_size,0,0,0,0))
+        x = F.pad(x, (0, self.hidden_node_size - self.node_size, 0, 0, 0, 0))
 
         for i in range(self.iters):
             x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
@@ -291,7 +292,6 @@ class Gaussian_Discriminator(nn.Module):
                 # print(w)
                 # print(w.shape)
                 # print(y.shape)
-
 
                 y2 += w.unsqueeze(-1)*self.kernel_weight[j]*y
 
@@ -344,16 +344,21 @@ class MoNet(torch.nn.Module):
         self.wgan = wgan
 
     def forward(self, data):
+        cutoff = 0.32178
         data.x = F.elu(self.conv1(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
         cluster = graclus(data.edge_index, weight, data.x.size(0))
         data.edge_attr = None
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
+        row, col = data.edge_index
+        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
 
         data.x = F.elu(self.conv2(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
         cluster = graclus(data.edge_index, weight, data.x.size(0))
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
+        row, col = data.edge_index
+        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
 
         data.x = F.elu(self.conv3(data.x, data.edge_index, data.edge_attr))
 
