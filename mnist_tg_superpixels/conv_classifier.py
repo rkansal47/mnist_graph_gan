@@ -44,16 +44,25 @@ class MoNet(torch.nn.Module):
         self.fc2 = torch.nn.Linear(128, 10)
 
     def forward(self, data):
+        row, col = data.edge_index
+        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
+
         data.x = F.elu(self.conv1(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
         cluster = graclus(data.edge_index, weight, data.x.size(0))
         data.edge_attr = None
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
 
+        row, col = data.edge_index
+        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
+
         data.x = F.elu(self.conv2(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
         cluster = graclus(data.edge_index, weight, data.x.size(0))
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
+
+        row, col = data.edge_index
+        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
 
         data.x = F.elu(self.conv3(data.x, data.edge_index, data.edge_attr))
 
