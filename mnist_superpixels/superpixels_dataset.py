@@ -22,7 +22,7 @@ class SuperpixelsDataset(Dataset):
             coords = coords[dataset[4] == num]
 
         ints = ints-0.5
-        coords = (coords-13.5)/27
+        coords = (coords-14)/28
 
         X = torch.cat((coords, ints.unsqueeze(2)), 2)
 

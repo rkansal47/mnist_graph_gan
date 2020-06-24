@@ -42,8 +42,7 @@ url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar
 
 # Have to specify 'name' and 'args.start_epoch' if True
 GCNN = True
-WGAN = False
-LSGAN = True  # WGAN must be false otherwise it'll just be WGAN
+LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
 TRAIN = True
 NUM = 3  # -1 means all numbers
 INT_DIFFS = True
@@ -57,7 +56,7 @@ def main(args):
     torch.autograd.set_detect_anomaly(True)
 
     name = [args.name]
-    if WGAN:
+    if args.wgan:
         name.append('wgan')
     if GRU:
         name.append('gru')
@@ -72,7 +71,7 @@ def main(args):
     args.losses_path = args.dir_path + '/losses/'
     args.args_path = args.dir_path + '/args/'
     args.figs_path = args.dir_path + '/figs/'
-    args.dataset_path = args.dir_path + '/dataset/'
+    args.dataset_path = args.dir_path + '/raw/'
     args.err_path = args.dir_path + '/err/'
 
     if(not exists(args.model_path)):
@@ -93,6 +92,9 @@ def main(args):
         except:
             # python3
             file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
+
+        tar = tarfile.open(file_tmp)
+        tar.extractall(args.dataset_path)
 
     prev_models = [f[:-4] for f in listdir(args.args_path)]  # removing .txt
 
@@ -147,7 +149,7 @@ def main(args):
 
     print("Models loaded")
 
-    if(WGAN):
+    if(args.wgan):
         G_optimizer = optim.RMSprop(G.parameters(), lr=args.lr_gen)
         D_optimizer = optim.RMSprop(D.parameters(), lr=args.lr_disc)
     else:
@@ -156,12 +158,12 @@ def main(args):
 
     print("optimizers loaded")
 
-    normal_dist = Normal(0, 0.2)
+    normal_dist = Normal(0, args.sd)
 
     def wasserstein_loss(y_out, y_true):
         return -torch.mean(y_out * y_true)
 
-    if(WGAN):
+    if(args.wgan):
         criterion = wasserstein_loss
     else:
         if(LSGAN):
@@ -188,12 +190,12 @@ def main(args):
 
         diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
 
-        diff = x2-x1
-        diff = diff[diff_norms < cutoff]
+        # diff = x2-x1
+        # diff = diff[diff_norms < cutoff]
 
         norms = diff_norms.reshape(batch_size, 75, 75)
         neighborhood = torch.nonzero(norms < cutoff, as_tuple=False)
-        diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
+        # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
 
         neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
         unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
@@ -212,10 +214,15 @@ def main(args):
         #
         # edge_attr = torch.cat(edge_attr_list)
 
-        edge_attr = diff/(2*cutoff) + 0.5
+        # edge_attr = diff/(2*cutoff) + 0.5
 
         x = X[:, :, 2].reshape(batch_size*75, 1)+0.5
-        pos = 27*pos.reshape(batch_size*75, 2)+13.5
+        pos = 28*pos.reshape(batch_size*75, 2)+14
+
+        row, col = edge_index
+        edge_attr = (pos[col]-pos[row])/(2*28*cutoff) + 0.5
+
+        print(edge_attr)
 
         zeros = torch.zeros(batch_size*75, dtype=int).to(device)
         zeros[torch.arange(batch_size)*75] = 1
@@ -281,14 +288,29 @@ def main(args):
         torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + ".pt")
 
     # from https://github.com/EmilienDupont/wgan-gp
-    def gradient_penalty(real_data, generated_data):
-        batch_size = real_data.size()[0]
-
+    def gradient_penalty(real_data, generated_data, batch_size):
         # Calculate interpolation
-        alpha = torch.rand(batch_size, 1, 1)
-        alpha = alpha.expand_as(real_data).to(device)
-        interpolated = alpha * real_data.data + (1 - alpha) * generated_data.data
-        interpolated = Variable(interpolated, requires_grad=True).to(device)
+        if(not GCNN):
+            alpha = torch.rand(batch_size, 1, 1).to(device)
+            alpha = alpha.expand_as(real_data)
+            interpolated = alpha * real_data + (1 - alpha) * generated_data
+            interpolated = Variable(interpolated, requires_grad=True).to(device)
+        else:
+            alpha = torch.rand(batch_size, 1, 1).to(device)
+            alpha_x = alpha.expand((batch_size, 75, 1))
+            interpolated_x = alpha_x * real_data.x.reshape(batch_size, 75, 1) + (1 - alpha_x) * generated_data.x.reshape(batch_size, 75, 1)
+            alpha_pos = alpha.expand((batch_size, 75, 2))
+            interpolated_pos = alpha_pos * real_data.pos.reshape(batch_size, 75, 2) + (1 - alpha_pos) * generated_data.pos.reshape(batch_size, 75, 2)
+            interpolated_X = Variable(torch.cat(((interpolated_pos-14)/28, interpolated_x-0.5), dim=2), requires_grad=True)
+            # print(interpolated_X.shape)
+            print("interpolated")
+            interpolated = tg_transform(interpolated_X)
+
+            # interpolated_x = Variable(alpha * real_data.x + (1 - alpha) * generated_data.x, requires_grad=True).to(device)
+            # interpolated_edge_index = Variable(alpha * real_data.edge_index + (1 - alpha) * generated_data.edge_index, requires_grad=True).to(device)
+            # interpolated_edge_attr = Variable(alpha * real_data.edge_attr + (1 - alpha) * generated_data.edge_attr, requires_grad=True).to(device)
+            # interpolated_pos = Variable(alpha * real_data.pos + (1 - alpha) * generated_data.pos, requires_grad=True).to(device)
+            # interpolated = Batch(batch=real_data.batch, x=interpolated_x, edge_index=interpolated_edge_index, edge_attr=interpolated_edge_attr, pos=interpolated_pos)
 
         del alpha
         torch.cuda.empty_cache()
@@ -297,7 +319,10 @@ def main(args):
         prob_interpolated = D(interpolated)
 
         # Calculate gradients of probabilities with respect to examples
-        gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated, grad_outputs=torch.ones(prob_interpolated.size()).to(device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(device)
+        if(not GCNN):
+            gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated, grad_outputs=torch.ones(prob_interpolated.size()).to(device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(device)
+        if(GCNN):
+            gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated_X, grad_outputs=torch.ones(prob_interpolated.size()).to(device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(device)
 
         gradients = gradients.contiguous()
 
@@ -318,46 +343,46 @@ def main(args):
 
         run_batch_size = data.shape[0] if not GCNN else data.y.shape[0]
 
-        if(not WGAN):
-            Y_real = torch.ones(run_batch_size, 1).to(device)
+        if(not args.wgan):
+            Y_real = torch.ones(run_batch_size, 1).to(device) - 0.1
             Y_fake = torch.zeros(run_batch_size, 1).to(device)
 
-        try:
-            D_real_output = D(data)
-            gen_ims = gen(run_batch_size)
+        # try:
+        D_real_output = D(data.clone())
+        gen_ims = gen(run_batch_size)
 
-            tg_gen_ims = tg_transform(gen_ims)
+        tg_gen_ims = tg_transform(gen_ims)
 
-            use_gen_ims = tg_gen_ims if GCNN else gen_ims
+        use_gen_ims = tg_gen_ims if GCNN else gen_ims
 
-            D_fake_output = D(use_gen_ims)
+        D_fake_output = D(use_gen_ims.clone())
 
-            if(WGAN):
-                D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims)
-            else:
-                D_real_loss = criterion(D_real_output, Y_real)
-                D_fake_loss = criterion(D_fake_output, Y_fake)
+        if(args.wgan):
+            D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims, run_batch_size)
+        else:
+            D_real_loss = criterion(D_real_output, Y_real)
+            D_fake_loss = criterion(D_fake_output, Y_fake)
 
-                D_loss = D_real_loss + D_fake_loss
+            D_loss = D_real_loss + D_fake_loss
 
-            D_loss.backward()
-            D_optimizer.step()
+        D_loss.backward()
+        D_optimizer.step()
 
-        except:
-            print("Generated Images")
-            print(gen_ims)
-
-            print("Transformed Images")
-            print(tg_gen_ims)
-
-            print("Discriminator Output")
-            print(D_fake_output)
-
-            torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
-            torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
-            torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
-            torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
-            return
+        # except:
+        #     print("Generated Images")
+        #     print(gen_ims)
+        #
+        #     print("Transformed Images")
+        #     print(tg_gen_ims)
+        #
+        #     print("Discriminator Output")
+        #     print(D_fake_output)
+        #
+        #     torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
+        #     torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
+        #     torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
+        #     torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
+        #     sys.exit()
 
         return D_loss.item()
 
@@ -365,39 +390,39 @@ def main(args):
         G.train()
         G_optimizer.zero_grad()
 
-        try:
-            if(not WGAN):
-                Y_real = torch.ones(args.batch_size, 1).to(device)
+        # try:
+        if(not args.wgan):
+            Y_real = torch.ones(args.batch_size, 1).to(device)
 
-            gen_ims = gen(args.batch_size)
-            tg_gen_ims = tg_transform(gen_ims)
+        gen_ims = gen(args.batch_size)
+        tg_gen_ims = tg_transform(gen_ims)
 
-            use_gen_ims = tg_gen_ims if GCNN else gen_ims
+        use_gen_ims = tg_gen_ims if GCNN else gen_ims
 
-            D_fake_output = D(use_gen_ims)
+        D_fake_output = D(use_gen_ims)
 
-            if(WGAN):
-                G_loss = -D_fake_output.mean()
-            else:
-                G_loss = criterion(D_fake_output, Y_real)
+        if(args.wgan):
+            G_loss = -D_fake_output.mean()
+        else:
+            G_loss = criterion(D_fake_output, Y_real)
 
-            G_loss.backward()
-            G_optimizer.step()
-        except:
-            print("Generated Images")
-            print(gen_ims)
-
-            print("Transformed Images")
-            print(tg_gen_ims)
-
-            print("Discriminator Output")
-            print(D_fake_output)
-
-            torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
-            torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
-            torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
-            torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
-            return
+        G_loss.backward()
+        G_optimizer.step()
+        # except:
+        #     print("Generated Images")
+        #     print(gen_ims)
+        #
+        #     print("Transformed Images")
+        #     print(tg_gen_ims)
+        #
+        #     print("Discriminator Output")
+        #     print(D_fake_output)
+        #
+        #     torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
+        #     torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
+        #     torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
+        #     torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
+        #     sys.exit()
 
         return G_loss.item()
 
@@ -421,15 +446,18 @@ def main(args):
                 else:
                     if(GCNN):
                         data = data.to(device)
+                        # print("real")
+                        # print(data.edge_attr)
                         row, col = data.edge_index
                         data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
+                        # print(data.edge_attr)
                     else:
                         data = data[0].to(device)
 
                     D_loss += train_D(data)
 
             D_losses.append(D_loss/len(X_loaded)/2)
-            G_losses.append(G_loss/len(X_loaded))
+            G_losses.append(G_loss/(len(X_loaded)/args.num_critic))
 
             if((i+1) % 5 == 0):
                 save_sample_outputs(args.name, i+1, D_losses, G_losses)
@@ -456,6 +484,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
+    add_bool_arg(parser, "wgan", "use wgan", default=False)
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
@@ -470,11 +499,12 @@ def parse_args():
     parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
     parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
     parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
-    parser.add_argument("--num-critic", type=int, default=2, help="number of critic updates for each generator update")
+    parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
     parser.add_argument("--num-iters", type=int, default=1, help="number of discriminator updates for each generator update")
     parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
     parser.add_argument("--kernel-size", type=int, default=10, help="graph convolutional layer kernel size")
     parser.add_argument("--num", type=int, default=3, help="number to train on")
+    parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
