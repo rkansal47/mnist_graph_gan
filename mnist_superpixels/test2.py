@@ -1,6 +1,19 @@
 import torch
 
-ea = torch.load("./err/test_gcnn_edge_index.pt")
+
+
+gen = torch.load("./err/74_tg_disc_gcnn_gen_ims.pt", map_location=torch.device('cpu'))
+x = torch.load("./err/74_tg_disc_gcnn_x.pt", map_location=torch.device('cpu'))
+ei = torch.load("./err/74_tg_disc_gcnn_edge_index.pt", map_location=torch.device('cpu'))
+pos = torch.load("./err/74_tg_disc_gcnn_pos.pt", map_location=torch.device('cpu'))
+
+gen
+
+pos[500:600]
+
+x[:10]
+
+
 
 ea
 

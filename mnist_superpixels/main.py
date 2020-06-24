@@ -49,7 +49,7 @@ NUM = 3  # -1 means all numbers
 INT_DIFFS = True
 GRU = False
 
-cutoff = 0.32178  # found empirically to match closest to Superpixels'
+cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
 
 
 def main(args):
