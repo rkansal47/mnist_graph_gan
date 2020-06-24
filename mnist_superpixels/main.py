@@ -365,23 +365,39 @@ def main(args):
         G.train()
         G_optimizer.zero_grad()
 
-        if(not WGAN):
-            Y_real = torch.ones(args.batch_size, 1).to(device)
+        try:
+            if(not WGAN):
+                Y_real = torch.ones(args.batch_size, 1).to(device)
 
-        gen_ims = gen(args.batch_size)
+            gen_ims = gen(args.batch_size)
+            tg_gen_ims = tg_transform(gen_ims)
 
-        if(GCNN):
-            gen_ims = tg_transform(gen_ims)
+            use_gen_ims = tg_gen_ims if GCNN else gen_ims
 
-        D_fake_output = D(gen_ims)
+            D_fake_output = D(use_gen_ims)
 
-        if(WGAN):
-            G_loss = -D_fake_output.mean()
-        else:
-            G_loss = criterion(D_fake_output, Y_real)
+            if(WGAN):
+                G_loss = -D_fake_output.mean()
+            else:
+                G_loss = criterion(D_fake_output, Y_real)
 
-        G_loss.backward()
-        G_optimizer.step()
+            G_loss.backward()
+            G_optimizer.step()
+        except:
+            print("Generated Images")
+            print(gen_ims)
+
+            print("Transformed Images")
+            print(tg_gen_ims)
+
+            print("Discriminator Output")
+            print(D_fake_output)
+
+            torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
+            torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
+            torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
+            torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
+            return
 
         return G_loss.item()
 
