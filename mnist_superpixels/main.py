@@ -70,6 +70,7 @@ def main(args):
     args.args_path = args.dir_path + '/args/'
     args.figs_path = args.dir_path + '/figs/'
     args.dataset_path = args.dir_path + '/dataset/'
+    args.err_path = args.dir_path + '/err/'
 
     if(not exists(args.model_path)):
         mkdir(args.model_path)
@@ -79,6 +80,8 @@ def main(args):
         mkdir(args.args_path)
     if(not exists(args.figs_path)):
         mkdir(args.figs_path)
+    if(not exists(args.err_path)):
+        mkdir(args.err_path)
     if(not exists(args.dataset_path)):
         mkdir(args.dataset_path)
         try:
@@ -179,9 +182,9 @@ def main(args):
     # transform my format to torch_geometric's
     def tg_transform(X):
         batch_size = X.size(0)
-        cutoff = 0.32178 #found empirically to match closest to Superpixels
+        cutoff = 0.32178  # found empirically to match closest to Superpixels
 
-        pos = X[:,:,:2]
+        pos = X[:, :, :2]
 
         x1 = pos.repeat(1, 1, 75).reshape(batch_size, 75*75, 2)
         x2 = pos.repeat(1, 75, 1)
@@ -195,12 +198,12 @@ def main(args):
         neighborhood = torch.nonzero(norms < cutoff, as_tuple=False)
         edge_attr = diff[neighborhood[:, 1] != neighborhood[:, 2]]
 
-        neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]] #remove self-loops
+        neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]] # remove self-loops
         unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
         edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
-        edge_index = neighborhood[:,1:].transpose(0,1)
+        edge_index = neighborhood[:, 1:].transpose(0, 1)
 
-        #normalizing edge attributes
+        # normalizing edge attributes
         edge_attr_list = list()
         for i in range(batch_size):
             start_index = edge_slices[i]
@@ -212,7 +215,7 @@ def main(args):
 
         edge_attr = torch.cat(edge_attr_list)
 
-        x = X[:,:,2].reshape(batch_size*75, 1)+0.5
+        x = X[:, :, 2].reshape(batch_size*75, 1)+0.5
         pos = 27*pos.reshape(batch_size*75, 2)+13.5
 
         zeros = torch.zeros(batch_size*75, dtype=int).to(device)
@@ -236,7 +239,7 @@ def main(args):
 
     def save_sample_outputs(name, epoch, dlosses, glosses):
         print("drawing figs")
-        fig = plt.figure(figsize=(10,10))
+        fig = plt.figure(figsize=(10, 10))
 
         num_ims = 100
         node_r = 30
@@ -269,16 +272,16 @@ def main(args):
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.legend()
-        plt.savefig(args.losses_path + args.name +"/"+ str(epoch) + ".png")
+        plt.savefig(args.losses_path + args.name + "/" + str(epoch) + ".png")
         plt.close()
 
         print("saved figs")
 
     def save_models(name, epoch):
         torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + ".pt")
-        torch.save(D, args.model_path + args.name+ "/D_" + str(epoch) + ".pt")
+        torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + ".pt")
 
-    #from https://github.com/EmilienDupont/wgan-gp
+    # from https://github.com/EmilienDupont/wgan-gp
     def gradient_penalty(real_data, generated_data):
         batch_size = real_data.size()[0]
 
@@ -324,13 +327,14 @@ def main(args):
             D_real_output = D(data)
             gen_ims = gen(run_batch_size)
 
-            if(GCNN):
-                tg_gen_ims = tg_transform(gen_ims)
+            tg_gen_ims = tg_transform(gen_ims)
 
-            D_fake_output = D(tg_gen_ims)
+            use_gen_ims = tg_gen_ims if GCNN else gen_ims
+
+            D_fake_output = D(use_gen_ims)
 
             if(WGAN):
-                D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(x, tg_gen_ims)
+                D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims)
             else:
                 D_real_loss = criterion(D_real_output, Y_real)
                 D_fake_loss = criterion(D_fake_output, Y_fake)
@@ -339,6 +343,7 @@ def main(args):
 
             D_loss.backward()
             D_optimizer.step()
+
         except:
             print("Generated Images")
             print(gen_ims)
@@ -349,6 +354,10 @@ def main(args):
             print("Discriminator Output")
             print(D_fake_output)
 
+            torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
+            torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
+            torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
+            torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
             return
 
         return D_loss.item()
@@ -400,20 +409,22 @@ def main(args):
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))
 
-            if((i+1)%5==0):
+            if((i+1) % 5 == 0):
                 save_sample_outputs(args.name, i+1, D_losses, G_losses)
 
-            if((i+1)%5==0):
+            if((i+1) % 5 == 0):
                 save_models(args.name, i+1)
 
     train()
 
+
 def add_bool_arg(parser, name, help, default=False):
-    varname = '_'.join(name.split('-')) # change hyphens to underscores
+    varname = '_'.join(name.split('-'))  # change hyphens to underscores
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument('--' + name, dest=varname, action='store_true', help=help)
     group.add_argument('--no-' + name, dest=varname, action='store_false', help="don't " + help)
-    parser.set_defaults(**{varname:default})
+    parser.set_defaults(**{varname: default})
+
 
 def parse_args():
     import argparse

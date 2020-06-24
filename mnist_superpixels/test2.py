@@ -1,5 +1,9 @@
 import torch
 
+ea = torch.load("./err/test_gcnn_edge_index.pt")
+
+ea
+
 num_hits = 3
 node_size = 3
 x = torch.tensor([[1.,3.,4.],[2.,5,3],[1,2,3]])
@@ -35,8 +39,8 @@ x3
 torch.zeros(x3.shape).scatter(0, idx, x3)
 
 
-y = torch.tensor([[3,4],[5,3]])
-w = torch.tensor([1,2])
+y = torch.tensor([[3, 4],[5, 3]])
+w = torch.tensor([1, 2])
 
 w.unsqueeze(-1)*y
 y*w
