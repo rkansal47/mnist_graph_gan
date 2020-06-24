@@ -29,6 +29,8 @@ torch.autograd.set_detect_anomaly(True)
 #Have to specify 'name' and 'start_epoch' if True
 TRAIN=False
 
+cutoff = 0.32178
+
 def normalized_cut_2d(edge_index, pos):
     row, col = edge_index
     edge_attr = torch.norm(pos[row] - pos[col], p=2, dim=1)
