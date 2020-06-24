@@ -17,7 +17,6 @@ import torch.optim as optim
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
 import matplotlib.cm as cm
 
 import numpy as np
@@ -34,20 +33,24 @@ import torch_geometric.transforms as T
 from torch_geometric.data import DataLoader as tgDataLoader
 from torch_geometric.data import Batch
 
+plt.switch_backend('agg')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-#torch.cuda.set_device(0)
+# torch.cuda.set_device(0)
 
 url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
 
-#Have to specify 'name' and 'args.start_epoch' if True
+# Have to specify 'name' and 'args.start_epoch' if True
 GCNN = True
 WGAN = False
-LSGAN = True #WGAN must be false otherwise it'll just be WGAN
+LSGAN = True  # WGAN must be false otherwise it'll just be WGAN
 TRAIN = True
-NUM = 3 #-1 means all numbers
+NUM = 3  # -1 means all numbers
 INT_DIFFS = True
 GRU = False
+
+cutoff = 0.32178  # found empirically to match closest to Superpixels'
+
 
 def main(args):
     torch.manual_seed(4)
@@ -91,11 +94,11 @@ def main(args):
             # python3
             file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
 
-    prev_models = [f[:-4] for f in listdir(args.args_path)] #removing .txt
+    prev_models = [f[:-4] for f in listdir(args.args_path)]  # removing .txt
 
     if (args.name in prev_models):
         print("name already used")
-        #if(not args.load_model):
+        # if(not args.load_model):
         #    sys.exit()
     else:
         mkdir(args.losses_path + args.name)
@@ -122,10 +125,9 @@ def main(args):
 
     print("loading")
 
-    #Change to True !!
+    # Change to True !!
     X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
     tgX = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
-
 
     X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
     tgX_loaded = tgDataLoader(tgX, shuffle=True, batch_size=args.batch_size)
@@ -146,11 +148,11 @@ def main(args):
     print("Models loaded")
 
     if(WGAN):
-        G_optimizer = optim.RMSprop(G.parameters(), lr = args.lr_gen)
-        D_optimizer = optim.RMSprop(D.parameters(), lr = args.lr_disc)
+        G_optimizer = optim.RMSprop(G.parameters(), lr=args.lr_gen)
+        D_optimizer = optim.RMSprop(D.parameters(), lr=args.lr_disc)
     else:
-        G_optimizer = optim.Adam(G.parameters(), lr = args.lr_gen, weight_decay=5e-4)
-        D_optimizer = optim.Adam(D.parameters(), lr = args.lr_disc, weight_decay=5e-4)
+        G_optimizer = optim.Adam(G.parameters(), lr=args.lr_gen, weight_decay=5e-4)
+        D_optimizer = optim.Adam(D.parameters(), lr=args.lr_disc, weight_decay=5e-4)
 
     print("optimizers loaded")
 
@@ -173,16 +175,11 @@ def main(args):
         if(noise == 0):
             noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).to(device)
 
-        x = noise
-        del noise
-
-        x = G(x)
-        return x
+        return G(noise)
 
     # transform my format to torch_geometric's
     def tg_transform(X):
         batch_size = X.size(0)
-        cutoff = 0.32178  # found empirically to match closest to Superpixels
 
         pos = X[:, :, :2]
 
@@ -196,31 +193,33 @@ def main(args):
 
         norms = diff_norms.reshape(batch_size, 75, 75)
         neighborhood = torch.nonzero(norms < cutoff, as_tuple=False)
-        edge_attr = diff[neighborhood[:, 1] != neighborhood[:, 2]]
+        diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
 
-        neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]] # remove self-loops
+        neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
         unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
-        edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
+        # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
         edge_index = neighborhood[:, 1:].transpose(0, 1)
 
         # normalizing edge attributes
-        edge_attr_list = list()
-        for i in range(batch_size):
-            start_index = edge_slices[i]
-            end_index = edge_slices[i+1]
-            temp = diff[start_index:end_index]
-            max = torch.max(temp)
-            temp = temp/(2*max + 1e-12) + 0.5
-            edge_attr_list.append(temp)
+        # edge_attr_list = list()
+        # for i in range(batch_size):
+        #     start_index = edge_slices[i]
+        #     end_index = edge_slices[i+1]
+        #     temp = diff[start_index:end_index]
+        #     max = torch.max(temp)
+        #     temp = temp/(2*max + 1e-12) + 0.5
+        #     edge_attr_list.append(temp)
+        #
+        # edge_attr = torch.cat(edge_attr_list)
 
-        edge_attr = torch.cat(edge_attr_list)
+        edge_attr = diff/(2*cutoff) + 0.5
 
         x = X[:, :, 2].reshape(batch_size*75, 1)+0.5
         pos = 27*pos.reshape(batch_size*75, 2)+13.5
 
         zeros = torch.zeros(batch_size*75, dtype=int).to(device)
         zeros[torch.arange(batch_size)*75] = 1
-        batch = torch.cumsum(zeros, 0)-1
+        batch = torch.cumsum(zeros, 0) - 1
 
         return Batch(batch=batch, x=x, edge_index=edge_index.contiguous(), edge_attr=edge_attr, y=None, pos=pos)
 
@@ -404,7 +403,14 @@ def main(args):
                 if(batch_ndx > 0 and batch_ndx % (args.num_critic+1) == 0):
                     G_loss += train_G()
                 else:
-                    D_loss += train_D(data.to(device)) if GCNN else train_D(data[0].to(device))
+                    if(GCNN):
+                        data = data.to(device)
+                        row, col = data.edge_index
+                        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
+                    else:
+                        data = data[0].to(device)
+
+                    D_loss += train_D(data)
 
             D_losses.append(D_loss/len(X_loaded)/2)
             G_losses.append(G_loss/len(X_loaded))

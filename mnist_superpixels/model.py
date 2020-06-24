@@ -9,6 +9,7 @@ from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
 from torch_geometric.nn import GMMConv
 import torch_geometric.transforms as T
 
+
 class Graph_Generator(nn.Module):
     def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, gru=True, device='cpu'):
         super(Graph_Generator, self).__init__()
@@ -66,7 +67,7 @@ class Graph_Generator(nn.Module):
             x = torch.tanh(self.fn2(x))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
 
-        x = x[:,:,:self.node_size]
+        x = x[:, :, :self.node_size]
 
         return x
 
@@ -87,6 +88,7 @@ class Graph_Generator(nn.Module):
 
     def initHidden(self, batch_size):
         return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
+
 
 class Graph_Discriminator(nn.Module):
     def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
@@ -126,7 +128,7 @@ class Graph_Discriminator(nn.Module):
         batch_size = x.shape[0]
         hidden = self.initHidden(batch_size)
 
-        x = F.pad(x, (0,self.hidden_node_size - self.node_size,0,0,0,0))
+        x = F.pad(x, (0, self.hidden_node_size - self.node_size, 0, 0, 0, 0))
 
         for i in range(self.iters):
             A = self.getA(x, batch_size)
@@ -150,7 +152,7 @@ class Graph_Discriminator(nn.Module):
             x = torch.tanh(self.fn2(x))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
 
-        x = torch.mean(x[:,:,:1], 1)
+        x = torch.mean(x[:, :, :1], 1)
 
         if(self.wgan):
             return x
@@ -176,6 +178,7 @@ class Graph_Discriminator(nn.Module):
     def initHidden(self, batch_size):
         return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
 
+
 class GRU(nn.Module):
     def __init__(self, input_size, mp_hidden_size, num_layers, dropout):
         super(GRU, self).__init__()
@@ -191,12 +194,13 @@ class GRU(nn.Module):
 
     def forward(self, x, hidden):
         x = x.squeeze()
-        hidden[0] = F.dropout(self.layers[0](x, hidden[0].clone()), p = self.dropout)
+        hidden[0] = F.dropout(self.layers[0](x, hidden[0].clone()), p=self.dropout)
 
         for i in range(1, self.num_layers):
-            hidden[i] = F.dropout(self.layers[i](hidden[i-1].clone(), hidden[i].clone()), p = self.dropout)
+            hidden[i] = F.dropout(self.layers[i](hidden[i-1].clone(), hidden[i].clone()), p=self.dropout)
 
         return hidden[-1].unsqueeze(1).clone(), hidden
+
 
 class GRUCell(nn.Module):
 
@@ -274,7 +278,7 @@ class Gaussian_Discriminator(nn.Module):
             x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
             y = x.repeat(1, self.num_hits, 1)
 
-            u = y[:,:,:2]-x1[:,:,:2]
+            u = y[:, :, :2] - x1[:, :, :2]
             y = self.fn(y)
 
             # print("test")
@@ -320,10 +324,12 @@ class Gaussian_Discriminator(nn.Module):
         if tensor is not None:
             tensor.data.fill_(0)
 
+
 def normalized_cut_2d(edge_index, pos):
     row, col = edge_index
     edge_attr = torch.norm(pos[row] - pos[col], p=2, dim=1)
     return normalized_cut(edge_index, edge_attr, num_nodes=pos.size(0))
+
 
 class MoNet(torch.nn.Module):
     def __init__(self, kernel_size, dropout=0.5, wgan=False, device='cpu'):
