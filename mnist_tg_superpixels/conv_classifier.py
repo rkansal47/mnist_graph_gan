@@ -128,7 +128,7 @@ def main(args):
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
     if(args.load_model):
-        C = torch.load(args.model_path + name + "/C_" + str(start_epoch) + ".pt").to(device)
+        C = torch.load(args.model_path + args.name + "/C_" + str(start_epoch) + ".pt").to(device)
     else:
         C = MoNet(args.kernel_size).to(device)
 
