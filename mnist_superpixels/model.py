@@ -61,7 +61,6 @@ class Graph_Generator(nn.Module):
                 x, hidden = self.fn1(x, hidden)
             else:
                 for i in range(self.mp_num_layers):
-                    # x = self.fn1[i](x)
                     x = F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha)
 
             x = torch.tanh(self.fn2(x))

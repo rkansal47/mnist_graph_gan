@@ -41,11 +41,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
 
 # Have to specify 'name' and 'args.start_epoch' if True
-GCNN = True
 LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
 TRAIN = True
 NUM = 3  # -1 means all numbers
-INT_DIFFS = True
+INT_DIFFS = False
 GRU = False
 
 cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
@@ -60,7 +59,7 @@ def main(args):
         name.append('wgan')
     if GRU:
         name.append('gru')
-    if GCNN:
+    if args.gcnn:
         name.append('gcnn')
 
     # name.append('num_iters_{}'.format(args.num_iters))
@@ -127,7 +126,7 @@ def main(args):
 
     print("loading")
 
-    if(GCNN):
+    if(args.gcnn):
         X = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
         X_loaded = tgDataLoader(X, shuffle=True, batch_size=args.batch_size)
     else:
@@ -140,12 +139,12 @@ def main(args):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
-        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
-        if(GCNN):
-            D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device).to(device)
-            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).to(device)
+        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
+        if(args.gcnn):
+            D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device, wgan=args.wgan).to(device)
+            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).to(device)
         else:
-            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.gru_hidden_size, args.gru_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
+            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
 
     print("Models loaded")
 
@@ -250,6 +249,7 @@ def main(args):
         im_px = 1000
 
         gen_out = gen(args.batch_size).cpu().detach().numpy()
+        print(gen_out)
 
         for i in range(int(num_ims/args.batch_size)):
             gen_out = np.concatenate((gen_out, gen(args.batch_size).cpu().detach().numpy()), 0)
@@ -293,7 +293,7 @@ def main(args):
     # from https://github.com/EmilienDupont/wgan-gp
     def gradient_penalty(real_data, generated_data, batch_size):
         # Calculate interpolation
-        if(not GCNN):
+        if(not args.gcnn):
             alpha = torch.rand(batch_size, 1, 1).to(device)
             alpha = alpha.expand_as(real_data)
             interpolated = alpha * real_data + (1 - alpha) * generated_data
@@ -321,9 +321,9 @@ def main(args):
         prob_interpolated = D(interpolated)
 
         # Calculate gradients of probabilities with respect to examples
-        if(not GCNN):
+        if(not args.gcnn):
             gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated, grad_outputs=torch.ones(prob_interpolated.size()).to(device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(device)
-        if(GCNN):
+        if(args.gcnn):
             gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated_X, grad_outputs=torch.ones(prob_interpolated.size()).to(device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(device)
 
         gradients = gradients.contiguous()
@@ -344,7 +344,7 @@ def main(args):
         D.train()
         D_optimizer.zero_grad()
 
-        run_batch_size = data.shape[0] if not GCNN else data.y.shape[0]
+        run_batch_size = data.shape[0] if not args.gcnn else data.y.shape[0]
 
         if(not args.wgan):
             Y_real = torch.ones(run_batch_size, 1).to(device) - 0.1
@@ -352,13 +352,19 @@ def main(args):
 
         # try:
         D_real_output = D(data.clone())
+
+        # print("real")
+        # print(D_real_output)
+
         gen_ims = gen(run_batch_size)
 
         tg_gen_ims = tg_transform(gen_ims)
-
-        use_gen_ims = tg_gen_ims if GCNN else gen_ims
+        use_gen_ims = tg_gen_ims if args.gcnn else gen_ims
 
         D_fake_output = D(use_gen_ims.clone())
+
+        # print("fake")
+        # print(D_fake_output)
 
         if(args.wgan):
             D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims, run_batch_size)
@@ -401,9 +407,13 @@ def main(args):
         gen_ims = gen(args.batch_size)
         tg_gen_ims = tg_transform(gen_ims)
 
-        use_gen_ims = tg_gen_ims if GCNN else gen_ims
+        print(tg_gen_ims.edge_index.shape)
+
+        use_gen_ims = tg_gen_ims if args.gcnn else gen_ims
 
         D_fake_output = D(use_gen_ims)
+
+        # print(D_fake_output)
 
         if(args.wgan):
             G_loss = -D_fake_output.mean()
@@ -445,7 +455,7 @@ def main(args):
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
                 if(args.num_critic > 1):
-                    if(GCNN):
+                    if(args.gcnn):
                         data = data.to(device)
                         row, col = data.edge_index
                         data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
@@ -460,7 +470,7 @@ def main(args):
                     G_loss += train_G()
 
                     if((batch_ndx-1) % args.num_gen == 0):
-                        if(GCNN):
+                        if(args.gcnn):
                             data = data.to(device)
                             row, col = data.edge_index
                             data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
@@ -503,14 +513,15 @@ def parse_args():
     add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
     add_bool_arg(parser, "save-zero", "save the initial figure", default=True)
     add_bool_arg(parser, "wgan", "use wgan", default=False)
+    add_bool_arg(parser, "gcnn", "use wgan", default=False)
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
     parser.add_argument("--fe-hidden-size", type=int, default=128, help="edge network hidden layer size")
     parser.add_argument("--fe-out-size", type=int, default=256, help="edge network out size")
-    parser.add_argument("--gru-hidden-size", type=int, default=256, help="GRU hidden size")
-    parser.add_argument("--gru-num-layers", type=int, default=2, help="GRU number of layers")
+    parser.add_argument("--mp-hidden-size", type=int, default=256, help="message passing hidden layers sizes")
+    parser.add_argument("--mp-num-layers", type=int, default=2, help="message passing number of layers in generator")
     parser.add_argument("--dropout", type=float, default=0.5, help="fraction of dropout")
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
@@ -519,17 +530,18 @@ def parse_args():
     parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
     parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
     parser.add_argument("--num-gen", type=int, default=1, help="number of generator updates for each critic update (num-critic must be 1 for this to apply)")
-    parser.add_argument("--num-iters", type=int, default=1, help="number of discriminator updates for each generator update")
+    parser.add_argument("--num-iters", type=int, default=1, help="number of message passing iterations in the generator")
     parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
     parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
     parser.add_argument("--num", type=int, default=3, help="number to train on")
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
-    parser.add_argument("--batch-size", type=int, default=10, help="batch size")
+    parser.add_argument("--batch-size", type=int, default=16, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
-    parser.add_argument("--beta1", type=float, default=0.5, help="Adam optimizer beta1")
+    parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     args = parser.parse_args()
+
     return args
 
 
