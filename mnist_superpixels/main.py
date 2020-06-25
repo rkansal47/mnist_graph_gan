@@ -21,7 +21,7 @@ import matplotlib.cm as cm
 
 import numpy as np
 
-from os import listdir, mkdir
+from os import listdir, mkdir, remove
 from os.path import exists, dirname, realpath
 
 import sys
@@ -127,12 +127,12 @@ def main(args):
 
     print("loading")
 
-    # Change to True !!
-    X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
-    tgX = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
-
-    X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
-    tgX_loaded = tgDataLoader(tgX, shuffle=True, batch_size=args.batch_size)
+    if(GCNN):
+        X = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
+        X_loaded = tgDataLoader(X, shuffle=True, batch_size=args.batch_size)
+    else:
+        X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
+        X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
 
     print("loaded")
 
@@ -279,6 +279,11 @@ def main(args):
         plt.savefig(args.losses_path + args.name + "/" + str(epoch) + ".png")
         plt.close()
 
+        try:
+            remove(args.losses_path + args.name + "/" + str(epoch-5) + ".png")
+        except:
+            print("couldn't remove loss file")
+
         print("saved figs")
 
     def save_models(name, epoch):
@@ -335,6 +340,7 @@ def main(args):
         return args.gp_weight * ((gradients_norm - 1) ** 2).mean()
 
     def train_D(data):
+        # print("dtrain")
         D.train()
         D_optimizer.zero_grad()
 
@@ -384,6 +390,7 @@ def main(args):
         return D_loss.item()
 
     def train_G():
+        # print("gtrain")
         G.train()
         G_optimizer.zero_grad()
 
@@ -426,9 +433,8 @@ def main(args):
     D_losses = []
     G_losses = []
 
-    # save_models(name, 0)
-
-    # save_sample_outputs(args.name, 0, D_losses, G_losses)
+    if(args.save_zero):
+        save_sample_outputs(args.name, 0, D_losses, G_losses)
 
     # @profile
     def train():
@@ -436,25 +442,39 @@ def main(args):
             print("Epoch %d %s" % ((i+1), args.name))
             D_loss = 0
             G_loss = 0
-            loader = tgX_loaded if GCNN else X_loaded
-            for batch_ndx, data in tqdm(enumerate(loader), total=len(loader)):
-                if(batch_ndx > 0 and batch_ndx % (args.num_critic+1) == 0):
-                    G_loss += train_G()
-                else:
+            lenX = len(X_loaded)
+            for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
+                if(args.num_critic > 1):
                     if(GCNN):
                         data = data.to(device)
-                        # print("real")
-                        # print(data.edge_attr)
                         row, col = data.edge_index
                         data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
-                        # print(data.edge_attr)
                     else:
                         data = data[0].to(device)
 
                     D_loss += train_D(data)
 
-            D_losses.append(D_loss/len(X_loaded)/2)
-            G_losses.append(G_loss/(len(X_loaded)/args.num_critic))
+                    if((batch_ndx-1) % args.num_critic == 0):
+                        G_loss += train_G()
+                else:
+                    G_loss += train_G()
+
+                    if((batch_ndx-1) % args.num_gen == 0):
+                        if(GCNN):
+                            data = data.to(device)
+                            row, col = data.edge_index
+                            data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
+                        else:
+                            data = data[0].to(device)
+
+                        D_loss += train_D(data)
+
+            if(args.num_critic > 1):
+                D_losses.append(D_loss/lenX/2)
+                G_losses.append(G_loss/(lenX/args.num_critic))
+            else:
+                D_losses.append((D_loss/2)/(lenX/args.num_gen))
+                G_losses.append(G_loss/lenX)
 
             if((i+1) % 5 == 0):
                 save_sample_outputs(args.name, i+1, D_losses, G_losses)
@@ -481,6 +501,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
+    add_bool_arg(parser, "save-zero", "save the initial figure", default=True)
     add_bool_arg(parser, "wgan", "use wgan", default=False)
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
@@ -497,9 +518,10 @@ def parse_args():
     parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
     parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
     parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
+    parser.add_argument("--num-gen", type=int, default=1, help="number of generator updates for each critic update (num-critic must be 1 for this to apply)")
     parser.add_argument("--num-iters", type=int, default=1, help="number of discriminator updates for each generator update")
     parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
-    parser.add_argument("--kernel-size", type=int, default=10, help="graph convolutional layer kernel size")
+    parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
     parser.add_argument("--num", type=int, default=3, help="number to train on")
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
