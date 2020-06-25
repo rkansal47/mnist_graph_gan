@@ -222,8 +222,6 @@ def main(args):
         row, col = edge_index
         edge_attr = (pos[col]-pos[row])/(2*28*cutoff) + 0.5
 
-        print(edge_attr)
-
         zeros = torch.zeros(batch_size*75, dtype=int).to(device)
         zeros[torch.arange(batch_size)*75] = 1
         batch = torch.cumsum(zeros, 0) - 1
@@ -303,7 +301,6 @@ def main(args):
             interpolated_pos = alpha_pos * real_data.pos.reshape(batch_size, 75, 2) + (1 - alpha_pos) * generated_data.pos.reshape(batch_size, 75, 2)
             interpolated_X = Variable(torch.cat(((interpolated_pos-14)/28, interpolated_x-0.5), dim=2), requires_grad=True)
             # print(interpolated_X.shape)
-            print("interpolated")
             interpolated = tg_transform(interpolated_X)
 
             # interpolated_x = Variable(alpha * real_data.x + (1 - alpha) * generated_data.x, requires_grad=True).to(device)
