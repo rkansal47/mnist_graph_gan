@@ -249,7 +249,7 @@ def main(args):
         im_px = 1000
 
         gen_out = gen(args.batch_size).cpu().detach().numpy()
-        print(gen_out)
+        # print(gen_out)
 
         for i in range(int(num_ims/args.batch_size)):
             gen_out = np.concatenate((gen_out, gen(args.batch_size).cpu().detach().numpy()), 0)
@@ -407,7 +407,7 @@ def main(args):
         gen_ims = gen(args.batch_size)
         tg_gen_ims = tg_transform(gen_ims)
 
-        print(tg_gen_ims.edge_index.shape)
+        # print(tg_gen_ims.edge_index.shape)
 
         use_gen_ims = tg_gen_ims if args.gcnn else gen_ims
 
