@@ -463,9 +463,7 @@ def main(args):
                     if((batch_ndx-1) % args.num_critic == 0):
                         G_loss += train_G()
                 else:
-                    G_loss += train_G()
-
-                    if((batch_ndx-1) % args.num_gen == 0):
+                    if(batch_ndx == 0 or (batch_ndx-1) % args.num_gen == 0):
                         if(args.gcnn):
                             data = data.to(device)
                             row, col = data.edge_index
@@ -474,6 +472,8 @@ def main(args):
                             data = data[0].to(device)
 
                         D_loss += train_D(data)
+
+                    G_loss += train_G()
 
                 # if(batch_ndx == 10):
                 #     return
