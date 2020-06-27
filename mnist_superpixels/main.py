@@ -48,7 +48,6 @@ GRU = False
 
 cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
 
-
 def main(args):
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
@@ -156,7 +155,11 @@ def main(args):
 
     print("optimizers loaded")
 
-    normal_dist = Normal(0, args.sd)
+    normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(args.sd).to(device))
+    
+    if(not args.wgan):
+        Y_real = torch.ones(args.batch_size, 1).to(device)
+        Y_fake = torch.zeros(args.batch_size, 1).to(device)
 
     def wasserstein_loss(y_out, y_true):
         return -torch.mean(y_out * y_true)
@@ -173,7 +176,8 @@ def main(args):
 
     def gen(num_samples, noise=0):
         if(noise == 0):
-            noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).to(device)
+            noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size))
+            # noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).to(device)
 
         return G(noise)
 
@@ -345,10 +349,6 @@ def main(args):
 
         run_batch_size = data.shape[0] if not args.gcnn else data.y.shape[0]
 
-        if(not args.wgan):
-            Y_real = torch.ones(run_batch_size, 1).to(device) - 0.1
-            Y_fake = torch.zeros(run_batch_size, 1).to(device)
-
         # try:
         D_real_output = D(data.clone())
 
@@ -368,8 +368,8 @@ def main(args):
         if(args.wgan):
             D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims, run_batch_size)
         else:
-            D_real_loss = criterion(D_real_output, Y_real)
-            D_fake_loss = criterion(D_fake_output, Y_fake)
+            D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
+            D_fake_loss = criterion(D_fake_output, Y_fake[:run_batch_size])
 
             D_loss = D_real_loss + D_fake_loss
 
@@ -400,9 +400,6 @@ def main(args):
         G_optimizer.zero_grad()
 
         # try:
-        if(not args.wgan):
-            Y_real = torch.ones(args.batch_size, 1).to(device)
-
         gen_ims = gen(args.batch_size)
         tg_gen_ims = tg_transform(gen_ims)
 
@@ -478,6 +475,9 @@ def main(args):
 
                         D_loss += train_D(data)
 
+                # if(batch_ndx == 10):
+                #     return
+
             if(args.num_critic > 1):
                 D_losses.append(D_loss/lenX/2)
                 G_losses.append(G_loss/(lenX/args.num_critic))
@@ -510,7 +510,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
-    add_bool_arg(parser, "save-zero", "save the initial figure", default=True)
+    add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
     add_bool_arg(parser, "wgan", "use wgan", default=False)
     add_bool_arg(parser, "gcnn", "use wgan", default=False)
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")

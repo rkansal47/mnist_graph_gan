@@ -50,7 +50,8 @@ class Graph_Generator(nn.Module):
 
     def forward(self, x):
         batch_size = x.shape[0]
-        hidden = self.initHidden(batch_size)
+        if(self.gru):
+            hidden = self.initHidden(batch_size)
 
         for i in range(self.iters):
             A = self.getA(x, batch_size)
@@ -138,7 +139,8 @@ class Graph_Discriminator(nn.Module):
 
     def forward(self, x):
         batch_size = x.shape[0]
-        hidden = self.initHidden(batch_size)
+        if(self.gru):
+            hidden = self.initHidden(batch_size)
 
         x = F.pad(x, (0, self.hidden_node_size - self.node_size, 0, 0, 0, 0))
 
