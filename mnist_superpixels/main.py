@@ -43,7 +43,6 @@ url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar
 # Have to specify 'name' and 'args.start_epoch' if True
 LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
 TRAIN = True
-NUM = 3  # -1 means all numbers
 GRU = False
 
 cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
@@ -128,7 +127,7 @@ def main(args):
         X = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
         X_loaded = tgDataLoader(X, shuffle=True, batch_size=args.batch_size)
     else:
-        X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=NUM, device=device)
+        X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=args.num, device=device)
         X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
 
     print("loaded")
