@@ -35,16 +35,21 @@ class Graph_Generator(nn.Module):
             self.fe_in_size = 2 * hidden_node_size
 
         self.fe1 = nn.Linear(self.fe_in_size, fe_hidden_size)
+        self.bne1 = nn.BatchNorm1d(fe_hidden_size)
         self.fe2 = nn.Linear(fe_hidden_size, fe_out_size)
+        self.bne2 = nn.BatchNorm1d(fe_out_size)
 
         if(self.gru):
             self.fn1 = GRU(fe_out_size + hidden_node_size, mp_hidden_size, mp_num_layers, dropout)
             self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
         else:
             self.fn1 = nn.ModuleList()
+            self.bnn1 = nn.ModuleList()
             self.fn1.append(nn.Linear(fe_out_size + hidden_node_size, mp_hidden_size))
+            self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
             for i in range(mp_num_layers-1):
                 self.fn1.append(nn.Linear(mp_hidden_size, mp_hidden_size))
+                self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
             # self.fn1 = nn.Linear(fe_out_size + hidden_node_size, mp_hidden_size)
             self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
 
@@ -55,20 +60,21 @@ class Graph_Generator(nn.Module):
 
         for i in range(self.iters):
             A = self.getA(x, batch_size)
-            A = F.leaky_relu(self.fe1(A), negative_slope=self.alpha)
-            A = F.leaky_relu(self.fe2(A), negative_slope=self.alpha)
+            A = self.bne1(F.leaky_relu(self.fe1(A), negative_slope=self.alpha))
+            A = self.bne2(F.leaky_relu(self.fe2(A), negative_slope=self.alpha))
             A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
 
             x = torch.cat((A, x), 2)
             del A
 
-            x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
+            # x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
+            x = x.view(batch_size*self.num_hits, self.fe_out_size + self.hidden_node_size)
 
             if(self.gru):
                 x, hidden = self.fn1(x, hidden)
             else:
                 for i in range(self.mp_num_layers):
-                    x = F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha)
+                    x = self.bnn1[i](F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha))
 
             x = torch.tanh(self.fn2(x))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
@@ -125,17 +131,21 @@ class Graph_Discriminator(nn.Module):
             self.fe_in_size = 2 * hidden_node_size
 
         self.fe1 = nn.Linear(self.fe_in_size, fe_hidden_size)
+        self.bne1 = nn.BatchNorm1d(fe_hidden_size)
         self.fe2 = nn.Linear(fe_hidden_size, fe_out_size)
+        self.bne2 = nn.BatchNorm1d(fe_out_size)
 
         if(self.gru):
             self.fn1 = GRU(fe_out_size + hidden_node_size, mp_hidden_size, mp_num_layers, dropout)
             self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
         else:
             self.fn1 = nn.ModuleList()
+            self.bnn1 = nn.ModuleList()
             self.fn1.append(nn.Linear(fe_out_size + hidden_node_size, mp_hidden_size))
+            self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
             for i in range(mp_num_layers-1):
                 self.fn1.append(nn.Linear(mp_hidden_size, mp_hidden_size))
-            # self.fn1 = nn.Linear(fe_out_size + hidden_node_size, mp_hidden_size)
+                self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
             self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
 
     def forward(self, x):
@@ -148,20 +158,21 @@ class Graph_Discriminator(nn.Module):
         for i in range(self.iters):
             A = self.getA(x, batch_size)
 
-            A = self.dropout(F.leaky_relu(self.fe1(A), negative_slope=self.alpha))
-            A = self.dropout(F.leaky_relu(self.fe2(A), negative_slope=self.alpha))
+            A = self.dropout(self.bne1(F.leaky_relu(self.fe1(A), negative_slope=self.alpha)))
+            A = self.dropout(self.bne2(F.leaky_relu(self.fe2(A), negative_slope=self.alpha)))
             A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
 
             x = torch.cat((A, x), 2)
             del A
 
-            x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
+            # x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
+            x = x.view(batch_size*self.num_hits, self.fe_out_size + self.hidden_node_size)
 
             if(self.gru):
                 x, hidden = self.fn1(x, hidden)
             else:
                 for i in range(self.mp_num_layers):
-                    x = self.dropout(F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha))
+                    x = self.dropout(self.bnn1[i](F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha)))
 
             x = self.dropout(torch.tanh(self.fn2(x)))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
