@@ -115,6 +115,7 @@ class Graph_Discriminator(nn.Module):
         self.device = device
         self.int_diffs = int_diffs
         self.pos_diffs = pos_diffs
+        self.dropout = nn.Dropout(p=dropout)
 
         if(int_diffs and pos_diffs):
             self.fe_in_size = 2 * hidden_node_size + 2
@@ -147,8 +148,8 @@ class Graph_Discriminator(nn.Module):
         for i in range(self.iters):
             A = self.getA(x, batch_size)
 
-            A = F.leaky_relu(self.fe1(A), negative_slope=self.alpha)
-            A = F.leaky_relu(self.fe2(A), negative_slope=self.alpha)
+            A = self.dropout(F.leaky_relu(self.fe1(A), negative_slope=self.alpha))
+            A = self.dropout(F.leaky_relu(self.fe2(A), negative_slope=self.alpha))
             A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
 
             x = torch.cat((A, x), 2)
@@ -160,9 +161,9 @@ class Graph_Discriminator(nn.Module):
                 x, hidden = self.fn1(x, hidden)
             else:
                 for i in range(self.mp_num_layers):
-                    x = F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha)
+                    x = self.dropout(F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha))
 
-            x = torch.tanh(self.fn2(x))
+            x = self.dropout(torch.tanh(self.fn2(x)))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
 
         x = torch.mean(x[:, :, :1], 1)

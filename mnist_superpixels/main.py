@@ -137,12 +137,12 @@ def main(args):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
-        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
+        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
         if(args.gcnn):
             D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device, wgan=args.wgan).to(device)
             # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU).to(device)
         else:
-            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
+            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
 
     print("Models loaded")
 
@@ -156,7 +156,7 @@ def main(args):
     print("optimizers loaded")
 
     normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(args.sd).to(device))
-    
+
     if(not args.wgan):
         Y_real = torch.ones(args.batch_size, 1).to(device)
         Y_fake = torch.zeros(args.batch_size, 1).to(device)
@@ -521,7 +521,8 @@ def parse_args():
     parser.add_argument("--fe-out-size", type=int, default=256, help="edge network out size")
     parser.add_argument("--mp-hidden-size", type=int, default=256, help="message passing hidden layers sizes")
     parser.add_argument("--mp-num-layers", type=int, default=2, help="message passing number of layers in generator")
-    parser.add_argument("--dropout", type=float, default=0.5, help="fraction of dropout")
+    parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
+    parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
     parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
@@ -547,6 +548,10 @@ def parse_args():
 
     if(args.int_diffs and not args.pos_diffs):
         print("int_diffs = true and pos_diffs = false not supported yet")
+        sys.exit()
+
+    if(args.gen_dropout > 0):
+        print("generator dropout not supported yet")
         sys.exit()
 
     return args
