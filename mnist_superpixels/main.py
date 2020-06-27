@@ -44,7 +44,6 @@ url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar
 LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
 TRAIN = True
 NUM = 3  # -1 means all numbers
-INT_DIFFS = False
 GRU = False
 
 cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
@@ -110,14 +109,14 @@ def main(args):
         f = open(args.args_path + args.name + ".txt", "w+")
         f.write(str(vars(args)))
         f.close()
-    #else:
-        #f = open(args.args_path + args.name + ".txt", "r")
-        #temp = args.start_epoch
-        #args = eval(f.read())
-        #f.close()
-        #args.load_model = True
-        #args.start_epoch = temp
-        # return args2
+    else:
+        f = open(args.args_path + args.name + ".txt", "r")
+        temp = args.start_epoch
+        args = eval(f.read())
+        f.close()
+        args.load_model = True
+        args.start_epoch = temp
+        return args2
 
     def pf(data):
         return data.y == args.num
@@ -139,12 +138,12 @@ def main(args):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
-        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
+        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
         if(args.gcnn):
             D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device, wgan=args.wgan).to(device)
-            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU).to(device)
+            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU).to(device)
         else:
-            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=INT_DIFFS, gru=GRU, device=device).to(device)
+            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
 
     print("Models loaded")
 
@@ -540,7 +539,15 @@ def parse_args():
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
+
+    add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
+    add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
+
     args = parser.parse_args()
+
+    if(args.int_diffs and not args.pos_diffs):
+        print("int_diffs = true and pos_diffs = false not supported yet")
+        sys.exit()
 
     return args
 
