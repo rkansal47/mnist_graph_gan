@@ -94,7 +94,7 @@ def main(args):
 
     prev_models = [f[:-4] for f in listdir(args.args_path)]  # removing .txt
 
-    if (args.load_model or args.name in prev_models):
+    if (args.name in prev_models):
         print("name already used")
         # if(not args.load_model):
         #    sys.exit()
@@ -109,13 +109,13 @@ def main(args):
         f.close()
     else:
         print("loading model")
-        # f = open(args.args_path + args.name + ".txt", "r")
-        # temp = args.start_epoch
-        # args = eval(f.read())
-        # f.close()
-        # args.load_model = True
-        # args.start_epoch = temp
-        # return args2
+        f = open(args.args_path + args.name + ".txt", "r")
+        temp = args.start_epoch
+        args = eval(f.read())
+        f.close()
+        args.load_model = True
+        args.start_epoch = temp
+        return args2
 
     def pf(data):
         return data.y == args.num
@@ -137,12 +137,12 @@ def main(args):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
-        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
+        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
         if(args.gcnn):
             D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device, wgan=args.wgan).to(device)
-            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU).to(device)
+            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
         else:
-            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, device=device).to(device)
+            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
 
     print("Models loaded")
 
@@ -243,7 +243,7 @@ def main(args):
 
         return img
 
-    def save_sample_outputs(name, epoch, dlosses, glosses):
+    def save_sample_outputs(name, epoch, dlosses, glosses, k=-1, j=-1):
         print("drawing figs")
         fig = plt.figure(figsize=(10, 10))
 
@@ -270,7 +270,10 @@ def main(args):
             plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
             plt.axis('off')
 
-        plt.savefig(args.figs_path + args.name + "/" + str(epoch) + ".png")
+        g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
+        name = args.name + "/" + str(epoch) + g_only
+
+        plt.savefig(args.figs_path + name + ".png")
         plt.close()
 
         plt.figure()
@@ -279,11 +282,15 @@ def main(args):
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.legend()
-        plt.savefig(args.losses_path + args.name + "/" + str(epoch) + ".png")
+        plt.savefig(args.losses_path + name + ".png")
         plt.close()
 
+        np.savetxt(args.losses_path + args.name + "/" + "G.txt", glosses)
+        np.savetxt(args.losses_path + args.name + "/" + "D.txt", dlosses)
+
         try:
-            remove(args.losses_path + args.name + "/" + str(epoch-5) + ".png")
+            if(j==-1): remove(args.losses_path + args.name + "/" + str(epoch-5) + ".png")
+            else: remove(args.losses_path + args.name + "/" + str(epoch) + "_g_only_" + str(k) + "_" + str(j-5) + ".png")
         except:
             print("couldn't remove loss file")
 
@@ -352,7 +359,6 @@ def main(args):
 
         run_batch_size = data.shape[0] if not args.gcnn else data.y.shape[0]
 
-        # try:
         D_real_output = D(data.clone())
 
         # print("real")
@@ -379,22 +385,6 @@ def main(args):
         D_loss.backward()
         D_optimizer.step()
 
-        # except:
-        #     print("Generated Images")
-        #     print(gen_ims)
-        #
-        #     print("Transformed Images")
-        #     print(tg_gen_ims)
-        #
-        #     print("Discriminator Output")
-        #     print(D_fake_output)
-        #
-        #     torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
-        #     torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
-        #     torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
-        #     torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
-        #     sys.exit()
-
         return D_loss.item()
 
     def train_G():
@@ -402,7 +392,6 @@ def main(args):
         G.train()
         G_optimizer.zero_grad()
 
-        # try:
         gen_ims = gen(args.batch_size)
         tg_gen_ims = tg_transform(gen_ims)
 
@@ -421,32 +410,22 @@ def main(args):
 
         G_loss.backward()
         G_optimizer.step()
-        # except:
-        #     print("Generated Images")
-        #     print(gen_ims)
-        #
-        #     print("Transformed Images")
-        #     print(tg_gen_ims)
-        #
-        #     print("Discriminator Output")
-        #     print(D_fake_output)
-        #
-        #     torch.save(gen_ims, args.err_path + args.name + "_gen_ims.pt")
-        #     torch.save(tg_gen_ims.x, args.err_path + args.name + "_x.pt")
-        #     torch.save(tg_gen_ims.pos, args.err_path + args.name + "_pos.pt")
-        #     torch.save(tg_gen_ims.edge_index, args.err_path + args.name + "_edge_index.pt")
-        #     sys.exit()
 
         return G_loss.item()
 
-    D_losses = []
-    G_losses = []
+    if(args.load_model):
+        G_losses = np.loadtxt(args.losses_path + args.name + "/" + "G.txt")
+        D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt")
+    else:
+        D_losses = []
+        G_losses = []
 
     if(args.save_zero):
         save_sample_outputs(args.name, 0, D_losses, G_losses)
 
     # @profile
     def train():
+        k = 0
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i+1), args.name))
             D_loss = 0
@@ -487,6 +466,35 @@ def main(args):
             else:
                 D_losses.append((D_loss/2)/(lenX/args.num_gen))
                 G_losses.append(G_loss/lenX)
+
+            bag = 0.1
+
+            if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
+                print("G loss too high - training G only")
+                j = 0
+                gloss = G_losses[-1]
+                dloss = D_losses[-1]
+                print("starting g loss: " + str(gloss))
+                print("starting d loss: " + str(dloss))
+
+                while(gloss > dloss + bag/2):
+                    print(j)
+                    gloss = 0
+                    for l in tqdm(100):
+                        gloss += train_G()
+
+                    gloss /= 100
+                    print(gloss)
+
+                    G_losses.append(gloss)
+                    D_losses.append(dloss)
+
+                    if(j % 5 == 0):
+                        save_sample_outputs(args.name, i+1, D_losses, G_losses, k, j)
+
+                    j += 1
+
+                k += 1
 
             if((i+1) % 5 == 0):
                 save_sample_outputs(args.name, i+1, D_losses, G_losses)
@@ -546,6 +554,8 @@ def parse_args():
 
     add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
+
+    add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
 
     args = parser.parse_args()
 
