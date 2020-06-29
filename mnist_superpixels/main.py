@@ -1,4 +1,4 @@
-import setGPU
+# import setGPU
 
 # from profile import profile
 # from time import sleep
@@ -119,7 +119,6 @@ def main(args):
         f.close()
         args.load_model = True
         args.start_epoch = temp
-        return args
 
     def pf(data):
         return data.y == args.num
@@ -300,9 +299,10 @@ def main(args):
 
         print("saved figs")
 
-    def save_models(name, epoch):
-        torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + ".pt")
-        torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + ".pt")
+    def save_models(name, epoch, k=-1, j=-1):
+        g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
+        torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + g_only + ".pt")
+        torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + g_only + ".pt")
 
     # from https://github.com/EmilienDupont/wgan-gp
     def gradient_penalty(real_data, generated_data, batch_size):
@@ -412,8 +412,8 @@ def main(args):
         return G_loss.item()
 
     if(args.load_model):
-        G_losses = np.loadtxt(args.losses_path + args.name + "/" + "G.txt")
-        D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt")
+        G_losses = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()
+        D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()
     else:
         D_losses = []
         G_losses = []
@@ -464,7 +464,10 @@ def main(args):
                 D_losses.append((D_loss/2)/(lenX/args.num_gen))
                 G_losses.append(G_loss/lenX)
 
-            bag = 0.1
+            bag = 0.01
+
+	    print("g loss: " + str(G_losses[-1]))
+	    print("d loss: " + str(D_losses[-1]))
 
             if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
                 print("G loss too high - training G only")
@@ -474,14 +477,15 @@ def main(args):
                 print("starting g loss: " + str(gloss))
                 print("starting d loss: " + str(dloss))
 
-                while(gloss > dloss + bag/2):
+                while(gloss > dloss + bag*0.75):
                     print(j)
                     gloss = 0
-                    for l in tqdm(100):
+                    for l in tqdm(range(lenX)):
                         gloss += train_G()
 
-                    gloss /= 100
-                    print(gloss)
+                    gloss /= lenX
+                    print("g loss: " + str(gloss))
+                    print("d loss: " + str(dloss))
 
                     G_losses.append(gloss)
                     D_losses.append(dloss)
