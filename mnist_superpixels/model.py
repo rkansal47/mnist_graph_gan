@@ -11,7 +11,7 @@ import math
 
 
 class Graph_Generator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, pos_diffs=False, gru=True, batch_norm=False, device='cpu'):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, pos_diffs=False, gru=True, batch_norm=False, device='cpu'):
         super(Graph_Generator, self).__init__()
         self.node_size = node_size
         self.fe_hidden_size = fe_hidden_size
@@ -20,7 +20,7 @@ class Graph_Generator(nn.Module):
         self.num_hits = num_hits
         self.alpha = alpha
         self.mp_num_layers = mp_num_layers
-        self.iters = iters
+        self.mp_iters = mp_iters
         self.hidden_node_size = hidden_node_size
         self.gru = gru
         self.device = device
@@ -35,8 +35,12 @@ class Graph_Generator(nn.Module):
         else:
             self.fe_in_size = 2 * hidden_node_size
 
-        self.fe1 = nn.Linear(self.fe_in_size, fe_hidden_size)
-        self.fe2 = nn.Linear(fe_hidden_size, fe_out_size)
+        self.fe1 = nn.ModuleList()
+        self.fe2 = nn.ModuleList()
+
+        for i in range(mp_iters):
+            self.fe1.append(nn.Linear(self.fe_in_size, fe_hidden_size))
+            self.fe2.append(nn.Linear(fe_hidden_size, fe_out_size))
 
         if(batch_norm):
             self.bne1 = nn.BatchNorm1d(fe_hidden_size)
@@ -64,7 +68,7 @@ class Graph_Generator(nn.Module):
         if(self.gru):
             hidden = self.initHidden(batch_size)
 
-        for i in range(self.iters):
+        for i in range(self.mp_iters):
             A = self.getA(x, batch_size)
             A = F.leaky_relu(self.fe1(A), negative_slope=self.alpha)
             if(self.batch_norm): A = self.bne1(A)
@@ -82,9 +86,9 @@ class Graph_Generator(nn.Module):
             if(self.gru):
                 x, hidden = self.fn1(x, hidden)
             else:
-                for i in range(self.mp_num_layers):
-                    x = F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha)
-                    if(self.batch_norm): x = self.bnn1[i](x)
+                for j in range(self.mp_num_layers):
+                    x = F.leaky_relu(self.fn1[j](x), negative_slope=self.alpha)
+                    if(self.batch_norm): x = self.bnn1[j](x)
 
             x = torch.tanh(self.fn2(x))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
@@ -114,7 +118,7 @@ class Graph_Generator(nn.Module):
 
 
 class Graph_Discriminator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, pos_diffs=False, gru=False, batch_norm=False, device='cpu'):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, pos_diffs=False, gru=False, batch_norm=False, device='cpu'):
         super(Graph_Discriminator, self).__init__()
         self.node_size = node_size
         self.hidden_node_size = hidden_node_size
@@ -125,7 +129,7 @@ class Graph_Discriminator(nn.Module):
         self.dropout = dropout
         self.mp_num_layers = mp_num_layers
         self.mp_hidden_size = mp_hidden_size
-        self.iters = iters
+        self.mp_iters = mp_iters
         self.wgan = wgan
         self.gru = gru
         self.device = device
@@ -171,7 +175,7 @@ class Graph_Discriminator(nn.Module):
 
         x = F.pad(x, (0, self.hidden_node_size - self.node_size, 0, 0, 0, 0))
 
-        for i in range(self.iters):
+        for i in range(self.mp_iters):
             A = self.getA(x, batch_size)
 
             A = F.leaky_relu(self.fe1(A), negative_slope=self.alpha)
@@ -193,11 +197,10 @@ class Graph_Discriminator(nn.Module):
             if(self.gru):
                 x, hidden = self.fn1(x, hidden)
             else:
-                for i in range(self.mp_num_layers):
-                    x = F.leaky_relu(self.fn1[i](x), negative_slope=self.alpha)
-                    if(self.batch_norm): x = self.bnn1[i](x)
+                for j in range(self.mp_num_layers):
+                    x = F.leaky_relu(self.fn1[j](x), negative_slope=self.alpha)
+                    if(self.batch_norm): x = self.bnn1[j](x)
                     x = self.dropout(x)
-
 
             x = self.dropout(torch.tanh(self.fn2(x)))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
@@ -294,7 +297,7 @@ class GRUCell(nn.Module):
 
 
 class Gaussian_Discriminator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, iters, num_hits, dropout, alpha, kernel_size, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, mp_iters, num_hits, dropout, alpha, kernel_size, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
         super(Gaussian_Discriminator, self).__init__()
         self.node_size = node_size
         self.hidden_node_size = hidden_node_size
@@ -305,7 +308,7 @@ class Gaussian_Discriminator(nn.Module):
         self.dropout = dropout
         self.mp_num_layers = mp_num_layers
         self.mp_hidden_size = mp_hidden_size
-        self.iters = iters
+        self.mp_iters = mp_iters
         self.wgan = wgan
         self.gru = gru
         self.kernel_size = kernel_size
@@ -327,7 +330,7 @@ class Gaussian_Discriminator(nn.Module):
         batch_size = x.shape[0]
         x = F.pad(x, (0, self.hidden_node_size - self.node_size, 0, 0, 0, 0))
 
-        for i in range(self.iters):
+        for i in range(self.mp_iters):
             x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
             y = x.repeat(1, self.num_hits, 1)
 
