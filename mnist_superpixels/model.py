@@ -4,10 +4,10 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import math
 
-from torch_geometric.utils import normalized_cut
-from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
-from torch_geometric.nn import GMMConv
-import torch_geometric.transforms as T
+# from torch_geometric.utils import normalized_cut
+# from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
+# from torch_geometric.nn import GMMConv
+# import torch_geometric.transforms as T
 
 
 class Graph_Generator(nn.Module):
