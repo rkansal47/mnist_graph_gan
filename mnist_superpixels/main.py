@@ -94,7 +94,7 @@ def main(args):
 
     prev_models = [f[:-4] for f in listdir(args.args_path)]  # removing .txt
 
-    if (args.name in prev_models):
+    if (args.load_model or args.name in prev_models):
         print("name already used")
         # if(not args.load_model):
         #    sys.exit()
@@ -108,13 +108,14 @@ def main(args):
         f.write(str(vars(args)))
         f.close()
     else:
-        f = open(args.args_path + args.name + ".txt", "r")
-        temp = args.start_epoch
-        args = eval(f.read())
-        f.close()
-        args.load_model = True
-        args.start_epoch = temp
-        return args2
+        print("loading model")
+        # f = open(args.args_path + args.name + ".txt", "r")
+        # temp = args.start_epoch
+        # args = eval(f.read())
+        # f.close()
+        # args.load_model = True
+        # args.start_epoch = temp
+        # return args2
 
     def pf(data):
         return data.y == args.num
