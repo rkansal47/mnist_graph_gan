@@ -47,6 +47,10 @@ GRU = False
 
 cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
 
+class objectview(object):
+    def __init__(self, d):
+        self.__dict__ = d
+
 def main(args):
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
@@ -111,11 +115,11 @@ def main(args):
         print("loading model")
         f = open(args.args_path + args.name + ".txt", "r")
         temp = args.start_epoch
-        args = eval(f.read())
+        args = objectview(eval(f.read()))
         f.close()
         args.load_model = True
         args.start_epoch = temp
-        return args2
+        return args
 
     def pf(data):
         return data.y == args.num
@@ -289,7 +293,7 @@ def main(args):
         np.savetxt(args.losses_path + args.name + "/" + "D.txt", dlosses)
 
         try:
-            if(j==-1): remove(args.losses_path + args.name + "/" + str(epoch-5) + ".png")
+            if(j == -1): remove(args.losses_path + args.name + "/" + str(epoch-5) + ".png")
             else: remove(args.losses_path + args.name + "/" + str(epoch) + "_g_only_" + str(k) + "_" + str(j-5) + ".png")
         except:
             print("couldn't remove loss file")
