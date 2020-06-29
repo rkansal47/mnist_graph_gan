@@ -1,4 +1,4 @@
-# import setGPU
+import setGPU
 
 # from profile import profile
 # from time import sleep
@@ -28,10 +28,10 @@ import sys
 import tarfile
 import urllib
 
-from torch_geometric.datasets import MNISTSuperpixels
-import torch_geometric.transforms as T
-from torch_geometric.data import DataLoader as tgDataLoader
-from torch_geometric.data import Batch
+# from torch_geometric.datasets import MNISTSuperpixels
+# import torch_geometric.transforms as T
+# from torch_geometric.data import DataLoader as tgDataLoader
+# from torch_geometric.data import Batch
 
 plt.switch_backend('agg')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -233,7 +233,7 @@ def main(args):
 
         circles = []
         for node in graph:
-            circles.append((draw.circle_perimeter(int(node[1]), int(node[0]), node_r), draw.disk((int(node[1]), int(node[0])), node_r), node[2]))
+            circles.append((draw.circle_perimeter(int(node[1]), int(node[0]), node_r), draw.circle(int(node[1]), int(node[0]), node_r), node[2]))
 
         for circle in circles:
             img[circle[1]] = circle[2]
@@ -357,9 +357,7 @@ def main(args):
         # print(D_real_output)
 
         gen_ims = gen(run_batch_size)
-
-        tg_gen_ims = tg_transform(gen_ims)
-        use_gen_ims = tg_gen_ims if args.gcnn else gen_ims
+        use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
 
         D_fake_output = D(use_gen_ims.clone())
 
@@ -405,11 +403,7 @@ def main(args):
             Y_real = torch.ones(args.batch_size, 1).to(device)
 
         gen_ims = gen(args.batch_size)
-        tg_gen_ims = tg_transform(gen_ims)
-
-        # print(tg_gen_ims.edge_index.shape)
-
-        use_gen_ims = tg_gen_ims if args.gcnn else gen_ims
+        use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
 
         D_fake_output = D(use_gen_ims)
 
@@ -446,7 +440,6 @@ def main(args):
     if(args.save_zero):
         save_sample_outputs(args.name, 0, D_losses, G_losses)
 
-    # @profile
     def train():
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i+1), args.name))
