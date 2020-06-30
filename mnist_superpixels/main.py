@@ -382,7 +382,8 @@ def main(args):
         if(args.wgan):
             D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims, run_batch_size)
         else:
-            D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
+            if(args.label_smoothing): D_real_loss = criterion(D_real_output, Y_real[:run_batch_size]-1)
+            else: D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
             D_fake_loss = criterion(D_fake_output, Y_fake[:run_batch_size])
 
             D_loss = D_real_loss + D_fake_loss
@@ -530,6 +531,7 @@ def parse_args():
     add_bool_arg(parser, "gcnn", "use wgan", default=False)
     add_bool_arg(parser, "gru", "use wgan", default=False)
     add_bool_arg(parser, "gom", "use gen only mode", default=False)
+    add_bool_arg(parser, "label-smoothing", "use label smotthing with discriminator", default=False)
 
     add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
 
