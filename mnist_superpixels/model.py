@@ -4,22 +4,22 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 import math
 
-# from torch_geometric.utils import normalized_cut
-# from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
-# from torch_geometric.nn import GMMConv
-# import torch_geometric.transforms as T
+from torch_geometric.utils import normalized_cut
+from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
+from torch_geometric.nn import GMMConv
+import torch_geometric.transforms as T
 
 
 class Graph_Generator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, pos_diffs=False, gru=True, batch_norm=False, device='cpu'):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, fn_hidden_size, fn_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, pos_diffs=False, gru=True, batch_norm=False, device='cpu'):
         super(Graph_Generator, self).__init__()
         self.node_size = node_size
         self.fe_hidden_size = fe_hidden_size
         self.fe_out_size = fe_out_size
-        self.mp_hidden_size = mp_hidden_size
+        self.fn_hidden_size = fn_hidden_size
         self.num_hits = num_hits
         self.alpha = alpha
-        self.mp_num_layers = mp_num_layers
+        self.fn_num_layers = fn_num_layers
         self.mp_iters = mp_iters
         self.hidden_node_size = hidden_node_size
         self.gru = gru
@@ -37,60 +37,67 @@ class Graph_Generator(nn.Module):
 
         self.fe1 = nn.ModuleList()
         self.fe2 = nn.ModuleList()
+        self.fn1 = nn.ModuleList()
+        self.fn2 = nn.ModuleList()
+
+        if(batch_norm):
+            self.bne1 = nn.ModuleList()
+            self.bne2 = nn.ModuleList()
+            self.bnn = nn.ModuleList()
 
         for i in range(mp_iters):
             self.fe1.append(nn.Linear(self.fe_in_size, fe_hidden_size))
             self.fe2.append(nn.Linear(fe_hidden_size, fe_out_size))
 
-        if(batch_norm):
-            self.bne1 = nn.BatchNorm1d(fe_hidden_size)
-            self.bne2 = nn.BatchNorm1d(fe_out_size)
-
-        if(self.gru):
-            self.fn1 = GRU(fe_out_size + hidden_node_size, mp_hidden_size, mp_num_layers, dropout)
-            self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
-        else:
-            self.fn1 = nn.ModuleList()
-            self.fn1.append(nn.Linear(fe_out_size + hidden_node_size, mp_hidden_size))
-            for i in range(mp_num_layers-1):
-                self.fn1.append(nn.Linear(mp_hidden_size, mp_hidden_size))
-            self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
-
             if(batch_norm):
-                self.bnn1 = nn.ModuleList()
-                self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
-                for i in range(mp_num_layers-1):
-                    self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
+                self.bne1.append(nn.BatchNorm1d(fe_hidden_size))
+                self.bne2.append(nn.BatchNorm1d(fe_out_size))
 
+            if(self.gru):
+                self.fn1.append(GRU(fe_out_size + hidden_node_size, fn_hidden_size, fn_num_layers, dropout))
+                self.fn2.append(nn.Linear(fn_hidden_size, hidden_node_size))
+            else:
+                fni1 = nn.ModuleList()
+                fni1.append(nn.Linear(fe_out_size + hidden_node_size, fn_hidden_size))
+                for i in range(fn_num_layers - 1):
+                    fni1.append(nn.Linear(fn_hidden_size, fn_hidden_size))
+
+                self.fn1.append(fni1)
+                self.fn2.append(nn.Linear(fn_hidden_size, hidden_node_size))
+
+                if(batch_norm):
+                    bnni = nn.ModuleList()
+                    for i in range(fn_num_layers):
+                        bnni.append(nn.BatchNorm1d(fn_hidden_size))
+                    self.bnn.append(bnni)
 
     def forward(self, x):
         batch_size = x.shape[0]
+
         if(self.gru):
-            hidden = self.initHidden(batch_size)
+            hidden = self.initHidden(batch_size)  # since this is done on the CPU, slows down training by ~3x
 
         for i in range(self.mp_iters):
             A = self.getA(x, batch_size)
-            A = F.leaky_relu(self.fe1(A), negative_slope=self.alpha)
-            if(self.batch_norm): A = self.bne1(A)
+            A = F.leaky_relu(self.fe1[i](A), negative_slope=self.alpha)
+            if(self.batch_norm): A = self.bne1[i](A)
 
-            A = F.leaky_relu(self.fe2(A), negative_slope=self.alpha)
-            if(self.batch_norm): A = self.bne2(A)
+            A = F.leaky_relu(self.fe2[i](A), negative_slope=self.alpha)
+            if(self.batch_norm): A = self.bne2[i](A)
 
             A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
 
             x = torch.cat((A, x), 2)
-
-            # x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
-            x = x.view(batch_size*self.num_hits, self.fe_out_size + self.hidden_node_size)
+            x = x.view(batch_size * self.num_hits, self.fe_out_size + self.hidden_node_size)
 
             if(self.gru):
-                x, hidden = self.fn1(x, hidden)
+                x, hidden = self.fn1[i](x, hidden)
             else:
-                for j in range(self.mp_num_layers):
-                    x = F.leaky_relu(self.fn1[j](x), negative_slope=self.alpha)
-                    if(self.batch_norm): x = self.bnn1[j](x)
+                for j in range(self.fn_num_layers):
+                    x = F.leaky_relu(self.fn1[i][j](x), negative_slope=self.alpha)
+                    if(self.batch_norm): x = self.bnn[i][j](x)
 
-            x = torch.tanh(self.fn2(x))
+            x = torch.tanh(self.fn2[i](x))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
 
         x = x[:, :, :self.node_size]
@@ -98,27 +105,27 @@ class Graph_Generator(nn.Module):
         return x
 
     def getA(self, x, batch_size):
-        x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
+        x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits * self.num_hits, self.hidden_node_size)
         x2 = x.repeat(1, self.num_hits, 1)
 
         if(self.int_diffs):
-            dists = torch.norm(x2[:, :, :2]-x1[:, :, :2]+1e-12, dim=2).unsqueeze(2)
-            int_diffs = 1 - ((x2[:, :, 2]-x1[:, :, 2])).unsqueeze(2)
-            A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
+            dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
+            int_diffs = 1 - ((x2[:, :, 2] - x1[:, :, 2])).unsqueeze(2)
+            A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size * self.num_hits * self.num_hits, self.fe_in_size)
         elif(self.pos_diffs):
-            dists = torch.norm(x2[:, :, :2]-x1[:, :, :2]+1e-12, dim=2).unsqueeze(2)
-            A = torch.cat((x1, x2, dists), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
+            dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
+            A = torch.cat((x1, x2, dists), 2).view(batch_size * self.num_hits * self.num_hits, self.fe_in_size)
         else:
-            A = torch.cat((x1, x2), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
+            A = torch.cat((x1, x2), 2).view(batch_size * self.num_hits * self.num_hits, self.fe_in_size)
 
         return A
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
+        return torch.zeros(self.fn_num_layers, batch_size * self.num_hits, self.fn_hidden_size).to(self.device)
 
 
 class Graph_Discriminator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, pos_diffs=False, gru=False, batch_norm=False, device='cpu'):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, fn_hidden_size, fn_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, wgan=False, int_diffs=False, pos_diffs=False, gru=False, batch_norm=False, device='cpu'):
         super(Graph_Discriminator, self).__init__()
         self.node_size = node_size
         self.hidden_node_size = hidden_node_size
@@ -127,8 +134,8 @@ class Graph_Discriminator(nn.Module):
         self.num_hits = num_hits
         self.alpha = alpha
         self.dropout = dropout
-        self.mp_num_layers = mp_num_layers
-        self.mp_hidden_size = mp_hidden_size
+        self.fn_num_layers = fn_num_layers
+        self.fn_hidden_size = fn_hidden_size
         self.mp_iters = mp_iters
         self.wgan = wgan
         self.gru = gru
@@ -145,28 +152,41 @@ class Graph_Discriminator(nn.Module):
         else:
             self.fe_in_size = 2 * hidden_node_size
 
-        self.fe1 = nn.Linear(self.fe_in_size, fe_hidden_size)
-        self.fe2 = nn.Linear(fe_hidden_size, fe_out_size)
+        self.fe1 = nn.ModuleList()
+        self.fe2 = nn.ModuleList()
+        self.fn1 = nn.ModuleList()
+        self.fn2 = nn.ModuleList()
 
         if(batch_norm):
-            self.bne1 = nn.BatchNorm1d(fe_hidden_size)
-            self.bne2 = nn.BatchNorm1d(fe_out_size)
+            self.bne1 = nn.ModuleList()
+            self.bne2 = nn.ModuleList()
+            self.bnn = nn.ModuleList()
 
-        if(self.gru):
-            self.fn1 = GRU(fe_out_size + hidden_node_size, mp_hidden_size, mp_num_layers, dropout)
-            self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
-        else:
-            self.fn1 = nn.ModuleList()
-            self.fn1.append(nn.Linear(fe_out_size + hidden_node_size, mp_hidden_size))
-            for i in range(mp_num_layers-1):
-                self.fn1.append(nn.Linear(mp_hidden_size, mp_hidden_size))
-            self.fn2 = nn.Linear(mp_hidden_size, hidden_node_size)
+        for i in range(mp_iters):
+            self.fe1.append(nn.Linear(self.fe_in_size, fe_hidden_size))
+            self.fe2.append(nn.Linear(fe_hidden_size, fe_out_size))
 
             if(batch_norm):
-                self.bnn1 = nn.ModuleList()
-                self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
-                for i in range(mp_num_layers-1):
-                    self.bnn1.append(nn.BatchNorm1d(mp_hidden_size))
+                self.bne1.append(nn.BatchNorm1d(fe_hidden_size))
+                self.bne2.append(nn.BatchNorm1d(fe_out_size))
+
+            if(self.gru):
+                self.fn1.append(GRU(fe_out_size + hidden_node_size, fn_hidden_size, fn_num_layers, dropout))
+                self.fn2.append(nn.Linear(fn_hidden_size, hidden_node_size))
+            else:
+                fni1 = nn.ModuleList()
+                fni1.append(nn.Linear(fe_out_size + hidden_node_size, fn_hidden_size))
+                for i in range(fn_num_layers - 1):
+                    fni1.append(nn.Linear(fn_hidden_size, fn_hidden_size))
+
+                self.fn1.append(fni1)
+                self.fn2.append(nn.Linear(fn_hidden_size, hidden_node_size))
+
+                if(batch_norm):
+                    bnni = nn.ModuleList()
+                    for i in range(fn_num_layers):
+                        bnni.append(nn.BatchNorm1d(fn_hidden_size))
+                    self.bnn.append(bnni)
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -178,31 +198,27 @@ class Graph_Discriminator(nn.Module):
         for i in range(self.mp_iters):
             A = self.getA(x, batch_size)
 
-            A = F.leaky_relu(self.fe1(A), negative_slope=self.alpha)
-            if(self.batch_norm): A = self.bne1(A)
+            A = F.leaky_relu(self.fe1[i](A), negative_slope=self.alpha)
+            if(self.batch_norm): A = self.bne1[i](A)
             A = self.dropout(A)
 
-            A = F.leaky_relu(self.fe2(A), negative_slope=self.alpha)
-            if(self.batch_norm): A = self.bne2(A)
+            A = F.leaky_relu(self.fe2[i](A), negative_slope=self.alpha)
+            if(self.batch_norm): A = self.bne2[i](A)
             A = self.dropout(A)
 
             A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
-
             x = torch.cat((A, x), 2)
-            del A
-
-            # x = x.view(batch_size*self.num_hits, 1, self.fe_out_size + self.hidden_node_size)
-            x = x.view(batch_size*self.num_hits, self.fe_out_size + self.hidden_node_size)
+            x = x.view(batch_size * self.num_hits, self.fe_out_size + self.hidden_node_size)
 
             if(self.gru):
-                x, hidden = self.fn1(x, hidden)
+                x, hidden = self.fn1[i](x, hidden)
             else:
-                for j in range(self.mp_num_layers):
-                    x = F.leaky_relu(self.fn1[j](x), negative_slope=self.alpha)
-                    if(self.batch_norm): x = self.bnn1[j](x)
+                for j in range(self.fn_num_layers):
+                    x = F.leaky_relu(self.fn1[i][j](x), negative_slope=self.alpha)
+                    if(self.batch_norm): x = self.bnn[i][j](x)
                     x = self.dropout(x)
 
-            x = self.dropout(torch.tanh(self.fn2(x)))
+            x = self.dropout(torch.tanh(self.fn2[i](x)))
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
 
         x = torch.mean(x[:, :, :1], 1)
@@ -213,46 +229,46 @@ class Graph_Discriminator(nn.Module):
         return torch.sigmoid(x)
 
     def getA(self, x, batch_size):
-        x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
+        x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits * self.num_hits, self.hidden_node_size)
         x2 = x.repeat(1, self.num_hits, 1)
 
-        dists = torch.norm(x2[:, :, :2]-x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
+        dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
 
         if(self.int_diffs):
-            dists = torch.norm(x2[:, :, :2]-x1[:, :, :2]+1e-12, dim=2).unsqueeze(2)
-            int_diffs = 1 - ((x2[:, :, 2]-x1[:, :, 2])).unsqueeze(2)
-            A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
+            dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
+            int_diffs = 1 - ((x2[:, :, 2] - x1[:, :, 2])).unsqueeze(2)
+            A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size * self.num_hits * self.num_hits, self.fe_in_size)
         elif(self.pos_diffs):
-            dists = torch.norm(x2[:, :, :2]-x1[:, :, :2]+1e-12, dim=2).unsqueeze(2)
-            A = torch.cat((x1, x2, dists), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
+            dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
+            A = torch.cat((x1, x2, dists), 2).view(batch_size * self.num_hits * self.num_hits, self.fe_in_size)
         else:
-            A = torch.cat((x1, x2), 2).view(batch_size*self.num_hits*self.num_hits, self.fe_in_size)
+            A = torch.cat((x1, x2), 2).view(batch_size * self.num_hits * self.num_hits, self.fe_in_size)
 
         return A
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
+        return torch.zeros(self.fn_num_layers, batch_size * self.num_hits, self.fn_hidden_size).to(self.device)
 
 
 class GRU(nn.Module):
-    def __init__(self, input_size, mp_hidden_size, num_layers, dropout):
+    def __init__(self, input_size, fn_hidden_size, num_layers, dropout):
         super(GRU, self).__init__()
         self.input_size = input_size
-        self.mp_hidden_size = mp_hidden_size
+        self.fn_hidden_size = fn_hidden_size
         self.num_layers = num_layers
         self.dropout = dropout
         self.layers = nn.ModuleList()
 
-        self.layers.append(GRUCell(input_size, mp_hidden_size))
+        self.layers.append(GRUCell(input_size, fn_hidden_size))
         for i in range(num_layers - 1):
-            self.layers.append(GRUCell(mp_hidden_size, mp_hidden_size))
+            self.layers.append(GRUCell(fn_hidden_size, fn_hidden_size))
 
     def forward(self, x, hidden):
         x = x.squeeze()
         hidden[0] = F.dropout(self.layers[0](x, hidden[0].clone()), p=self.dropout)
 
         for i in range(1, self.num_layers):
-            hidden[i] = F.dropout(self.layers[i](hidden[i-1].clone(), hidden[i].clone()), p=self.dropout)
+            hidden[i] = F.dropout(self.layers[i](hidden[i - 1].clone(), hidden[i].clone()), p=self.dropout)
 
         return hidden[-1].unsqueeze(1).clone(), hidden
 
@@ -264,13 +280,13 @@ class GRUCell(nn.Module):
 
     """
 
-    def __init__(self, input_size, mp_hidden_size, bias=True):
+    def __init__(self, input_size, fn_hidden_size, bias=True):
         super(GRUCell, self).__init__()
         self.input_size = input_size
-        self.mp_hidden_size = mp_hidden_size
+        self.fn_hidden_size = fn_hidden_size
         self.bias = bias
-        self.x2h = nn.Linear(input_size, 3 * mp_hidden_size, bias=bias)
-        self.h2h = nn.Linear(mp_hidden_size, 3 * mp_hidden_size, bias=bias)
+        self.x2h = nn.Linear(input_size, 3 * fn_hidden_size, bias=bias)
+        self.h2h = nn.Linear(fn_hidden_size, 3 * fn_hidden_size, bias=bias)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -297,7 +313,7 @@ class GRUCell(nn.Module):
 
 
 class Gaussian_Discriminator(nn.Module):
-    def __init__(self, node_size, fe_hidden_size, fe_out_size, mp_hidden_size, mp_num_layers, mp_iters, num_hits, dropout, alpha, kernel_size, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
+    def __init__(self, node_size, fe_hidden_size, fe_out_size, fn_hidden_size, fn_num_layers, mp_iters, num_hits, dropout, alpha, kernel_size, hidden_node_size=64, wgan=False, int_diffs=False, gru=False, device='cpu'):
         super(Gaussian_Discriminator, self).__init__()
         self.node_size = node_size
         self.hidden_node_size = hidden_node_size
@@ -306,8 +322,8 @@ class Gaussian_Discriminator(nn.Module):
         self.num_hits = num_hits
         self.alpha = alpha
         self.dropout = dropout
-        self.mp_num_layers = mp_num_layers
-        self.mp_hidden_size = mp_hidden_size
+        self.fn_num_layers = fn_num_layers
+        self.fn_hidden_size = fn_hidden_size
         self.mp_iters = mp_iters
         self.wgan = wgan
         self.gru = gru
@@ -331,7 +347,7 @@ class Gaussian_Discriminator(nn.Module):
         x = F.pad(x, (0, self.hidden_node_size - self.node_size, 0, 0, 0, 0))
 
         for i in range(self.mp_iters):
-            x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits*self.num_hits, self.hidden_node_size)
+            x1 = x.repeat(1, 1, self.num_hits).view(batch_size, self.num_hits * self.num_hits, self.hidden_node_size)
             y = x.repeat(1, self.num_hits, 1)
 
             u = y[:, :, :2] - x1[:, :, :2]
@@ -348,7 +364,7 @@ class Gaussian_Discriminator(nn.Module):
                 # print(w.shape)
                 # print(y.shape)
 
-                y2 += w.unsqueeze(-1)*self.kernel_weight[j]*y
+                y2 += w.unsqueeze(-1) * self.kernel_weight[j] * y
 
             x = torch.sum(y2.view(batch_size, self.num_hits, self.num_hits, self.hidden_node_size), 2)
             x = x.view(batch_size, self.num_hits, self.hidden_node_size)
@@ -362,13 +378,10 @@ class Gaussian_Discriminator(nn.Module):
         return torch.sigmoid(y)
 
     def weights(self, u, j):
-        # print(u)
-        # print(self.mu[j])
-        # print(u-self.mu[j])
-        return torch.exp(torch.sum((u-self.mu[j])**2*self.sigma[j], dim=-1))
+        return torch.exp(torch.sum(((u - self.mu[j]) ** 2) * self.sigma[j], dim=-1))
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.mp_num_layers, batch_size*self.num_hits, self.mp_hidden_size).to(self.device)
+        return torch.zeros(self.fn_num_layers, batch_size * self.num_hits, self.fn_hidden_size).to(self.device)
 
     def glorot(self, tensor):
         if tensor is not None:
@@ -407,7 +420,7 @@ class MoNet(torch.nn.Module):
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
 
         row, col = data.edge_index
-        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
+        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
 
         data.x = F.elu(self.conv2(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
@@ -415,7 +428,7 @@ class MoNet(torch.nn.Module):
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
 
         row, col = data.edge_index
-        data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
+        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
 
         data.x = F.elu(self.conv3(data.x, data.edge_index, data.edge_attr))
 

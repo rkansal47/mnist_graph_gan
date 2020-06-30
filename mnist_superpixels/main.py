@@ -28,10 +28,10 @@ import sys
 import tarfile
 import urllib
 
-# from torch_geometric.datasets import MNISTSuperpixels
-# import torch_geometric.transforms as T
-# from torch_geometric.data import DataLoader as tgDataLoader
-# from torch_geometric.data import Batch
+from torch_geometric.datasets import MNISTSuperpixels
+import torch_geometric.transforms as T
+from torch_geometric.data import DataLoader as tgDataLoader
+from torch_geometric.data import Batch
 
 plt.switch_backend('agg')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -140,12 +140,12 @@ def main(args):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
-        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
+        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
         if(args.gcnn):
             D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device, wgan=args.wgan).to(device)
-            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
+            # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
         else:
-            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
+            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
 
     print("Models loaded")
 
@@ -458,16 +458,16 @@ def main(args):
                 #     return
 
             if(args.num_critic > 1):
-                D_losses.append(D_loss/lenX/2)
-                G_losses.append(G_loss/(lenX/args.num_critic))
+                D_losses.append(D_loss / lenX / 2)
+                G_losses.append(G_loss / (lenX / args.num_critic))
             else:
-                D_losses.append((D_loss/2)/(lenX/args.num_gen))
-                G_losses.append(G_loss/lenX)
+                D_losses.append((D_loss / 2) / (lenX / args.num_gen))
+                G_losses.append(G_loss / lenX)
 
             bag = 0.01
 
-	    print("g loss: " + str(G_losses[-1]))
-	    print("d loss: " + str(D_losses[-1]))
+            print("g loss: " + str(G_losses[-1]))
+            print("d loss: " + str(D_losses[-1]))
 
             if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
                 print("G loss too high - training G only")
@@ -477,7 +477,7 @@ def main(args):
                 print("starting g loss: " + str(gloss))
                 print("starting d loss: " + str(dloss))
 
-                while(gloss > dloss + bag*0.75):
+                while(gloss > dloss + bag * 0.5):
                     print(j)
                     gloss = 0
                     for l in tqdm(range(lenX)):
@@ -491,17 +491,17 @@ def main(args):
                     D_losses.append(dloss)
 
                     if(j % 5 == 0):
-                        save_sample_outputs(args.name, i+1, D_losses, G_losses, k, j)
+                        save_sample_outputs(args.name, i + 1, D_losses, G_losses, k, j)
 
                     j += 1
 
                 k += 1
 
-            if((i+1) % 5 == 0):
-                save_sample_outputs(args.name, i+1, D_losses, G_losses)
+            if((i + 1) % 5 == 0):
+                save_sample_outputs(args.name, i + 1, D_losses, G_losses)
 
-            if((i+1) % 5 == 0):
-                save_models(args.name, i+1)
+            if((i + 1) % 5 == 0):
+                save_models(args.name, i + 1)
 
     train()
 
@@ -525,25 +525,38 @@ def parse_args():
     add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
     add_bool_arg(parser, "wgan", "use wgan", default=False)
     add_bool_arg(parser, "gcnn", "use wgan", default=False)
+
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
+
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
+    parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
+
     parser.add_argument("--fe-hidden-size", type=int, default=128, help="edge network hidden layer size")
     parser.add_argument("--fe-out-size", type=int, default=256, help="edge network out size")
-    parser.add_argument("--mp-hidden-size", type=int, default=256, help="message passing hidden layers sizes")
-    parser.add_argument("--mp-num-layers", type=int, default=2, help="message passing number of layers in generator")
+
+    parser.add_argument("--fn-hidden-size", type=int, default=256, help="message passing hidden layers sizes")
+    parser.add_argument("--fn-num-layers", type=int, default=2, help="message passing number of layers in generator")
+
+    # parser.add_argument("--fn", type=int, nargs='*', default=[64], help="hidden fn layers e.g. 32 64 128")
+
     parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
     parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
+
+    parser.add_argument("--mp-iters-gen", type=int, default=1, help="number of message passing iterations in the generator")
+    parser.add_argument("--mp-iters-disc", type=int, default=1, help="number of message passing iterations in the discriminator (if applicable)")
+
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
     parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
+
     parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
     parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
+
     parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
     parser.add_argument("--num-gen", type=int, default=1, help="number of generator updates for each critic update (num-critic must be 1 for this to apply)")
-    parser.add_argument("--num-iters", type=int, default=1, help="number of message passing iterations in the generator")
-    parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
+
     parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
     parser.add_argument("--num", type=int, default=3, help="number to train on")
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
