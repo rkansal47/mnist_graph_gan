@@ -526,6 +526,8 @@ def parse_args():
     add_bool_arg(parser, "wgan", "use wgan", default=False)
     add_bool_arg(parser, "gcnn", "use wgan", default=False)
 
+    add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
+
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
@@ -580,6 +582,9 @@ def parse_args():
     if(args.gen_dropout > 0):
         print("generator dropout not supported yet")
         sys.exit()
+
+    if(args.n):
+        args.dir_path = "/graphganvol/mnist_graph_gan/mnist_superpixels"
 
     return args
 
