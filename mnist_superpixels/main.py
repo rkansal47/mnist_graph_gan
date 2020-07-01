@@ -117,11 +117,11 @@ def main(args):
     else:
         print("loading model")
         f = open(args.args_path + args.name + ".txt", "r")
-        temp = args.start_epoch
+        temp = args.start_epoch, args.num_epochs
         args = objectview(eval(f.read()))
         f.close()
         args.load_model = True
-        args.start_epoch = temp
+        args.start_epoch, args.num_epochs = temp
 
     def pf(data):
         return data.y == args.num
