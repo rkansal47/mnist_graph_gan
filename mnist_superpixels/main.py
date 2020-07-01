@@ -4,7 +4,7 @@
 # from time import sleep
 
 import torch
-from model import Graph_Generator, Graph_Discriminator, Gaussian_Discriminator, MoNet
+from model import Graph_GAN, MoNet  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
 from superpixels_dataset import SuperpixelsDataset
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
@@ -27,6 +27,7 @@ from os.path import exists, dirname, realpath
 import sys
 import tarfile
 import urllib
+from copy import copy
 
 from torch_geometric.datasets import MNISTSuperpixels
 import torch_geometric.transforms as T
@@ -76,6 +77,8 @@ def main(args):
     args.figs_path = args.dir_path + '/figs/'
     args.dataset_path = args.dir_path + '/raw/'
     args.err_path = args.dir_path + '/err/'
+
+    args.device = device
 
     if(not exists(args.model_path)):
         mkdir(args.model_path)
@@ -143,12 +146,14 @@ def main(args):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
-        G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
+        # G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
+        G = Graph_GAN(gen=True, args=copy(args)).to(device)
         if(args.gcnn):
             D = MoNet(kernel_size=args.kernel_size, dropout=args.dropout, device=device, wgan=args.wgan).to(device)
             # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
         else:
-            D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
+            # D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
+            D = Graph_GAN(gen=False, args=copy(args)).to(device)
 
     print("Models loaded")
 

@@ -10,6 +10,123 @@ from torch_geometric.nn import GMMConv
 import torch_geometric.transforms as T
 
 
+class Graph_GAN(nn.Module):
+    def __init__(self, gen, args):
+        super(Graph_GAN, self).__init__()
+        self.args = args
+
+        self.G = gen
+        self.D = not gen
+
+        self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
+
+        if(self.args.int_diffs and self.args.pos_diffs):
+            self.args.fe_in_size = 2 * self.args.hidden_node_size + 2
+        elif(self.args.int_diffs or self.args.pos_diffs):
+            self.args.fe_in_size = 2 * self.args.hidden_node_size + 1
+        else:
+            self.args.fe_in_size = 2 * self.args.hidden_node_size
+
+        self.fe1 = nn.ModuleList()
+        self.fe2 = nn.ModuleList()
+        self.fn1 = nn.ModuleList()
+        self.fn2 = nn.ModuleList()
+
+        if(self.args.batch_norm):
+            self.bne1 = nn.ModuleList()
+            self.bne2 = nn.ModuleList()
+            self.bnn = nn.ModuleList()
+
+        for i in range(self.args.mp_iters):
+            self.fe1.append(nn.Linear(self.args.fe_in_size, self.args.fe_hidden_size))
+            self.fe2.append(nn.Linear(self.args.fe_hidden_size, self.args.fe_out_size))
+
+            if(self.args.batch_norm):
+                self.bne1.append(nn.BatchNorm1d(self.args.fe_hidden_size))
+                self.bne2.append(nn.BatchNorm1d(self.args.fe_out_size))
+
+            if(self.args.gru):
+                self.fn1.append(GRU(self.args.fe_out_size + self.args.hidden_node_size, self.args.fn_hidden_size, self.args.fn_num_layers, self.args.dropout))
+                self.fn2.append(nn.Linear(self.args.fn_hidden_size, self.args.hidden_node_size))
+            else:
+                fni1 = nn.ModuleList()
+                fni1.append(nn.Linear(self.args.fe_out_size + self.args.hidden_node_size, self.args.fn_hidden_size))
+                for i in range(self.args.fn_num_layers - 1):
+                    fni1.append(nn.Linear(self.args.fn_hidden_size, self.args.fn_hidden_size))
+
+                self.fn1.append(fni1)
+                self.fn2.append(nn.Linear(self.args.fn_hidden_size, self.args.hidden_node_size))
+
+                if(self.args.batch_norm):
+                    bnni = nn.ModuleList()
+                    for i in range(self.args.fn_num_layers):
+                        bnni.append(nn.BatchNorm1d(self.args.fn_hidden_size))
+                    self.bnn.append(bnni)
+
+        p = self.args.gen_dropout if self.G else self.args.disc_dropout
+        self.dropout = nn.Dropout(p=p)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+
+        if(self.args.gru):
+            hidden = self.initHidden(batch_size)
+
+        if(self.D): x = F.pad(x, (0, self.args.hidden_node_size - self.args.node_feat_size, 0, 0, 0, 0))
+
+        for i in range(self.args.mp_iters):
+            A = self.getA(x, batch_size)
+
+            A = F.leaky_relu(self.fe1[i](A), negative_slope=self.args.leaky_relu_alpha)
+            if(self.args.batch_norm): A = self.bne1[i](A)
+            A = self.dropout(A)
+
+            A = F.leaky_relu(self.fe2[i](A), negative_slope=self.args.leaky_relu_alpha)
+            if(self.args.batch_norm): A = self.bne2[i](A)
+            A = self.dropout(A)
+
+            A = torch.sum(A.view(batch_size, self.args.num_hits, self.args.num_hits, self.args.fe_out_size), 2)
+            x = torch.cat((A, x), 2)
+            x = x.view(batch_size * self.args.num_hits, self.args.fe_out_size + self.args.hidden_node_size)
+
+            if(self.args.gru):
+                x, hidden = self.fn1[i](x, hidden)
+            else:
+                for j in range(self.args.fn_num_layers):
+                    x = F.leaky_relu(self.fn1[i][j](x), negative_slope=self.args.leaky_relu_alpha)
+                    if(self.args.batch_norm): x = self.bnn[i][j](x)
+                    x = self.dropout(x)
+
+            x = self.dropout(torch.tanh(self.fn2[i](x)))
+            x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
+
+        if(self.G):
+            x = x[:, :, :self.args.node_feat_size]
+            return x
+        else:
+            x = torch.mean(x[:, :, :1], 1)
+            return x if self.args.wgan else torch.sigmoid(x)
+
+    def getA(self, x, batch_size):
+        x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, self.args.hidden_node_size)
+        x2 = x.repeat(1, self.args.num_hits, 1)
+
+        if(self.args.int_diffs):
+            dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
+            int_diffs = 1 - ((x2[:, :, 2] - x1[:, :, 2])).unsqueeze(2)
+            A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
+        elif(self.args.pos_diffs):
+            dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
+            A = torch.cat((x1, x2, dists), 2).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
+        else:
+            A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
+
+        return A
+
+    def initHidden(self, batch_size):
+        return torch.zeros(self.args.fn_num_layers, batch_size * self.args.num_hits, self.args.fn_hidden_size).to(self.args.device)
+
+
 class Graph_Generator(nn.Module):
     def __init__(self, node_size, fe_hidden_size, fe_out_size, fn_hidden_size, fn_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, pos_diffs=False, gru=True, batch_norm=False, device='cpu'):
         super(Graph_Generator, self).__init__()
@@ -133,7 +250,6 @@ class Graph_Discriminator(nn.Module):
         self.fe_out_size = fe_out_size
         self.num_hits = num_hits
         self.alpha = alpha
-        self.dropout = dropout
         self.fn_num_layers = fn_num_layers
         self.fn_hidden_size = fn_hidden_size
         self.mp_iters = mp_iters
