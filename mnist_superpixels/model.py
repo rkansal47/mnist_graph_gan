@@ -85,7 +85,7 @@ class Graph_Generator(nn.Module):
             A = F.leaky_relu(self.fe2[i](A), negative_slope=self.alpha)
             if(self.batch_norm): A = self.bne2[i](A)
 
-            A = torch.mean(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
+            A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
 
             x = torch.cat((A, x), 2)
             x = x.view(batch_size * self.num_hits, self.fe_out_size + self.hidden_node_size)
@@ -206,7 +206,7 @@ class Graph_Discriminator(nn.Module):
             if(self.batch_norm): A = self.bne2[i](A)
             A = self.dropout(A)
 
-            A = torch.mean(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
+            A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
             x = torch.cat((A, x), 2)
             x = x.view(batch_size * self.num_hits, self.fe_out_size + self.hidden_node_size)
 

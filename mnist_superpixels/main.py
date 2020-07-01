@@ -382,7 +382,7 @@ def main(args):
         if(args.wgan):
             D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims, run_batch_size)
         else:
-            if(args.label_smoothing): D_real_loss = criterion(D_real_output, Y_real[:run_batch_size]-1)
+            if(args.label_smoothing): D_real_loss = criterion(D_real_output, Y_real[:run_batch_size] - 0.1)
             else: D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
             D_fake_loss = criterion(D_fake_output, Y_fake[:run_batch_size])
 
