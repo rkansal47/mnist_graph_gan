@@ -27,77 +27,92 @@ class Graph_GAN(nn.Module):
         else:
             self.args.fe_in_size = 2 * self.args.hidden_node_size
 
-        self.fe1 = nn.ModuleList()
-        self.fe2 = nn.ModuleList()
-        self.fn1 = nn.ModuleList()
-        self.fn2 = nn.ModuleList()
+        self.args.fe_out_size = self.args.fe[-1]
+
+        # print("before")
+        #
+        # print("fe: ")
+        # print(self.args.fe)
+        #
+        # print("fn: ")
+        # print(self.args.fn)
+
+        self.args.fe.insert(0, self.args.fe_in_size)
+        self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size)
+        self.args.fn.append(self.args.hidden_node_size)
+
+        # print("after")
+        #
+        # print("fe: ")
+        # print(self.args.fe)
+        #
+        # print("fn: ")
+        # print(self.args.fn)
+
+        self.fe = nn.ModuleList()
+        self.fn = nn.ModuleList()
 
         if(self.args.batch_norm):
-            self.bne1 = nn.ModuleList()
-            self.bne2 = nn.ModuleList()
+            self.bne = nn.ModuleList()
             self.bnn = nn.ModuleList()
 
         for i in range(self.args.mp_iters):
-            self.fe1.append(nn.Linear(self.args.fe_in_size, self.args.fe_hidden_size))
-            self.fe2.append(nn.Linear(self.args.fe_hidden_size, self.args.fe_out_size))
+            # edge network
+            fe_iter = nn.ModuleList()
+            if self.args.batch_norm: bne = nn.ModuleList()
+            for i in range(len(self.args.fe) - 1):
+                fe_iter.append(nn.Linear(self.args.fe[i], self.args.fe[i + 1]))
+                if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[i + 1]))
 
-            if(self.args.batch_norm):
-                self.bne1.append(nn.BatchNorm1d(self.args.fe_hidden_size))
-                self.bne2.append(nn.BatchNorm1d(self.args.fe_out_size))
+            self.fe.append(fe_iter)
+            if self.args.batch_norm: self.bne.append(bne)
 
-            if(self.args.gru):
-                self.fn1.append(GRU(self.args.fe_out_size + self.args.hidden_node_size, self.args.fn_hidden_size, self.args.fn_num_layers, self.args.dropout))
-                self.fn2.append(nn.Linear(self.args.fn_hidden_size, self.args.hidden_node_size))
-            else:
-                fni1 = nn.ModuleList()
-                fni1.append(nn.Linear(self.args.fe_out_size + self.args.hidden_node_size, self.args.fn_hidden_size))
-                for i in range(self.args.fn_num_layers - 1):
-                    fni1.append(nn.Linear(self.args.fn_hidden_size, self.args.fn_hidden_size))
+            # node network
+            fn_iter = nn.ModuleList()
+            if self.args.batch_norm: bnn = nn.ModuleList()
+            for i in range(len(self.args.fn) - 1):
+                fn_iter.append(nn.Linear(self.args.fn[i], self.args.fn[i + 1]))
+                if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[i + 1]))
 
-                self.fn1.append(fni1)
-                self.fn2.append(nn.Linear(self.args.fn_hidden_size, self.args.hidden_node_size))
-
-                if(self.args.batch_norm):
-                    bnni = nn.ModuleList()
-                    for i in range(self.args.fn_num_layers):
-                        bnni.append(nn.BatchNorm1d(self.args.fn_hidden_size))
-                    self.bnn.append(bnni)
+            self.fn.append(fn_iter)
+            if self.args.batch_norm: self.bnn.append(bnn)
 
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
 
+        # print("after")
+
+        print("fe: ")
+        print(self.fe)
+
+        print("fn: ")
+        print(self.fn)
+
     def forward(self, x):
         batch_size = x.shape[0]
-
-        if(self.args.gru):
-            hidden = self.initHidden(batch_size)
 
         if(self.D): x = F.pad(x, (0, self.args.hidden_node_size - self.args.node_feat_size, 0, 0, 0, 0))
 
         for i in range(self.args.mp_iters):
+
+            # message passing
             A = self.getA(x, batch_size)
 
-            A = F.leaky_relu(self.fe1[i](A), negative_slope=self.args.leaky_relu_alpha)
-            if(self.args.batch_norm): A = self.bne1[i](A)
-            A = self.dropout(A)
+            for j in range(len(self.fe[i])):
+                A = F.leaky_relu(self.fe[i][j](A), negative_slope=self.args.leaky_relu_alpha)
+                if(self.args.batch_norm): A = self.bne[i][j](A)
+                A = self.dropout(A)
 
-            A = F.leaky_relu(self.fe2[i](A), negative_slope=self.args.leaky_relu_alpha)
-            if(self.args.batch_norm): A = self.bne2[i](A)
-            A = self.dropout(A)
-
+            # message aggregation into new features
             A = torch.sum(A.view(batch_size, self.args.num_hits, self.args.num_hits, self.args.fe_out_size), 2)
-            x = torch.cat((A, x), 2)
-            x = x.view(batch_size * self.args.num_hits, self.args.fe_out_size + self.args.hidden_node_size)
+            x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, self.args.fe_out_size + self.args.hidden_node_size)
 
-            if(self.args.gru):
-                x, hidden = self.fn1[i](x, hidden)
-            else:
-                for j in range(self.args.fn_num_layers):
-                    x = F.leaky_relu(self.fn1[i][j](x), negative_slope=self.args.leaky_relu_alpha)
-                    if(self.args.batch_norm): x = self.bnn[i][j](x)
-                    x = self.dropout(x)
+            for j in range(len(self.fn[i]) - 1):
+                x = F.leaky_relu(self.fn[i][j](x), negative_slope=self.args.leaky_relu_alpha)
+                if(self.args.batch_norm): x = self.bnn[i][j](x)
+                x = self.dropout(x)
 
-            x = self.dropout(torch.tanh(self.fn2[i](x)))
+            x = self.dropout(torch.tanh(self.fn[i][-1](x)))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
         if(self.G):
@@ -122,9 +137,6 @@ class Graph_GAN(nn.Module):
             A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
 
         return A
-
-    def initHidden(self, batch_size):
-        return torch.zeros(self.args.fn_num_layers, batch_size * self.args.num_hits, self.args.fn_hidden_size).to(self.args.device)
 
 
 class Graph_Generator(nn.Module):

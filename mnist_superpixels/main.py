@@ -27,7 +27,7 @@ from os.path import exists, dirname, realpath
 import sys
 import tarfile
 import urllib
-from copy import copy
+from copy import deepcopy
 
 from torch_geometric.datasets import MNISTSuperpixels
 import torch_geometric.transforms as T
@@ -147,13 +147,15 @@ def main(args):
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
         # G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
-        G = Graph_GAN(gen=True, args=copy(args)).to(device)
+        print("generator")
+        G = Graph_GAN(gen=True, args=deepcopy(args)).to(device)
         if(args.gcnn):
             D = MoNet(kernel_size=args.kernel_size, dropout=args.disc_dropout, device=device, wgan=args.wgan).to(device)
             # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
         else:
             # D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
-            D = Graph_GAN(gen=False, args=copy(args)).to(device)
+            print("discriminator")
+            D = Graph_GAN(gen=False, args=deepcopy(args)).to(device)
 
     print("Models loaded")
 
@@ -545,15 +547,16 @@ def parse_args():
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
 
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
-    parser.add_argument("--hidden-node-size", type=int, default=64, help="latent vector size of each node (incl node feature size)")
+    parser.add_argument("--hidden-node-size", type=int, default=16, help="latent vector size of each node (incl node feature size)")
 
-    parser.add_argument("--fe-hidden-size", type=int, default=128, help="edge network hidden layer size")
-    parser.add_argument("--fe-out-size", type=int, default=256, help="edge network out size")
+    # parser.add_argument("--fe-hidden-size", type=int, default=128, help="edge network hidden layer size")
+    # parser.add_argument("--fe-out-size", type=int, default=256, help="edge network out size")
+    #
+    # parser.add_argument("--fn-hidden-size", type=int, default=256, help="message passing hidden layers sizes")
+    # parser.add_argument("--fn-num-layers", type=int, default=2, help="message passing number of layers in generator")
 
-    parser.add_argument("--fn-hidden-size", type=int, default=256, help="message passing hidden layers sizes")
-    parser.add_argument("--fn-num-layers", type=int, default=2, help="message passing number of layers in generator")
-
-    # parser.add_argument("--fn", type=int, nargs='*', default=[64], help="hidden fn layers e.g. 32 64 128")
+    parser.add_argument("--fn", type=int, nargs='*', default=[256, 256], help="hidden fn layers e.g. 32 64 128")
+    parser.add_argument("--fe", type=int, nargs='+', default=[64, 128], help="hidden and output fe layers e.g. 64 128")
 
     parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
     parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
@@ -591,8 +594,8 @@ def parse_args():
         print("int_diffs = true and pos_diffs = false not supported yet")
         sys.exit()
 
-    if(args.gen_dropout > 0):
-        print("generator dropout not supported yet")
+    if(args.gru):
+        print("GRU not supported anymore")
         sys.exit()
 
     if(args.n):
