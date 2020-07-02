@@ -578,7 +578,7 @@ def parse_args():
     parser.add_argument("--num", type=int, default=3, help="number to train on")
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
-    parser.add_argument("--batch-size", type=int, default=16, help="batch size")
+    parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
