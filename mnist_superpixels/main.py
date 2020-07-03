@@ -434,6 +434,7 @@ def main(args):
 
     def train():
         k = 0
+        temp_ng = args.num_gen
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             D_loss = 0
@@ -478,8 +479,16 @@ def main(args):
             print("g loss: " + str(G_losses[-1]))
             print("d loss: " + str(D_losses[-1]))
 
-            if(args.gom):
-                bag = 0.01
+            bag = 0.05
+            if(args.bgm):
+                if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
+                    print("num gen upping to 10")
+                    args.num_gen = 10
+                else:
+                    print("num gen normal")
+                    args.num_gen = temp_ng
+
+            elif(args.gom):
                 if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
                     print("G loss too high - training G only")
                     j = 0
@@ -538,6 +547,7 @@ def parse_args():
     add_bool_arg(parser, "gcnn", "use wgan", default=False)
     add_bool_arg(parser, "gru", "use wgan", default=False)
     add_bool_arg(parser, "gom", "use gen only mode", default=False)
+    add_bool_arg(parser, "bgm", "use boost g mode", default=False)
     add_bool_arg(parser, "label-smoothing", "use label smotthing with discriminator", default=False)
 
     add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
