@@ -571,8 +571,8 @@ def parse_args():
     parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
     parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
 
-    parser.add_argument("--mp-iters-gen", type=int, default=1, help="number of message passing iterations in the generator")
-    parser.add_argument("--mp-iters-disc", type=int, default=1, help="number of message passing iterations in the discriminator (if applicable)")
+    parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
+    parser.add_argument("--mp-iters-disc", type=int, default=2, help="number of message passing iterations in the discriminator (if applicable)")
 
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
