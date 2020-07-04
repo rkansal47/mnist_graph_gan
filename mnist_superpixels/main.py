@@ -6,6 +6,7 @@
 import torch
 from model import Graph_GAN, MoNet  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
 from superpixels_dataset import SuperpixelsDataset
+from graph_dataset_mnist import MNISTGraphDataset
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 from torch.autograd import Variable
@@ -25,8 +26,6 @@ from os import listdir, mkdir, remove
 from os.path import exists, dirname, realpath
 
 import sys
-import tarfile
-import urllib
 from copy import deepcopy
 
 from torch_geometric.datasets import MNISTSuperpixels
@@ -39,11 +38,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # torch.cuda.set_device(0)
 
-url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
-
 # Have to specify 'name' and 'args.start_epoch' if True
 LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
-TRAIN = True
 
 cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
 
@@ -66,6 +62,8 @@ def main(args):
         name.append('gcnn')
     if args.gom:
         name.append('g_only_mode')
+    if args.sparse_mnist:
+        name.append('sparse_mnist')
 
     # name.append('num_iters_{}'.format(args.num_iters))
     # name.append('num_critic_{}'.format(args.num_critic))
@@ -75,7 +73,7 @@ def main(args):
     args.losses_path = args.dir_path + '/losses/'
     args.args_path = args.dir_path + '/args/'
     args.figs_path = args.dir_path + '/figs/'
-    args.dataset_path = args.dir_path + '/raw/'
+    args.dataset_path = args.dir_path + '/raw/' if not args.sparse_mnist else args.dir_path + '/mnist_dataset/'
     args.err_path = args.dir_path + '/err/'
 
     args.device = device
@@ -92,15 +90,27 @@ def main(args):
         mkdir(args.err_path)
     if(not exists(args.dataset_path)):
         mkdir(args.dataset_path)
-        try:
-            # python2
-            file_tmp = urllib.urlretrieve(url, filename=None)[0]
-        except:
-            # python3
-            file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
+        print("Downloading dataset")
+        if(not args.sparse_mnist):
+            import tarfile, urllib
+            url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
+            try:
+                # python2
+                file_tmp = urllib.urlretrieve(url, filename=None)[0]
+            except:
+                # python3
+                file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
 
-        tar = tarfile.open(file_tmp)
-        tar.extractall(args.dataset_path)
+            tar = tarfile.open(file_tmp)
+            tar.extractall(args.dataset_path)
+        else:
+            import requests
+            r = requests.get('https://pjreddie.com/media/files/mnist_train.csv', allow_redirects=True)
+            open(args.dataset_path + 'mnist_train.csv', 'wb').write(r.content)
+            r = requests.get('https://pjreddie.com/media/files/mnist_test.csv', allow_redirects=True)
+            open(args.dataset_path + 'mnist_test.csv', 'wb').write(r.content)
+
+        print("Downloaded dataset")
 
     prev_models = [f[:-4] for f in listdir(args.args_path)]  # removing .txt
 
@@ -133,12 +143,18 @@ def main(args):
 
     print("loading")
 
-    if(args.gcnn):
-        X = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
-        X_loaded = tgDataLoader(X, shuffle=True, batch_size=args.batch_size)
-    else:
-        X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=args.num, device=device)
+    if(args.sparse_mnist):
+        print("train")
+        print(args.train)
+        X = MNISTGraphDataset(args.dataset_path, args.num_hits, train=args.train, num=args.num)
         X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
+    else:
+        if(args.gcnn):
+            X = MNISTSuperpixels(args.dir_path, train=args.train, pre_transform=T.Cartesian(), pre_filter=pre_filter)
+            X_loaded = tgDataLoader(X, shuffle=True, batch_size=args.batch_size)
+        else:
+            X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=args.train, num=args.num)
+            X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
 
     print("loaded")
 
@@ -190,7 +206,6 @@ def main(args):
     def gen(num_samples, noise=0):
         if(noise == 0):
             noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size))
-            # noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).to(device)
 
         return G(noise)
 
@@ -261,27 +276,50 @@ def main(args):
         fig = plt.figure(figsize=(10, 10))
 
         num_ims = 100
-        node_r = 30
-        im_px = 1000
 
         gen_out = gen(args.batch_size).cpu().detach().numpy()
-        # print(gen_out)
 
         for i in range(int(num_ims / args.batch_size)):
             gen_out = np.concatenate((gen_out, gen(args.batch_size).cpu().detach().numpy()), 0)
 
         gen_out = gen_out[:num_ims]
 
-        gen_out[gen_out > 0.47] = 0.47
-        gen_out[gen_out < -0.5] = -0.5
+        # print(gen_out)
 
-        gen_out = gen_out * [im_px, im_px, 1] + [(im_px + node_r) / 2, (im_px + node_r) / 2, 0.55]
+        if(args.sparse_mnist):
+            gen_out = gen_out * [28, 28, 1] + [14, 14, 1]
 
-        for i in range(1, num_ims + 1):
-            fig.add_subplot(10, 10, i)
-            im_disp = draw_graph(gen_out[i - 1], node_r, im_px)
-            plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
-            plt.axis('off')
+            for i in range(1, num_ims + 1):
+                fig.add_subplot(10, 10, i)
+                im_disp = np.zeros((28, 28)) - 0.5
+
+                im_disp += np.min(gen_out[i - 1])
+
+                for x in gen_out[i - 1]:
+                    x0 = int(round(x[0])) if x[0] < 27 else 27
+                    x0 = x0 if x0 > 0 else 0
+
+                    x1 = int(round(x[1])) if x[1] < 27 else 27
+                    x1 = x1 if x1 > 0 else 0
+
+                    im_disp[x1, x0] = x[2]
+
+                plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
+                plt.axis('off')
+        else:
+            node_r = 30
+            im_px = 1000
+
+            gen_out[gen_out > 0.47] = 0.47
+            gen_out[gen_out < -0.5] = -0.5
+
+            gen_out = gen_out * [im_px, im_px, 1] + [(im_px + node_r) / 2, (im_px + node_r) / 2, 0.55]
+
+            for i in range(1, num_ims + 1):
+                fig.add_subplot(10, 10, i)
+                im_disp = draw_graph(gen_out[i - 1], node_r, im_px)
+                plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
+                plt.axis('off')
 
         g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
         name = args.name + "/" + str(epoch) + g_only
@@ -447,7 +485,7 @@ def main(args):
                         row, col = data.edge_index
                         data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
                     else:
-                        data = data[0].to(device)
+                        data = data.to(device)
 
                     D_loss += train_D(data)
 
@@ -460,7 +498,7 @@ def main(args):
                             row, col = data.edge_index
                             data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
                         else:
-                            data = data[0].to(device)
+                            data = data.to(device)
 
                         D_loss += train_D(data)
 
@@ -549,6 +587,7 @@ def parse_args():
     add_bool_arg(parser, "gom", "use gen only mode", default=False)
     add_bool_arg(parser, "bgm", "use boost g mode", default=False)
     add_bool_arg(parser, "label-smoothing", "use label smotthing with discriminator", default=False)
+    add_bool_arg(parser, "sparse-mnist", "use sparse mnist dataset (as opposed to superpixels)", default=False)
 
     add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
 
@@ -597,6 +636,11 @@ def parse_args():
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
 
     add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
+
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('--train', dest='train', action='store_true', help=help)
+    group.add_argument('--test', dest='train', action='store_false', help=help)
+    parser.set_defaults(**{'train': True})
 
     args = parser.parse_args()
 

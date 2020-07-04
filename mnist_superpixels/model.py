@@ -29,25 +29,9 @@ class Graph_GAN(nn.Module):
 
         self.args.fe_out_size = self.args.fe[-1]
 
-        # print("before")
-        #
-        # print("fe: ")
-        # print(self.args.fe)
-        #
-        # print("fn: ")
-        # print(self.args.fn)
-
         self.args.fe.insert(0, self.args.fe_in_size)
         self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size)
         self.args.fn.append(self.args.hidden_node_size)
-
-        # print("after")
-        #
-        # print("fe: ")
-        # print(self.args.fe)
-        #
-        # print("fn: ")
-        # print(self.args.fn)
 
         self.fe = nn.ModuleList()
         self.fn = nn.ModuleList()
