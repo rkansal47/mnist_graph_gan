@@ -94,10 +94,10 @@ def main(args):
             url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
             try:
                 # python2
-                file_tmp = urllib.urlretrieve(url, filename=None)[0]
+                file_tmp = urllib.urlretrieve(url)[0]
             except:
                 # python3
-                file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
+                file_tmp = urllib.request.urlretrieve(url)[0]
 
             tar = tarfile.open(file_tmp)
             tar.extractall(args.dataset_path)
