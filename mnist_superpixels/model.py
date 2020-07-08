@@ -29,25 +29,9 @@ class Graph_GAN(nn.Module):
 
         self.args.fe_out_size = self.args.fe[-1]
 
-        # print("before")
-        #
-        # print("fe: ")
-        # print(self.args.fe)
-        #
-        # print("fn: ")
-        # print(self.args.fn)
-
         self.args.fe.insert(0, self.args.fe_in_size)
         self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size)
         self.args.fn.append(self.args.hidden_node_size)
-
-        # print("after")
-        #
-        # print("fe: ")
-        # print(self.args.fe)
-        #
-        # print("fn: ")
-        # print(self.args.fn)
 
         self.fe = nn.ModuleList()
         self.fn = nn.ModuleList()
@@ -521,6 +505,70 @@ class Gaussian_Discriminator(nn.Module):
             tensor.data.fill_(0)
 
 
+class GaussianGenerator(torch.nn.Module):
+    def __init__(self, args):
+        super(GaussianGenerator, self).__init__()
+        self.args = args
+        self.conv1 = GMMConv(self.args.channels[0], 5 * self.args.channels[1], dim=2, kernel_size=args.kernel_size)
+        self.conv2 = GMMConv(self.args.channels[1], 3 * self.args.channels[2], dim=2, kernel_size=args.kernel_size)
+        self.conv3 = GMMConv(self.args.channels[2], self.args.channels[3], dim=2, kernel_size=args.kernel_size)
+        self.pos1fc1 = torch.nn.Linear(2 + self.args.channels[1], 128)
+        self.pos1fc2 = torch.nn.Linear(128, 64)
+        self.pos1fc3 = torch.nn.Linear(64, 2)
+        self.pos2fc1 = torch.nn.Linear(2 + self.args.channels[2], 128)
+        self.pos2fc2 = torch.nn.Linear(128, 64)
+        self.pos2fc3 = torch.nn.Linear(64, 2)
+
+    def forward(self, data):
+        data.edge_index, data.edge_attr = self.getA(data.pos, 5)
+        data.x = F.elu(self.conv1(data.x, data.edge_index, data.edge_attr)).view(-1, self.args.channels[1])
+
+        p = torch.cat((data.pos.repeat(1, 5).view(-1, 2), data.x), 1)
+        p = F.elu(self.pos1fc1(p))
+        p = F.elu(self.pos1fc2(p))
+        data.pos = F.elu(self.pos1fc3(p))
+
+        data.edge_index, data.edge_attr = self.getA(data.pos, 25)
+        data.x = F.elu(self.conv2(data.x, data.edge_index, data.edge_attr)).view(-1, self.args.channels[2])
+
+        p = torch.cat((data.pos.repeat(1, 3).view(-1, 2), data.x), 1)
+        p = F.elu(self.pos2fc1(p))
+        p = F.elu(self.pos2fc2(p))
+        data.pos = F.elu(self.pos2fc3(p))
+
+        data.edge_index, data.edge_attr = self.getA(data.pos, 75)
+        data.x = F.tanh(self.conv3(data.x, data.edge_index, data.edge_attr)).view(-1, self.args.channels[3])
+
+        return data
+
+    def getA(self, pos, num_nodes):
+        posb = pos.view(-1, num_nodes, 2)
+        batch_size = posb.size(0)
+
+        x1 = posb.repeat(1, 1, num_nodes).view(batch_size, num_nodes * num_nodes, 2)
+        x2 = posb.repeat(1, num_nodes, 1)
+
+        diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
+        norms = diff_norms.view(batch_size, num_nodes, num_nodes)
+        neighborhood = torch.nonzero(norms < self.args.cutoff, as_tuple=False)
+        neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
+        edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * num_nodes).view(-1, 1)).transpose(0, 1)
+
+        row, col = edge_index
+        edge_attr = (pos[col] - pos[row]) / self.args.cutoff + 0.5
+
+        # print("A")
+        #
+        # print(edge_index.shape)
+        # print(edge_index)
+        # print(edge_index[:, -20:])
+        #
+        # print(edge_attr.shape)
+        # print(edge_attr)
+
+        return edge_index.contiguous(), edge_attr
+
+
 def normalized_cut_2d(edge_index, pos):
     row, col = edge_index
     edge_attr = torch.norm(pos[row] - pos[col], p=2, dim=1)
@@ -528,19 +576,16 @@ def normalized_cut_2d(edge_index, pos):
 
 
 class MoNet(torch.nn.Module):
-    def __init__(self, kernel_size, dropout=0.5, wgan=False, device='cpu'):
+    def __init__(self, args):
         super(MoNet, self).__init__()
-        self.conv1 = GMMConv(1, 32, dim=2, kernel_size=kernel_size)
-        self.conv2 = GMMConv(32, 64, dim=2, kernel_size=kernel_size)
-        self.conv3 = GMMConv(64, 64, dim=2, kernel_size=kernel_size)
+        self.args = args
+        self.conv1 = GMMConv(1, 32, dim=2, kernel_size=self.args.kernel_size)
+        self.conv2 = GMMConv(32, 64, dim=2, kernel_size=self.args.kernel_size)
+        self.conv3 = GMMConv(64, 64, dim=2, kernel_size=self.args.kernel_size)
         self.fc1 = torch.nn.Linear(64, 128)
         self.fc2 = torch.nn.Linear(128, 1)
-        self.dropout = dropout
-        self.device = device
-        self.wgan = wgan
 
     def forward(self, data):
-        cutoff = 0.32178
         data.x = F.elu(self.conv1(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
         cluster = graclus(data.edge_index, weight, data.x.size(0))
@@ -548,7 +593,7 @@ class MoNet(torch.nn.Module):
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
 
         row, col = data.edge_index
-        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
+        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * self.args.cutoff) + 0.5
 
         data.x = F.elu(self.conv2(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
@@ -556,16 +601,16 @@ class MoNet(torch.nn.Module):
         data = max_pool(cluster, data, transform=T.Cartesian(cat=False))
 
         row, col = data.edge_index
-        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
+        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * self.args.cutoff) + 0.5
 
         data.x = F.elu(self.conv3(data.x, data.edge_index, data.edge_attr))
 
         x = global_mean_pool(data.x, data.batch)
         x = F.elu(self.fc1(x))
-        x = F.dropout(x, training=self.training, p=self.dropout)
+        x = F.dropout(x, training=self.training, p=self.args.disc_dropout)
         y = self.fc2(x)
 
-        if(self.wgan):
+        if(self.args.wgan):
             return y
 
         return torch.sigmoid(y)

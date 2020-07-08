@@ -4,8 +4,9 @@
 # from time import sleep
 
 import torch
-from model import Graph_GAN, MoNet  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
+from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
 from superpixels_dataset import SuperpixelsDataset
+from graph_dataset_mnist import MNISTGraphDataset
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 from torch.autograd import Variable
@@ -25,27 +26,20 @@ from os import listdir, mkdir, remove
 from os.path import exists, dirname, realpath
 
 import sys
-import tarfile
-import urllib
 from copy import deepcopy
 
 from torch_geometric.datasets import MNISTSuperpixels
 import torch_geometric.transforms as T
 from torch_geometric.data import DataLoader as tgDataLoader
-from torch_geometric.data import Batch
+from torch_geometric.data import Batch, Data
 
 plt.switch_backend('agg')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # torch.cuda.set_device(0)
 
-url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
-
 # Have to specify 'name' and 'args.start_epoch' if True
 LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
-TRAIN = True
-
-cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
 
 
 class objectview(object):
@@ -66,6 +60,8 @@ def main(args):
         name.append('gcnn')
     if args.gom:
         name.append('g_only_mode')
+    if args.sparse_mnist:
+        name.append('sparse_mnist')
 
     # name.append('num_iters_{}'.format(args.num_iters))
     # name.append('num_critic_{}'.format(args.num_critic))
@@ -75,7 +71,7 @@ def main(args):
     args.losses_path = args.dir_path + '/losses/'
     args.args_path = args.dir_path + '/args/'
     args.figs_path = args.dir_path + '/figs/'
-    args.dataset_path = args.dir_path + '/raw/'
+    args.dataset_path = args.dir_path + '/raw/' if not args.sparse_mnist else args.dir_path + '/mnist_dataset/'
     args.err_path = args.dir_path + '/err/'
 
     args.device = device
@@ -92,15 +88,27 @@ def main(args):
         mkdir(args.err_path)
     if(not exists(args.dataset_path)):
         mkdir(args.dataset_path)
-        try:
-            # python2
-            file_tmp = urllib.urlretrieve(url, filename=None)[0]
-        except:
-            # python3
-            file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
+        print("Downloading dataset")
+        if(not args.sparse_mnist):
+            import tarfile, urllib
+            url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
+            try:
+                # python2
+                file_tmp = urllib.urlretrieve(url, filename=None)[0]
+            except:
+                # python3
+                file_tmp = urllib.request.urlretrieve(url, filename=args.dataset)[0]
 
-        tar = tarfile.open(file_tmp)
-        tar.extractall(args.dataset_path)
+            tar = tarfile.open(file_tmp)
+            tar.extractall(args.dataset_path)
+        else:
+            import requests
+            r = requests.get('https://pjreddie.com/media/files/mnist_train.csv', allow_redirects=True)
+            open(args.dataset_path + 'mnist_train.csv', 'wb').write(r.content)
+            r = requests.get('https://pjreddie.com/media/files/mnist_test.csv', allow_redirects=True)
+            open(args.dataset_path + 'mnist_test.csv', 'wb').write(r.content)
+
+        print("Downloaded dataset")
 
     prev_models = [f[:-4] for f in listdir(args.args_path)]  # removing .txt
 
@@ -133,12 +141,18 @@ def main(args):
 
     print("loading")
 
-    if(args.gcnn):
-        X = MNISTSuperpixels(args.dir_path, train=TRAIN, pre_transform=T.Cartesian(), pre_filter=pre_filter)
-        X_loaded = tgDataLoader(X, shuffle=True, batch_size=args.batch_size)
-    else:
-        X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=TRAIN, num=args.num, device=device)
+    if(args.sparse_mnist):
+        print("train")
+        print(args.train)
+        X = MNISTGraphDataset(args.dataset_path, args.num_hits, train=args.train, num=args.num)
         X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
+    else:
+        if(args.gcnn):
+            X = MNISTSuperpixels(args.dir_path, train=args.train, pre_transform=T.Cartesian(), pre_filter=pre_filter)
+            X_loaded = tgDataLoader(X, shuffle=True, batch_size=args.batch_size)
+        else:
+            X = SuperpixelsDataset(args.dataset_path, args.num_hits, train=args.train, num=args.num)
+            X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
 
     print("loaded")
 
@@ -147,14 +161,13 @@ def main(args):
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
         # G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
-        print("generator")
-        G = Graph_GAN(gen=True, args=deepcopy(args)).to(device)
         if(args.gcnn):
-            D = MoNet(kernel_size=args.kernel_size, dropout=args.disc_dropout, device=device, wgan=args.wgan).to(device)
+            G = GaussianGenerator(args=deepcopy(args)).to(device)
+            D = MoNet(args=deepcopy(args)).to(device)
             # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
         else:
             # D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
-            print("discriminator")
+            G = Graph_GAN(gen=True, args=deepcopy(args)).to(device)
             D = Graph_GAN(gen=False, args=deepcopy(args)).to(device)
 
     print("Models loaded")
@@ -187,12 +200,18 @@ def main(args):
 
     # print(criterion(torch.tensor([1.0]),torch.tensor([-1.0])))
 
-    def gen(num_samples, noise=0):
+    def gen(num_samples, noise=0, disp=False):
         if(noise == 0):
-            noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size))
-            # noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size)).to(device)
+            if(args.gcnn):
+                rand = normal_dist.sample((num_samples * 5, 2 + args.channels[0]))
+                noise = Data(pos=rand[:, :2], x=rand[:, 2:])
+            else:
+                noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size))
 
-        return G(noise)
+        gen_data = G(noise)
+
+        if args.gcnn and disp: return torch.cat((gen_data.pos, gen_data.x), 1).view(num_samples, 75, 3)
+        return gen_data
 
     # transform my format to torch_geometric's
     def tg_transform(X):
@@ -206,16 +225,16 @@ def main(args):
         diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
 
         # diff = x2-x1
-        # diff = diff[diff_norms < cutoff]
+        # diff = diff[diff_norms < args.cutoff]
 
         norms = diff_norms.reshape(batch_size, 75, 75)
-        neighborhood = torch.nonzero(norms < cutoff, as_tuple=False)
+        neighborhood = torch.nonzero(norms < args.cutoff, as_tuple=False)
         # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
 
         neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
         unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
         # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
-        edge_index = neighborhood[:, 1:].transpose(0, 1)
+        edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * 75).view(-1, 1)).transpose(0, 1)
 
         # normalizing edge attributes
         # edge_attr_list = list()
@@ -229,13 +248,13 @@ def main(args):
         #
         # edge_attr = torch.cat(edge_attr_list)
 
-        # edge_attr = diff/(2 * cutoff) + 0.5
+        # edge_attr = diff/(2 * args.cutoff) + 0.5
 
         x = X[:, :, 2].reshape(batch_size * 75, 1) + 0.5
         pos = 28 * pos.reshape(batch_size * 75, 2) + 14
 
         row, col = edge_index
-        edge_attr = (pos[col] - pos[row]) / (2 * 28 * cutoff) + 0.5
+        edge_attr = (pos[col] - pos[row]) / (2 * 28 * args.cutoff) + 0.5
 
         zeros = torch.zeros(batch_size * 75, dtype=int).to(device)
         zeros[torch.arange(batch_size) * 75] = 1
@@ -261,27 +280,50 @@ def main(args):
         fig = plt.figure(figsize=(10, 10))
 
         num_ims = 100
-        node_r = 30
-        im_px = 1000
 
-        gen_out = gen(args.batch_size).cpu().detach().numpy()
-        # print(gen_out)
+        gen_out = gen(args.batch_size, disp=True).cpu().detach().numpy()
 
         for i in range(int(num_ims / args.batch_size)):
-            gen_out = np.concatenate((gen_out, gen(args.batch_size).cpu().detach().numpy()), 0)
+            gen_out = np.concatenate((gen_out, gen(args.batch_size, disp=True).cpu().detach().numpy()), 0)
 
         gen_out = gen_out[:num_ims]
 
-        gen_out[gen_out > 0.47] = 0.47
-        gen_out[gen_out < -0.5] = -0.5
+        # print(gen_out)
 
-        gen_out = gen_out * [im_px, im_px, 1] + [(im_px + node_r) / 2, (im_px + node_r) / 2, 0.55]
+        if(args.sparse_mnist):
+            gen_out = gen_out * [28, 28, 1] + [14, 14, 1]
 
-        for i in range(1, num_ims + 1):
-            fig.add_subplot(10, 10, i)
-            im_disp = draw_graph(gen_out[i - 1], node_r, im_px)
-            plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
-            plt.axis('off')
+            for i in range(1, num_ims + 1):
+                fig.add_subplot(10, 10, i)
+                im_disp = np.zeros((28, 28)) - 0.5
+
+                im_disp += np.min(gen_out[i - 1])
+
+                for x in gen_out[i - 1]:
+                    x0 = int(round(x[0])) if x[0] < 27 else 27
+                    x0 = x0 if x0 > 0 else 0
+
+                    x1 = int(round(x[1])) if x[1] < 27 else 27
+                    x1 = x1 if x1 > 0 else 0
+
+                    im_disp[x1, x0] = x[2]
+
+                plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
+                plt.axis('off')
+        else:
+            node_r = 30
+            im_px = 1000
+
+            gen_out[gen_out > 0.47] = 0.47
+            gen_out[gen_out < -0.5] = -0.5
+
+            gen_out = gen_out * [im_px, im_px, 1] + [(im_px + node_r) / 2, (im_px + node_r) / 2, 0.55]
+
+            for i in range(1, num_ims + 1):
+                fig.add_subplot(10, 10, i)
+                im_disp = draw_graph(gen_out[i - 1], node_r, im_px)
+                plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
+                plt.axis('off')
 
         g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
         name = args.name + "/" + str(epoch) + g_only
@@ -329,14 +371,7 @@ def main(args):
             alpha_pos = alpha.expand((batch_size, 75, 2))
             interpolated_pos = alpha_pos * real_data.pos.reshape(batch_size, 75, 2) + (1 - alpha_pos) * generated_data.pos.reshape(batch_size, 75, 2)
             interpolated_X = Variable(torch.cat(((interpolated_pos - 14) / 28, interpolated_x - 0.5), dim=2), requires_grad=True)
-            # print(interpolated_X.shape)
             interpolated = tg_transform(interpolated_X)
-
-            # interpolated_x = Variable(alpha * real_data.x + (1 - alpha) * generated_data.x, requires_grad=True).to(device)
-            # interpolated_edge_index = Variable(alpha * real_data.edge_index + (1 - alpha) * generated_data.edge_index, requires_grad=True).to(device)
-            # interpolated_edge_attr = Variable(alpha * real_data.edge_attr + (1 - alpha) * generated_data.edge_attr, requires_grad=True).to(device)
-            # interpolated_pos = Variable(alpha * real_data.pos + (1 - alpha) * generated_data.pos, requires_grad=True).to(device)
-            # interpolated = Batch(batch=real_data.batch, x=interpolated_x, edge_index=interpolated_edge_index, edge_attr=interpolated_edge_attr, pos=interpolated_pos)
 
         del alpha
         torch.cuda.empty_cache()
@@ -366,6 +401,13 @@ def main(args):
         # print(gp)
         return gp
 
+    def convert_to_batch(data, batch_size):
+        zeros = torch.zeros(batch_size * 75, dtype=int).to(device)
+        zeros[torch.arange(batch_size) * 75] = 1
+        batch = torch.cumsum(zeros, 0) - 1
+
+        return Batch(batch=batch, x=data.x, pos=data.pos, edge_index=data.edge_index, edge_attr=data.edge_attr)
+
     def train_D(data):
         # print("dtrain")
         D.train()
@@ -378,16 +420,18 @@ def main(args):
         # print("real")
         # print(D_real_output)
 
-        gen_ims = gen(run_batch_size)
-        use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
+        gen_data = gen(run_batch_size)
+        # use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
 
-        D_fake_output = D(use_gen_ims.clone())
+        if(args.gcnn): gen_data = convert_to_batch(gen_data, run_batch_size)
+
+        D_fake_output = D(gen_data)
 
         # print("fake")
         # print(D_fake_output)
 
         if(args.wgan):
-            D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims, run_batch_size)
+            D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, gen_data, run_batch_size)
         else:
             if(args.label_smoothing): D_real_loss = criterion(D_real_output, Y_real[:run_batch_size] - 0.1)
             else: D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
@@ -405,10 +449,13 @@ def main(args):
         G.train()
         G_optimizer.zero_grad()
 
-        gen_ims = gen(args.batch_size)
-        use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
+        gen_data = gen(args.batch_size)
 
-        D_fake_output = D(use_gen_ims)
+        if(args.gcnn): gen_data = convert_to_batch(gen_data, args.batch_size)
+
+        # use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
+
+        D_fake_output = D(gen_data)
 
         # print(D_fake_output)
 
@@ -434,33 +481,26 @@ def main(args):
 
     def train():
         k = 0
+        temp_ng = args.num_gen
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             D_loss = 0
             G_loss = 0
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
-                if(args.num_critic > 1):
-                    if(args.gcnn):
-                        data = data.to(device)
-                        row, col = data.edge_index
-                        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
-                    else:
-                        data = data[0].to(device)
+                data = data.to(device)
+                if(args.gcnn):
+                    data.pos = (data.pos - 14) / 28
+                    row, col = data.edge_index
+                    data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * args.cutoff) + 0.5
 
+                if(args.num_critic > 1):
                     D_loss += train_D(data)
 
                     if((batch_ndx - 1) % args.num_critic == 0):
                         G_loss += train_G()
                 else:
                     if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                        if(args.gcnn):
-                            data = data.to(device)
-                            row, col = data.edge_index
-                            data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
-                        else:
-                            data = data[0].to(device)
-
                         D_loss += train_D(data)
 
                     G_loss += train_G()
@@ -478,8 +518,15 @@ def main(args):
             print("g loss: " + str(G_losses[-1]))
             print("d loss: " + str(D_losses[-1]))
 
-            if(args.gom):
-                bag = 0.01
+            bag = 0.05
+            if(args.bgm):
+                if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
+                    print("num gen upping to 10")
+                    args.num_gen = 10
+                else:
+                    print("num gen normal")
+                    args.num_gen = temp_ng
+            elif(args.gom):
                 if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
                     print("G loss too high - training G only")
                     j = 0
@@ -538,7 +585,9 @@ def parse_args():
     add_bool_arg(parser, "gcnn", "use wgan", default=False)
     add_bool_arg(parser, "gru", "use wgan", default=False)
     add_bool_arg(parser, "gom", "use gen only mode", default=False)
+    add_bool_arg(parser, "bgm", "use boost g mode", default=False)
     add_bool_arg(parser, "label-smoothing", "use label smotthing with discriminator", default=False)
+    add_bool_arg(parser, "sparse-mnist", "use sparse mnist dataset (as opposed to superpixels)", default=False)
 
     add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
 
@@ -561,8 +610,8 @@ def parse_args():
     parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
     parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
 
-    parser.add_argument("--mp-iters-gen", type=int, default=1, help="number of message passing iterations in the generator")
-    parser.add_argument("--mp-iters-disc", type=int, default=1, help="number of message passing iterations in the discriminator (if applicable)")
+    parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
+    parser.add_argument("--mp-iters-disc", type=int, default=2, help="number of message passing iterations in the discriminator (if applicable)")
 
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
     parser.add_argument("--num-hits", type=int, default=75, help="number of hits")
@@ -583,10 +632,17 @@ def parse_args():
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
 
+    parser.add_argument("--cutoff", type=str, default=0.32178, help="cutoff edge distance")  # found empirically to match closest to Superpixels
+
     add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
 
     add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
+
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument('--train', dest='train', action='store_true', help=help)
+    group.add_argument('--test', dest='train', action='store_false', help=help)
+    parser.set_defaults(**{'train': True})
 
     args = parser.parse_args()
 
@@ -600,6 +656,8 @@ def parse_args():
 
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/mnist_superpixels"
+
+    args.channels = [64, 32, 16, 1]
 
     return args
 
