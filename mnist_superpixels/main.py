@@ -4,7 +4,7 @@
 # from time import sleep
 
 import torch
-from model import Graph_GAN, MoNet  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
+from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
 from superpixels_dataset import SuperpixelsDataset
 from graph_dataset_mnist import MNISTGraphDataset
 from torch.utils.data import DataLoader
@@ -31,7 +31,7 @@ from copy import deepcopy
 from torch_geometric.datasets import MNISTSuperpixels
 import torch_geometric.transforms as T
 from torch_geometric.data import DataLoader as tgDataLoader
-from torch_geometric.data import Batch
+from torch_geometric.data import Batch, Data
 
 plt.switch_backend('agg')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -40,8 +40,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Have to specify 'name' and 'args.start_epoch' if True
 LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
-
-cutoff = 0.32178  # found empirically to match closest to Superpixels' IF CHANGING MAKE SURE TO CHANGE IN MODEL.PY
 
 
 class objectview(object):
@@ -163,14 +161,13 @@ def main(args):
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
     else:
         # G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
-        print("generator")
-        G = Graph_GAN(gen=True, args=deepcopy(args)).to(device)
         if(args.gcnn):
-            D = MoNet(kernel_size=args.kernel_size, dropout=args.disc_dropout, device=device, wgan=args.wgan).to(device)
+            G = GaussianGenerator(args=deepcopy(args)).to(device)
+            D = MoNet(args=deepcopy(args)).to(device)
             # D = Gaussian_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.mp_hidden_size, args.mp_num_layers, args.num_iters, args.num_hits, args.dropout, args.leaky_relu_alpha, kernel_size=args.kernel_size, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, gru=GRU, batch_norm=args.batch_norm, device=device).to(device)
         else:
             # D = Graph_Discriminator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_disc, args.num_hits, args.disc_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, wgan=args.wgan, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(device)
-            print("discriminator")
+            G = Graph_GAN(gen=True, args=deepcopy(args)).to(device)
             D = Graph_GAN(gen=False, args=deepcopy(args)).to(device)
 
     print("Models loaded")
@@ -203,11 +200,18 @@ def main(args):
 
     # print(criterion(torch.tensor([1.0]),torch.tensor([-1.0])))
 
-    def gen(num_samples, noise=0):
+    def gen(num_samples, noise=0, disp=False):
         if(noise == 0):
-            noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size))
+            if(args.gcnn):
+                rand = normal_dist.sample((num_samples * 5, 2 + args.channels[0]))
+                noise = Data(pos=rand[:, :2], x=rand[:, 2:])
+            else:
+                noise = normal_dist.sample((num_samples, args.num_hits, args.hidden_node_size))
 
-        return G(noise)
+        gen_data = G(noise)
+
+        if args.gcnn and disp: return torch.cat((gen_data.pos, gen_data.x), 1).view(num_samples, 75, 3)
+        return gen_data
 
     # transform my format to torch_geometric's
     def tg_transform(X):
@@ -221,16 +225,16 @@ def main(args):
         diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
 
         # diff = x2-x1
-        # diff = diff[diff_norms < cutoff]
+        # diff = diff[diff_norms < args.cutoff]
 
         norms = diff_norms.reshape(batch_size, 75, 75)
-        neighborhood = torch.nonzero(norms < cutoff, as_tuple=False)
+        neighborhood = torch.nonzero(norms < args.cutoff, as_tuple=False)
         # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
 
         neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
         unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
         # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
-        edge_index = neighborhood[:, 1:].transpose(0, 1)
+        edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * 75).view(-1, 1)).transpose(0, 1)
 
         # normalizing edge attributes
         # edge_attr_list = list()
@@ -244,13 +248,13 @@ def main(args):
         #
         # edge_attr = torch.cat(edge_attr_list)
 
-        # edge_attr = diff/(2 * cutoff) + 0.5
+        # edge_attr = diff/(2 * args.cutoff) + 0.5
 
         x = X[:, :, 2].reshape(batch_size * 75, 1) + 0.5
         pos = 28 * pos.reshape(batch_size * 75, 2) + 14
 
         row, col = edge_index
-        edge_attr = (pos[col] - pos[row]) / (2 * 28 * cutoff) + 0.5
+        edge_attr = (pos[col] - pos[row]) / (2 * 28 * args.cutoff) + 0.5
 
         zeros = torch.zeros(batch_size * 75, dtype=int).to(device)
         zeros[torch.arange(batch_size) * 75] = 1
@@ -277,10 +281,10 @@ def main(args):
 
         num_ims = 100
 
-        gen_out = gen(args.batch_size).cpu().detach().numpy()
+        gen_out = gen(args.batch_size, disp=True).cpu().detach().numpy()
 
         for i in range(int(num_ims / args.batch_size)):
-            gen_out = np.concatenate((gen_out, gen(args.batch_size).cpu().detach().numpy()), 0)
+            gen_out = np.concatenate((gen_out, gen(args.batch_size, disp=True).cpu().detach().numpy()), 0)
 
         gen_out = gen_out[:num_ims]
 
@@ -367,14 +371,7 @@ def main(args):
             alpha_pos = alpha.expand((batch_size, 75, 2))
             interpolated_pos = alpha_pos * real_data.pos.reshape(batch_size, 75, 2) + (1 - alpha_pos) * generated_data.pos.reshape(batch_size, 75, 2)
             interpolated_X = Variable(torch.cat(((interpolated_pos - 14) / 28, interpolated_x - 0.5), dim=2), requires_grad=True)
-            # print(interpolated_X.shape)
             interpolated = tg_transform(interpolated_X)
-
-            # interpolated_x = Variable(alpha * real_data.x + (1 - alpha) * generated_data.x, requires_grad=True).to(device)
-            # interpolated_edge_index = Variable(alpha * real_data.edge_index + (1 - alpha) * generated_data.edge_index, requires_grad=True).to(device)
-            # interpolated_edge_attr = Variable(alpha * real_data.edge_attr + (1 - alpha) * generated_data.edge_attr, requires_grad=True).to(device)
-            # interpolated_pos = Variable(alpha * real_data.pos + (1 - alpha) * generated_data.pos, requires_grad=True).to(device)
-            # interpolated = Batch(batch=real_data.batch, x=interpolated_x, edge_index=interpolated_edge_index, edge_attr=interpolated_edge_attr, pos=interpolated_pos)
 
         del alpha
         torch.cuda.empty_cache()
@@ -404,6 +401,13 @@ def main(args):
         # print(gp)
         return gp
 
+    def convert_to_batch(data, batch_size):
+        zeros = torch.zeros(batch_size * 75, dtype=int).to(device)
+        zeros[torch.arange(batch_size) * 75] = 1
+        batch = torch.cumsum(zeros, 0) - 1
+
+        return Batch(batch=batch, x=data.x, pos=data.pos, edge_index=data.edge_index, edge_attr=data.edge_attr)
+
     def train_D(data):
         # print("dtrain")
         D.train()
@@ -416,16 +420,18 @@ def main(args):
         # print("real")
         # print(D_real_output)
 
-        gen_ims = gen(run_batch_size)
-        use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
+        gen_data = gen(run_batch_size)
+        # use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
 
-        D_fake_output = D(use_gen_ims.clone())
+        if(args.gcnn): gen_data = convert_to_batch(gen_data, run_batch_size)
+
+        D_fake_output = D(gen_data)
 
         # print("fake")
         # print(D_fake_output)
 
         if(args.wgan):
-            D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, use_gen_ims, run_batch_size)
+            D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, gen_data, run_batch_size)
         else:
             if(args.label_smoothing): D_real_loss = criterion(D_real_output, Y_real[:run_batch_size] - 0.1)
             else: D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
@@ -443,10 +449,13 @@ def main(args):
         G.train()
         G_optimizer.zero_grad()
 
-        gen_ims = gen(args.batch_size)
-        use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
+        gen_data = gen(args.batch_size)
 
-        D_fake_output = D(use_gen_ims)
+        if(args.gcnn): gen_data = convert_to_batch(gen_data, args.batch_size)
+
+        # use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
+
+        D_fake_output = D(gen_data)
 
         # print(D_fake_output)
 
@@ -479,27 +488,19 @@ def main(args):
             G_loss = 0
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
-                if(args.num_critic > 1):
-                    if(args.gcnn):
-                        data = data.to(device)
-                        row, col = data.edge_index
-                        data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
-                    else:
-                        data = data.to(device)
+                data = data.to(device)
+                if(args.gcnn):
+                    data.pos = (data.pos - 14) / 28
+                    row, col = data.edge_index
+                    data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * args.cutoff) + 0.5
 
+                if(args.num_critic > 1):
                     D_loss += train_D(data)
 
                     if((batch_ndx - 1) % args.num_critic == 0):
                         G_loss += train_G()
                 else:
                     if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                        if(args.gcnn):
-                            data = data.to(device)
-                            row, col = data.edge_index
-                            data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * 28 * cutoff) + 0.5
-                        else:
-                            data = data.to(device)
-
                         D_loss += train_D(data)
 
                     G_loss += train_G()
@@ -525,7 +526,6 @@ def main(args):
                 else:
                     print("num gen normal")
                     args.num_gen = temp_ng
-
             elif(args.gom):
                 if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
                     print("G loss too high - training G only")
@@ -632,6 +632,8 @@ def parse_args():
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
 
+    parser.add_argument("--cutoff", type=str, default=0.32178, help="cutoff edge distance")  # found empirically to match closest to Superpixels
+
     add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
 
@@ -654,6 +656,8 @@ def parse_args():
 
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/mnist_superpixels"
+
+    args.channels = [64, 32, 16, 1]
 
     return args
 
