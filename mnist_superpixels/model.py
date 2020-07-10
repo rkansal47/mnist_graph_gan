@@ -96,11 +96,11 @@ class Graph_GAN(nn.Module):
                 if(self.args.batch_norm): x = self.bnn[i][j](x)
                 x = self.dropout(x)
 
-            x = self.dropout(torch.tanh(self.fn[i][-1](x)))
+            x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
         if(self.G):
-            x = x[:, :, :self.args.node_feat_size]
+            x = torch.tanh(x[:, :, :self.args.node_feat_size])
             return x
         else:
             x = torch.mean(x[:, :, :1], 1)

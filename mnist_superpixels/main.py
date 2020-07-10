@@ -74,8 +74,6 @@ def main(args):
     args.dataset_path = args.dir_path + '/raw/' if not args.sparse_mnist else args.dir_path + '/mnist_dataset/'
     args.err_path = args.dir_path + '/err/'
 
-    args.device = device
-
     if(not exists(args.model_path)):
         mkdir(args.model_path)
     if(not exists(args.losses_path)):
