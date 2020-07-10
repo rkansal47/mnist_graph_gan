@@ -273,7 +273,7 @@ def main(args):
 
         return img
 
-    def save_sample_outputs(name, epoch, dlosses, glosses, k=-1, j=-1):
+    def save_sample_outputs(name, epoch, drlosses, dflosses, glosses, k=-1, j=-1):
         print("drawing figs")
         fig = plt.figure(figsize=(10, 10))
 
@@ -330,7 +330,8 @@ def main(args):
         plt.close()
 
         plt.figure()
-        plt.plot(dlosses, label='Discriminitive loss')
+        plt.plot(drlosses, label='Discriminitive real loss')
+        plt.plot(dflosses, label='Discriminitive fake loss')
         plt.plot(glosses, label='Generative loss')
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
@@ -339,7 +340,8 @@ def main(args):
         plt.close()
 
         np.savetxt(args.losses_path + args.name + "/" + "G.txt", glosses)
-        np.savetxt(args.losses_path + args.name + "/" + "D.txt", dlosses)
+        np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", drlosses)
+        np.savetxt(args.losses_path + args.name + "/" + "Df.txt", dflosses)
 
         try:
             if(j == -1): remove(args.losses_path + args.name + "/" + str(epoch - 5) + ".png")
@@ -429,7 +431,10 @@ def main(args):
         # print(D_fake_output)
 
         if(args.wgan):
-            D_loss = D_fake_output.mean() - D_real_output.mean() + gradient_penalty(data, gen_data, run_batch_size)
+            # want reals > 0 and fakes < 0
+            D_real_loss = -D_real_output.mean()
+            D_fake_loss = D_fake_output.mean()
+            D_loss = D_real_loss + D_fake_loss + gradient_penalty(data, gen_data, run_batch_size)
         else:
             if(args.label_smoothing): D_real_loss = criterion(D_real_output, Y_real[:run_batch_size] - 0.1)
             else: D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
@@ -440,7 +445,7 @@ def main(args):
         D_loss.backward()
         D_optimizer.step()
 
-        return D_loss.item()
+        return (D_real_loss.item(), D_fake_loss.item())
 
     def train_G():
         # print("gtrain")
@@ -469,20 +474,27 @@ def main(args):
 
     if(args.load_model):
         G_losses = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()
-        D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()
+        # backwards compatibility
+        try:
+            Dr_losses = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()
+            Df_losses = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()
+        except:
+            D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()
     else:
-        D_losses = []
+        Dr_losses = []
+        Df_losses = []
         G_losses = []
 
     if(args.save_zero):
-        save_sample_outputs(args.name, 0, D_losses, G_losses)
+        save_sample_outputs(args.name, 0, Dr_losses, Df_losses, G_losses)
 
     def train():
         k = 0
         temp_ng = args.num_gen
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
-            D_loss = 0
+            Dr_loss = 0
+            Df_loss = 0
             G_loss = 0
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
@@ -493,13 +505,17 @@ def main(args):
                     data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * args.cutoff) + 0.5
 
                 if(args.num_critic > 1):
-                    D_loss += train_D(data)
+                    D_loss = train_D(data)
+                    Dr_loss += D_loss[0]
+                    Df_loss += D_loss[1]
 
                     if((batch_ndx - 1) % args.num_critic == 0):
                         G_loss += train_G()
                 else:
                     if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                        D_loss += train_D(data)
+                        D_loss = train_D(data)
+                        Dr_loss += D_loss[0]
+                        Df_loss += D_loss[1]
 
                     G_loss += train_G()
 
@@ -507,29 +523,35 @@ def main(args):
                 #     return
 
             if(args.num_critic > 1):
-                D_losses.append(D_loss / lenX / 2)
+                Dr_losses.append(Dr_loss / lenX)
+                Df_losses.append(Df_loss / lenX)
                 G_losses.append(G_loss / (lenX / args.num_critic))
             else:
-                D_losses.append((D_loss / 2) / (lenX / args.num_gen))
+                Dr_losses.append((Dr_loss) / (lenX / args.num_gen))
+                Df_losses.append((Df_loss) / (lenX / args.num_gen))
                 G_losses.append(G_loss / lenX)
 
             print("g loss: " + str(G_losses[-1]))
-            print("d loss: " + str(D_losses[-1]))
+            print("dr loss: " + str(Dr_losses[-1]))
+            print("df loss: " + str(Df_losses[-1]))
 
+            gloss = G_losses[-1]
+            drloss = Dr_losses[-1]
+            dfloss = Df_losses[-1]
+            dloss = drloss + dfloss
             bag = 0.05
+
             if(args.bgm):
-                if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
+                if(i > 20 and gloss > dloss + bag):
                     print("num gen upping to 10")
                     args.num_gen = 10
                 else:
                     print("num gen normal")
                     args.num_gen = temp_ng
             elif(args.gom):
-                if(i > 20 and G_losses[-1] > D_losses[-1] + bag):
+                if(i > 20 and gloss > dloss + bag):
                     print("G loss too high - training G only")
                     j = 0
-                    gloss = G_losses[-1]
-                    dloss = D_losses[-1]
                     print("starting g loss: " + str(gloss))
                     print("starting d loss: " + str(dloss))
 
@@ -544,17 +566,18 @@ def main(args):
                         print("d loss: " + str(dloss))
 
                         G_losses.append(gloss)
-                        D_losses.append(dloss)
+                        Dr_losses.append(drloss)
+                        Df_losses.append(dfloss)
 
                         if(j % 5 == 0):
-                            save_sample_outputs(args.name, i + 1, D_losses, G_losses, k, j)
+                            save_sample_outputs(args.name, i + 1, Dr_losses, Df_losses, G_losses, k, j)
 
                         j += 1
 
                     k += 1
 
             if((i + 1) % 5 == 0):
-                save_sample_outputs(args.name, i + 1, D_losses, G_losses)
+                save_sample_outputs(args.name, i + 1, Dr_losses, Df_losses, G_losses)
 
             if((i + 1) % 5 == 0):
                 save_models(args.name, i + 1)
