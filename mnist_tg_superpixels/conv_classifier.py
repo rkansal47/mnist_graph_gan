@@ -49,6 +49,9 @@ class MoNet(torch.nn.Module):
         row, col = data.edge_index
         data.edge_attr = (data.pos[col]-data.pos[row])/(2*28*cutoff) + 0.5
 
+        print(data.edge_index.shape)
+        print(data.edge_index[:, -20:])
+
         data.x = F.elu(self.conv1(data.x, data.edge_index, data.edge_attr))
         weight = normalized_cut_2d(data.edge_index, data.pos)
         cluster = graclus(data.edge_index, weight, data.x.size(0))
