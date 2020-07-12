@@ -431,8 +431,12 @@ def main(args):
         # print(D_fake_output)
 
         if args.label_smoothing:
-            Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2)
-            Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3)
+            Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(args.device)
+            Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3).to(args.device)
+
+        # randomly flipping labels for D
+        Y_real[torch.rand(run_batch_size) < args.label_noise] = 0
+        Y_fake[torch.rand(run_batch_size) < args.label_noise] = 1
 
         if(args.wgan):
             # want reals > 0 and fakes < 0
@@ -651,6 +655,8 @@ def parse_args():
     parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
     parser.add_argument("--num", type=int, default=3, help="number to train on")
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
+
+    parser.add_argument("--label-noise", type=float, default=0, help="discriminator label noise (between 0 and 1)")
 
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
