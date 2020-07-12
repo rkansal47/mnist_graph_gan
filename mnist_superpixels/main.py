@@ -431,8 +431,11 @@ def main(args):
         # print(D_fake_output)
 
         if args.label_smoothing:
-            Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(args.device)
-            Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3).to(args.device)
+            Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(device)
+            Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3).to(device)
+        else:
+            Y_real = torch.ones(run_batch_size).to(device)
+            Y_fake = torch.zeros(run_batch_size).to(device)
 
         # randomly flipping labels for D
         Y_real[torch.rand(run_batch_size) < args.label_noise] = 0
