@@ -488,6 +488,7 @@ def main(args):
         # D.printtest()
 
         if(args.unrolled_steps > 0):
+            del D
             D = D_backup
 
         return G_loss.item()
