@@ -452,7 +452,7 @@ def main(args):
 
             D_loss = D_real_loss + D_fake_loss
 
-        D_loss.backward(create_graph=unrolled, retain_graph=unrolled)
+        D_loss.backward(create_graph=unrolled)
         D_optimizer.step()
 
         return (D_real_loss.item(), D_fake_loss.item())
