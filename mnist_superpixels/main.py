@@ -430,14 +430,17 @@ def main(args):
         # print("fake")
         # print(D_fake_output)
 
+        if args.label_smoothing:
+            Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2)
+            Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3)
+
         if(args.wgan):
             # want reals > 0 and fakes < 0
             D_real_loss = -D_real_output.mean()
             D_fake_loss = D_fake_output.mean()
             D_loss = D_real_loss + D_fake_loss + gradient_penalty(data, gen_data, run_batch_size)
         else:
-            if(args.label_smoothing): D_real_loss = criterion(D_real_output, Y_real[:run_batch_size] - 0.1)
-            else: D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
+            D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
             D_fake_loss = criterion(D_fake_output, Y_fake[:run_batch_size])
 
             D_loss = D_real_loss + D_fake_loss
@@ -480,6 +483,7 @@ def main(args):
             Df_losses = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()
         except:
             D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()
+            Dr_losses, Df_losses = D_losses / 2
     else:
         Dr_losses = []
         Df_losses = []
