@@ -48,6 +48,7 @@ class objectview(object):
 
 
 def main(args):
+    global D
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
 
@@ -408,7 +409,7 @@ def main(args):
 
         return Batch(batch=batch, x=data.x, pos=data.pos, edge_index=data.edge_index, edge_attr=data.edge_attr)
 
-    def train_D(data):
+    def train_D(data, gen_data=None, unrolled=False):
         # print("dtrain")
         D.train()
         D_optimizer.zero_grad()
@@ -420,10 +421,9 @@ def main(args):
         # print("real")
         # print(D_real_output)
 
-        gen_data = gen(run_batch_size)
-        # use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
-
-        if(args.gcnn): gen_data = convert_to_batch(gen_data, run_batch_size)
+        if gen_data is None:
+            gen_data = gen(run_batch_size)
+            if(args.gcnn): gen_data = convert_to_batch(gen_data, run_batch_size)
 
         D_fake_output = D(gen_data)
 
@@ -452,21 +452,24 @@ def main(args):
 
             D_loss = D_real_loss + D_fake_loss
 
-        D_loss.backward()
+        D_loss.backward(create_graph=unrolled, retain_graph=unrolled)
         D_optimizer.step()
 
         return (D_real_loss.item(), D_fake_loss.item())
 
-    def train_G():
+    def train_G(data):
+        global D
         # print("gtrain")
         G.train()
         G_optimizer.zero_grad()
 
         gen_data = gen(args.batch_size)
-
         if(args.gcnn): gen_data = convert_to_batch(gen_data, args.batch_size)
 
-        # use_gen_ims = tg_transform(gen_ims) if args.gcnn else gen_ims
+        if(args.unrolled_steps > 0):
+            D_backup = deepcopy(D)
+            for i in range(args.unrolled_steps - 1):
+                train_D(data, gen_data=gen_data, unrolled=True)
 
         D_fake_output = D(gen_data)
 
@@ -479,6 +482,13 @@ def main(args):
 
         G_loss.backward()
         G_optimizer.step()
+
+        # D.assigntest(5)
+        # print("in unrolled D")
+        # D.printtest()
+
+        if(args.unrolled_steps > 0):
+            D = D_backup
 
         return G_loss.item()
 
@@ -521,14 +531,19 @@ def main(args):
                     Df_loss += D_loss[1]
 
                     if((batch_ndx - 1) % args.num_critic == 0):
-                        G_loss += train_G()
+                        G_loss += train_G(data)
                 else:
                     if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
                         D_loss = train_D(data)
                         Dr_loss += D_loss[0]
                         Df_loss += D_loss[1]
 
-                    G_loss += train_G()
+                    # print("before G train")
+                    # D.printtest()
+                    G_loss += train_G(data)
+
+                    # print("after G train")
+                    # D.printtest()
 
                 # if(batch_ndx == 10):
                 #     return
@@ -660,6 +675,7 @@ def parse_args():
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
     parser.add_argument("--label-noise", type=float, default=0, help="discriminator label noise (between 0 and 1)")
+    parser.add_argument("--unrolled-steps", type=int, default=0, help="number of unrolled D steps for G training")
 
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")

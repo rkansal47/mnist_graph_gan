@@ -18,6 +18,8 @@ class Graph_GAN(nn.Module):
         self.G = gen
         self.D = not gen
 
+        self.test = 10
+
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
 
         if(self.args.int_diffs and self.args.pos_diffs):
@@ -122,6 +124,12 @@ class Graph_GAN(nn.Module):
 
         return A
 
+    def assigntest(self, boom):
+        self.test = boom
+
+    def printtest(self):
+        print("Test: ")
+        print(self.test)
 
 class Graph_Generator(nn.Module):
     def __init__(self, node_size, fe_hidden_size, fe_out_size, fn_hidden_size, fn_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, pos_diffs=False, gru=True, batch_norm=False, device='cpu'):
