@@ -48,7 +48,7 @@ class objectview(object):
 
 
 def main(args):
-    global D
+    # global D
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
 
@@ -458,7 +458,7 @@ def main(args):
         return (D_real_loss.item(), D_fake_loss.item())
 
     def train_G(data):
-        global D
+        # global D
         # print("gtrain")
         G.train()
         G_optimizer.zero_grad()
@@ -488,8 +488,7 @@ def main(args):
         # D.printtest()
 
         if(args.unrolled_steps > 0):
-            del D
-            D = D_backup
+            D.load(D_backup)
 
         return G_loss.item()
 

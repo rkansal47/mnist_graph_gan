@@ -124,6 +124,13 @@ class Graph_GAN(nn.Module):
 
         return A
 
+    def load(self, backup):
+        for m_from, m_to in zip(backup.modules(), self.modules()):
+            if isinstance(m_to, nn.Linear):
+                m_to.weight.data = m_from.weight.data.clone()
+                if m_to.bias is not None:
+                    m_to.bias.data = m_from.bias.data.clone()
+
     def assigntest(self, boom):
         self.test = boom
 
