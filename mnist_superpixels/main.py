@@ -416,16 +416,12 @@ def main(args):
 
         run_batch_size = data.shape[0] if not args.gcnn else data.y.shape[0]
 
-        D_real_output = D(data.clone())
-
         # print("real")
         # print(D_real_output)
 
         if gen_data is None:
             gen_data = gen(run_batch_size)
             if(args.gcnn): gen_data = convert_to_batch(gen_data, run_batch_size)
-
-        D_fake_output = D(gen_data)
 
         # print("fake")
         # print(D_fake_output)
@@ -443,16 +439,33 @@ def main(args):
 
         if(args.wgan):
             # want reals > 0 and fakes < 0
+            D_real_output = D(data.clone())
             D_real_loss = -D_real_output.mean()
+            D_real_loss.backward(create_graph=unrolled)
+
+            D_fake_output = D(gen_data)
             D_fake_loss = D_fake_output.mean()
-            D_loss = D_real_loss + D_fake_loss + gradient_penalty(data, gen_data, run_batch_size)
+            D_fake_loss.backward(create_graph=unrolled)
+            # D_loss = D_real_loss + D_fake_loss + gradient_penalty(data, gen_data, run_batch_size)
+            gp = gradient_penalty(data, gen_data, run_batch_size)
+            gp.backward(create_graph=unrolled)
         else:
+            D_real_output = D(data.clone())
             D_real_loss = criterion(D_real_output, Y_real[:run_batch_size])
+
+            D_fake_output = D(gen_data)
             D_fake_loss = criterion(D_fake_output, Y_fake[:run_batch_size])
 
             D_loss = D_real_loss + D_fake_loss
 
-        D_loss.backward(create_graph=unrolled)
+            D_loss.backward(create_graph=unrolled)
+
+        # print("real outputs")
+        # print(D_real_output[:5])
+        #
+        # print("fake outputs")
+        # print(D_fake_output[:5])
+
         D_optimizer.step()
 
         return (D_real_loss.item(), D_fake_loss.item())
