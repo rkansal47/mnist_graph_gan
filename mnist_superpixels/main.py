@@ -171,12 +171,12 @@ def main(args):
 
     print("Models loaded")
 
-    if(args.wgan):
-        G_optimizer = optim.RMSprop(G.parameters(), lr=args.lr_gen)
-        D_optimizer = optim.RMSprop(D.parameters(), lr=args.lr_disc)
-    else:
-        G_optimizer = optim.Adam(G.parameters(), lr=args.lr_gen, weight_decay=5e-4)
-        D_optimizer = optim.Adam(D.parameters(), lr=args.lr_disc, weight_decay=5e-4)
+    # if(args.wgan):
+    #     G_optimizer = optim.RMSprop(G.parameters(), lr=args.lr_gen)
+    #     D_optimizer = optim.RMSprop(D.parameters(), lr=args.lr_disc)
+    # else:
+    G_optimizer = optim.Adam(G.parameters(), lr=args.lr_gen, weight_decay=5e-4)
+    D_optimizer = optim.Adam(D.parameters(), lr=args.lr_disc, weight_decay=5e-4)
 
     print("optimizers loaded")
 
