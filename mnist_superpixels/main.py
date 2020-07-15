@@ -125,10 +125,14 @@ def main(args):
         f.write(str(vars(args)))
         f.close()
     else:
-        print("loading model")
-        f = open(args.args_path + args.name + ".txt", "r")
         temp = args.start_epoch, args.num_epochs
-        args = objectview(eval(f.read()))
+        f = open(args.args_path + args.name + ".txt", "r")
+        args_dict = vars(args)
+        load_args_dict = eval(f.read())
+        for key in load_args_dict:
+            args_dict[key] = load_args_dict[key]
+
+        args = objectview(args_dict)
         f.close()
         args.load_model = True
         args.start_epoch, args.num_epochs = temp
