@@ -131,6 +131,11 @@ class Graph_GAN(nn.Module):
                 if m_to.bias is not None:
                     m_to.bias.data = m_from.bias.data.clone()
 
+    def reset_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                m.reset_parameters()
+
     def assigntest(self, boom):
         self.test = boom
 

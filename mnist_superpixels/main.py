@@ -582,7 +582,7 @@ def main(args):
             drloss = Dr_losses[-1]
             dfloss = Df_losses[-1]
             dloss = drloss + dfloss
-            bag = 0.05
+            bag = 0.1
 
             if(args.bgm):
                 if(i > 20 and gloss > dloss + bag):
@@ -618,6 +618,10 @@ def main(args):
                         j += 1
 
                     k += 1
+            elif(args.rd):
+                if(i > 20 and gloss > dloss + bag):
+                    print("gloss too high, resetting D params")
+                    D.reset_params()
 
             if((i + 1) % 5 == 0):
                 save_sample_outputs(args.name, i + 1, Dr_losses, Df_losses, G_losses)
@@ -650,6 +654,7 @@ def parse_args():
     add_bool_arg(parser, "gru", "use wgan", default=False)
     add_bool_arg(parser, "gom", "use gen only mode", default=False)
     add_bool_arg(parser, "bgm", "use boost g mode", default=False)
+    add_bool_arg(parser, "rd", "use restart d mode", default=False)
     add_bool_arg(parser, "label-smoothing", "use label smotthing with discriminator", default=False)
     add_bool_arg(parser, "sparse-mnist", "use sparse mnist dataset (as opposed to superpixels)", default=False)
 
