@@ -581,7 +581,7 @@ def main(args):
             gloss = G_losses[-1]
             drloss = Dr_losses[-1]
             dfloss = Df_losses[-1]
-            dloss = drloss + dfloss
+            dloss = (drloss + dfloss) / 2
             bag = 0.1
 
             if(args.bgm):
