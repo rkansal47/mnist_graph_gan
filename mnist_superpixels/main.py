@@ -1,8 +1,5 @@
 # import setGPU
 
-# from profile import profile
-# from time import sleep
-
 import torch
 from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
 from superpixels_dataset import SuperpixelsDataset
@@ -35,11 +32,6 @@ from torch_geometric.data import Batch, Data
 
 plt.switch_backend('agg')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# torch.cuda.set_device(0)
-
-# Have to specify 'name' and 'args.start_epoch' if True
-LSGAN = True  # args.wgan must be false otherwise it'll just be args.wgan
 
 
 class objectview(object):
@@ -175,12 +167,15 @@ def main(args):
 
     print("Models loaded")
 
-    # if(args.wgan):
-    #     G_optimizer = optim.RMSprop(G.parameters(), lr=args.lr_gen)
-    #     D_optimizer = optim.RMSprop(D.parameters(), lr=args.lr_disc)
-    # else:
-    G_optimizer = optim.Adam(G.parameters(), lr=args.lr_gen, weight_decay=5e-4)
-    D_optimizer = optim.Adam(D.parameters(), lr=args.lr_disc, weight_decay=5e-4)
+    if(args.optimizer == 'rmsprop'):
+        G_optimizer = optim.RMSprop(G.parameters(), lr=args.lr_gen)
+        D_optimizer = optim.RMSprop(D.parameters(), lr=args.lr_disc)
+    elif(args.optimizer == 'adadelta'):
+        G_optimizer = optim.Adadelta(G.parameters(), lr=args.lr_gen)
+        D_optimizer = optim.Adadelta(D.parameters(), lr=args.lr_disc)
+    else:
+        G_optimizer = optim.Adam(G.parameters(), lr=args.lr_gen, weight_decay=5e-4, betas=(args.beta1, args.beta2))
+        D_optimizer = optim.Adam(D.parameters(), lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2))
 
     print("optimizers loaded")
 
@@ -196,10 +191,11 @@ def main(args):
     if(args.wgan):
         criterion = wasserstein_loss
     else:
-        if(LSGAN):
-            criterion = torch.nn.MSELoss()
-        else:
-            criterion = torch.nn.BCELoss()
+        criterion = torch.nn.MSELoss()
+        # if(LSGAN):
+        #     criterion = torch.nn.MSELoss()
+        # else:
+        #     criterion = torch.nn.BCELoss()
 
     # print(criterion(torch.tensor([1.0]),torch.tensor([-1.0])))
 
@@ -434,8 +430,8 @@ def main(args):
             Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(device)
             Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3).to(device)
         else:
-            Y_real = torch.ones(run_batch_size).to(device)
-            Y_fake = torch.zeros(run_batch_size).to(device)
+            Y_real = torch.ones(args.batch_size, 1).to(device)
+            Y_fake = torch.zeros(args.batch_size, 1).to(device)
 
         # randomly flipping labels for D
         Y_real[torch.rand(run_batch_size) < args.label_noise] = 0
@@ -555,12 +551,7 @@ def main(args):
                         Dr_loss += D_loss[0]
                         Df_loss += D_loss[1]
 
-                    # print("before G train")
-                    # D.printtest()
                     G_loss += train_G(data)
-
-                    # print("after G train")
-                    # D.printtest()
 
                 # if(batch_ndx == 10):
                 #     return
@@ -649,9 +640,9 @@ def parse_args():
 
     add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
     add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
-    add_bool_arg(parser, "wgan", "use wgan", default=False)
-    add_bool_arg(parser, "gcnn", "use wgan", default=False)
-    add_bool_arg(parser, "gru", "use wgan", default=False)
+    add_bool_arg(parser, "wgan", "use wgan (instead of LSGAN)", default=False)
+    add_bool_arg(parser, "gcnn", "use gcnn", default=False)
+    add_bool_arg(parser, "gru", "use GRUs", default=False)
     add_bool_arg(parser, "gom", "use gen only mode", default=False)
     add_bool_arg(parser, "bgm", "use boost g mode", default=False)
     add_bool_arg(parser, "rd", "use restart d mode", default=False)
@@ -702,9 +693,12 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
+    parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
 
-    parser.add_argument("--cutoff", type=str, default=0.32178, help="cutoff edge distance")  # found empirically to match closest to Superpixels
+    parser.add_argument("--cutoff", type=float, default=0.32178, help="cutoff edge distance")  # found empirically to match closest to Superpixels
+
+    parser.add_argument("--optimizer", type=str, default="None", help="optimizer - options are adam, rmsprop, adadelta")  # found empirically to match closest to Superpixels
 
     add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
