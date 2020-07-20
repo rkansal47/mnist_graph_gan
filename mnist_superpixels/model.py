@@ -35,6 +35,10 @@ class Graph_GAN(nn.Module):
         self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size)
         self.args.fn.append(self.args.hidden_node_size)
 
+        if(self.args.dea):
+            self.args.fnd.insert(0, self.args.hidden_node_size)
+            self.args.fnd.append(1)
+
         self.fe = nn.ModuleList()
         self.fn = nn.ModuleList()
 
@@ -46,9 +50,9 @@ class Graph_GAN(nn.Module):
             # edge network
             fe_iter = nn.ModuleList()
             if self.args.batch_norm: bne = nn.ModuleList()
-            for i in range(len(self.args.fe) - 1):
-                fe_iter.append(nn.Linear(self.args.fe[i], self.args.fe[i + 1]))
-                if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[i + 1]))
+            for j in range(len(self.args.fe) - 1):
+                fe_iter.append(nn.Linear(self.args.fe[j], self.args.fe[j + 1]))
+                if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[j + 1]))
 
             self.fe.append(fe_iter)
             if self.args.batch_norm: self.bne.append(bne)
@@ -56,12 +60,19 @@ class Graph_GAN(nn.Module):
             # node network
             fn_iter = nn.ModuleList()
             if self.args.batch_norm: bnn = nn.ModuleList()
-            for i in range(len(self.args.fn) - 1):
-                fn_iter.append(nn.Linear(self.args.fn[i], self.args.fn[i + 1]))
-                if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[i + 1]))
+            for j in range(len(self.args.fn) - 1):
+                fn_iter.append(nn.Linear(self.args.fn[j], self.args.fn[j + 1]))
+                if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[j + 1]))
 
             self.fn.append(fn_iter)
             if self.args.batch_norm: self.bnn.append(bnn)
+
+        if(self.args.dea):
+            self.fnd = nn.ModuleList()
+            self.bnd = nn.ModuleList()
+            for i in range(len(self.args.fnd) - 1):
+                self.fnd.append(nn.Linear(self.args.fnd[i], self.args.fnd[i + 1]))
+                if self.args.batch_norm: self.bnd.append(nn.BatchNorm1d(self.args.fnd[i + 1]))
 
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
@@ -73,6 +84,10 @@ class Graph_GAN(nn.Module):
 
         print("fn: ")
         print(self.fn)
+
+        if(self.args.dea):
+            print("fnd: ")
+            print(self.fnd)
 
     def forward(self, x):
         batch_size = x.shape[0]
@@ -105,7 +120,16 @@ class Graph_GAN(nn.Module):
             x = torch.tanh(x[:, :, :self.args.node_feat_size])
             return x
         else:
-            x = torch.mean(x[:, :, :1], 1)
+            if(self.args.dea):
+                x = torch.mean(x, 1)
+                for i in range(len(self.fnd) - 1):
+                    x = F.leaky_relu(self.fnd[i](x), negative_slope=self.args.leaky_relu_alpha)
+                    if(self.args.batch_norm): x = self.bnd[i](x)
+                    x = self.dropout(x)
+                x = self.dropout(self.fnd[-1](x))
+            else:
+                x = torch.mean(x[:, :, :1], 1)
+
             return x if self.args.wgan else torch.sigmoid(x)
 
     def getA(self, x, batch_size):
@@ -142,6 +166,7 @@ class Graph_GAN(nn.Module):
     def printtest(self):
         print("Test: ")
         print(self.test)
+
 
 class Graph_Generator(nn.Module):
     def __init__(self, node_size, fe_hidden_size, fe_out_size, fn_hidden_size, fn_num_layers, mp_iters, num_hits, dropout, alpha, hidden_node_size=64, int_diffs=False, pos_diffs=False, gru=True, batch_norm=False, device='cpu'):
