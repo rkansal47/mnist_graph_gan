@@ -508,13 +508,13 @@ def main(args):
         return G_loss.item()
 
     if(args.load_model):
-        G_losses = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()
+        G_losses = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
         # backwards compatibility
         try:
-            Dr_losses = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()
-            Df_losses = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()
+            Dr_losses = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
+            Df_losses = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
         except:
-            D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()
+            D_losses = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
             Dr_losses, Df_losses = D_losses / 2
     else:
         Dr_losses = []
