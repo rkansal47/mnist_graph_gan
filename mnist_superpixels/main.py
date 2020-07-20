@@ -575,7 +575,6 @@ def main(args):
             drloss = Dr_losses[-1]
             dfloss = Df_losses[-1]
             dloss = (drloss + dfloss) / 2
-            bag = 0.1
 
             if(args.bgm):
                 if(i > 20 and gloss > dloss + bag):
@@ -648,6 +647,8 @@ def parse_args():
     add_bool_arg(parser, "gom", "use gen only mode", default=False)
     add_bool_arg(parser, "bgm", "use boost g mode", default=False)
     add_bool_arg(parser, "rd", "use restart d mode", default=False)
+
+    parser.add_argument("--bag", type=float, default=0.1, help="bag")
 
     add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
 
