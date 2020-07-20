@@ -577,20 +577,20 @@ def main(args):
             dloss = (drloss + dfloss) / 2
 
             if(args.bgm):
-                if(i > 20 and gloss > dloss + bag):
+                if(i > 20 and gloss > dloss + args.bag):
                     print("num gen upping to 10")
                     args.num_gen = 10
                 else:
                     print("num gen normal")
                     args.num_gen = temp_ng
             elif(args.gom):
-                if(i > 20 and gloss > dloss + bag):
+                if(i > 20 and gloss > dloss + args.bag):
                     print("G loss too high - training G only")
                     j = 0
                     print("starting g loss: " + str(gloss))
                     print("starting d loss: " + str(dloss))
 
-                    while(gloss > dloss + bag * 0.5):
+                    while(gloss > dloss + args.bag * 0.5):
                         print(j)
                         gloss = 0
                         for l in tqdm(range(lenX)):
@@ -611,7 +611,7 @@ def main(args):
 
                     k += 1
             elif(args.rd):
-                if(i > 20 and gloss > dloss + bag):
+                if(i > 20 and gloss > dloss + args.bag):
                     print("gloss too high, resetting D params")
                     D.reset_params()
 
