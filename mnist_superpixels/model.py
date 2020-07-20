@@ -121,14 +121,14 @@ class Graph_GAN(nn.Module):
             return x
         else:
             if(self.args.dea):
-                x = torch.mean(x, 1)
+                x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
                 for i in range(len(self.fnd) - 1):
                     x = F.leaky_relu(self.fnd[i](x), negative_slope=self.args.leaky_relu_alpha)
                     if(self.args.batch_norm): x = self.bnd[i](x)
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
-                x = torch.mean(x[:, :, :1], 1)
+                x = torch.sum(x[:, :, :1], 1) if self.args.sum else torch.mean(x[:, :, :1], 1)
 
             return x if self.args.wgan else torch.sigmoid(x)
 

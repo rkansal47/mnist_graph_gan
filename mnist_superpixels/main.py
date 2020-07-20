@@ -709,6 +709,7 @@ def parse_args():
 
     add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
+    add_bool_arg(parser, "sum", "sum (as opposed to mean) final features in D", default=True)
 
     add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
 
