@@ -670,8 +670,8 @@ def parse_args():
     # parser.add_argument("--fn-num-layers", type=int, default=2, help="message passing number of layers in generator")
 
     parser.add_argument("--fn", type=int, nargs='*', default=[256, 256], help="hidden fn layers e.g. 256 256")
-    parser.add_argument("--fe", type=int, nargs='+', default=[96, 128, 192], help="hidden and output fe layers e.g. 64 128")
-    parser.add_argument("--fnd", type=int, nargs='*', default=[128, 256], help="hidden disc output layers e.g. 256 128")
+    parser.add_argument("--fe", type=int, nargs='+', default=[128, 128], help="hidden and output fe layers e.g. 64 128")
+    parser.add_argument("--fnd", type=int, nargs='*', default=[256, 128], help="hidden disc output layers e.g. 256 128")
 
     parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
     parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
