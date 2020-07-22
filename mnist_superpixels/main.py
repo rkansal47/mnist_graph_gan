@@ -594,6 +594,9 @@ def main(args):
                 else:
                     D_losses.append((C_loss) / (lenX / args.num_gen))
                     gp_losses.append((gp_loss) / (lenX / args.num_gen))
+
+                print("c loss: " + str(D_losses[-1]))
+                print("gp loss: " + str(gp_losses[-1]))
             else:
                 if(args.num_critic > 1):
                     Dr_losses.append(Dr_loss / lenX)
@@ -604,9 +607,9 @@ def main(args):
                     Df_losses.append((Df_loss) / (lenX / args.num_gen))
                     G_losses.append(G_loss / lenX)
 
-            print("g loss: " + str(G_losses[-1]))
-            print("dr loss: " + str(Dr_losses[-1]))
-            print("df loss: " + str(Df_losses[-1]))
+                print("g loss: " + str(G_losses[-1]))
+                print("dr loss: " + str(Dr_losses[-1]))
+                print("df loss: " + str(Df_losses[-1]))
 
             if(not args.wgan):
                 gloss = G_losses[-1]
