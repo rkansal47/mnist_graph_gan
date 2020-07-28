@@ -169,15 +169,17 @@ def main(args):
 
     print("Models loaded")
 
+    D_params_filter = filter(lambda p: p.requires_grad, D.parameters())  # spectral norm has untrainable params so this excludes those
+
     if(args.optimizer == 'rmsprop'):
         G_optimizer = optim.RMSprop(G.parameters(), lr=args.lr_gen)
-        D_optimizer = optim.RMSprop(D.parameters(), lr=args.lr_disc)
+        D_optimizer = optim.RMSprop(D_params_filter, lr=args.lr_disc)
     elif(args.optimizer == 'adadelta'):
         G_optimizer = optim.Adadelta(G.parameters(), lr=args.lr_gen)
-        D_optimizer = optim.Adadelta(D.parameters(), lr=args.lr_disc)
+        D_optimizer = optim.Adadelta(D_params_filter, lr=args.lr_disc)
     else:
         G_optimizer = optim.Adam(G.parameters(), lr=args.lr_gen, weight_decay=5e-4, betas=(args.beta1, args.beta2))
-        D_optimizer = optim.Adam(D.parameters(), lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2))
+        D_optimizer = optim.Adam(D_params_filter, lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2))
 
     print("optimizers loaded")
 
@@ -741,7 +743,7 @@ def parse_args():
 
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
     parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight")
-    parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
+    parser.add_argument("--beta1", type=float, default=0.5, help="Adam optimizer beta1")
     parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
 
@@ -754,6 +756,7 @@ def parse_args():
     add_bool_arg(parser, "sum", "sum (as opposed to mean) final features in D", default=True)
 
     add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
+    add_bool_arg(parser, "spectral-norm", "use spectral normalization in discriminator", default=False)
 
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument('--train', dest='train', action='store_true', help=help)

@@ -9,6 +9,7 @@ from torch_geometric.nn import (graclus, max_pool, global_mean_pool)
 from torch_geometric.nn import GMMConv
 import torch_geometric.transforms as T
 
+from spectral_normalization import SpectralNorm
 
 class Graph_GAN(nn.Module):
     def __init__(self, gen, args):
@@ -17,6 +18,8 @@ class Graph_GAN(nn.Module):
 
         self.G = gen
         self.D = not gen
+
+        if self.G: self.args.spectral_norm = False  # spectral norm only for discriminator
 
         self.test = 10
 
@@ -102,6 +105,7 @@ class Graph_GAN(nn.Module):
             for j in range(len(self.fe[i])):
                 A = F.leaky_relu(self.fe[i][j](A), negative_slope=self.args.leaky_relu_alpha)
                 if(self.args.batch_norm): A = self.bne[i][j](A)
+                if(self.args.spectral_norm): A = SpectralNorm(A)
                 A = self.dropout(A)
 
             # message aggregation into new features
@@ -111,6 +115,7 @@ class Graph_GAN(nn.Module):
             for j in range(len(self.fn[i]) - 1):
                 x = F.leaky_relu(self.fn[i][j](x), negative_slope=self.args.leaky_relu_alpha)
                 if(self.args.batch_norm): x = self.bnn[i][j](x)
+                if(self.args.spectral_norm): x = SpectralNorm(x)
                 x = self.dropout(x)
 
             x = self.dropout(self.fn[i][-1](x))
@@ -125,6 +130,7 @@ class Graph_GAN(nn.Module):
                 for i in range(len(self.fnd) - 1):
                     x = F.leaky_relu(self.fnd[i](x), negative_slope=self.args.leaky_relu_alpha)
                     if(self.args.batch_norm): x = self.bnd[i](x)
+                    if(self.args.spectral_norm): x = SpectralNorm(x)
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
