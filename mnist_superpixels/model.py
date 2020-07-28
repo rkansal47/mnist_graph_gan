@@ -54,7 +54,9 @@ class Graph_GAN(nn.Module):
             fe_iter = nn.ModuleList()
             if self.args.batch_norm: bne = nn.ModuleList()
             for j in range(len(self.args.fe) - 1):
-                fe_iter.append(nn.Linear(self.args.fe[j], self.args.fe[j + 1]))
+                linear = nn.Linear(self.args.fe[j], self.args.fe[j + 1])
+                if self.args.spectral_norm: linear = SpectralNorm(linear)
+                fe_iter.append(linear)
                 if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[j + 1]))
 
             self.fe.append(fe_iter)
@@ -64,7 +66,9 @@ class Graph_GAN(nn.Module):
             fn_iter = nn.ModuleList()
             if self.args.batch_norm: bnn = nn.ModuleList()
             for j in range(len(self.args.fn) - 1):
-                fn_iter.append(nn.Linear(self.args.fn[j], self.args.fn[j + 1]))
+                linear = nn.Linear(self.args.fn[j], self.args.fn[j + 1])
+                if self.args.spectral_norm: linear = SpectralNorm(linear)
+                fn_iter.append(linear)
                 if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[j + 1]))
 
             self.fn.append(fn_iter)
@@ -74,7 +78,9 @@ class Graph_GAN(nn.Module):
             self.fnd = nn.ModuleList()
             self.bnd = nn.ModuleList()
             for i in range(len(self.args.fnd) - 1):
-                self.fnd.append(nn.Linear(self.args.fnd[i], self.args.fnd[i + 1]))
+                linear = nn.Linear(self.args.fnd[i], self.args.fnd[i + 1])
+                if self.args.spectral_norm: linear = SpectralNorm(linear)
+                self.fnd.append(linear)
                 if self.args.batch_norm: self.bnd.append(nn.BatchNorm1d(self.args.fnd[i + 1]))
 
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
@@ -105,7 +111,7 @@ class Graph_GAN(nn.Module):
             for j in range(len(self.fe[i])):
                 A = F.leaky_relu(self.fe[i][j](A), negative_slope=self.args.leaky_relu_alpha)
                 if(self.args.batch_norm): A = self.bne[i][j](A)
-                if(self.args.spectral_norm): A = SpectralNorm(A)
+                # if(self.args.spectral_norm): A = SpectralNorm(A)
                 A = self.dropout(A)
 
             # message aggregation into new features
@@ -115,7 +121,7 @@ class Graph_GAN(nn.Module):
             for j in range(len(self.fn[i]) - 1):
                 x = F.leaky_relu(self.fn[i][j](x), negative_slope=self.args.leaky_relu_alpha)
                 if(self.args.batch_norm): x = self.bnn[i][j](x)
-                if(self.args.spectral_norm): x = SpectralNorm(x)
+                # if(self.args.spectral_norm): x = SpectralNorm(x)
                 x = self.dropout(x)
 
             x = self.dropout(self.fn[i][-1](x))
@@ -130,7 +136,7 @@ class Graph_GAN(nn.Module):
                 for i in range(len(self.fnd) - 1):
                     x = F.leaky_relu(self.fnd[i](x), negative_slope=self.args.leaky_relu_alpha)
                     if(self.args.batch_norm): x = self.bnd[i](x)
-                    if(self.args.spectral_norm): x = SpectralNorm(x)
+                    # if(self.args.spectral_norm): x = SpectralNorm(x)
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
