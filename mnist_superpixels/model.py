@@ -161,7 +161,10 @@ class Graph_GAN(nn.Module):
                 x = torch.sum(x[:, :, :1], 1) if self.args.sum else torch.mean(x[:, :, :1], 1)
                 # print(    x)
 
-            return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
+            # print(x)
+            # print(torch.sigmoid(x))
+            # return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
+            return torch.sigmoid(x)
 
     def getA(self, x, batch_size):
         x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, self.args.hidden_node_size)

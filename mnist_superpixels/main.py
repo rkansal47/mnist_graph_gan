@@ -93,8 +93,8 @@ def parse_args():
 
     parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
     parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
-    parser.add_argument("--beta1", type=float, default=0.5, help="Adam optimizer beta1")
-    parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
+    parser.add_argument("--beta1", type=float, default=0, help="Adam optimizer beta1")
+    parser.add_argument("--beta2", type=float, default=0.9, help="Adam optimizer beta2")
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
 
     parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
@@ -396,10 +396,11 @@ def main(args):
             if(args.gp): losses['gp'].append(gp_loss / (lenX / args.num_gen))
 
             print("d loss: " + str(losses['D'][-1]))
-            print("gp loss: " + str(losses['gp'][-1]))
             print("g loss: " + str(losses['G'][-1]))
             print("dr loss: " + str(losses['Dr'][-1]))
             print("df loss: " + str(losses['Df'][-1]))
+
+            if(args.gp): print("gp loss: " + str(losses['gp'][-1]))
 
             gloss = losses['G'][-1]
             drloss = losses['Dr'][-1]
