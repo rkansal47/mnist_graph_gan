@@ -11,6 +11,7 @@ import torch_geometric.transforms as T
 
 from spectral_normalization import SpectralNorm
 
+
 class Graph_GAN(nn.Module):
     def __init__(self, gen, args):
         super(Graph_GAN, self).__init__()
@@ -19,10 +20,9 @@ class Graph_GAN(nn.Module):
         self.G = gen
         self.D = not gen
 
-        if self.G: self.args.spectral_norm = False  # spectral norm only for discriminator
-
         self.test = 10
 
+        self.args.spectral_norm = self.args.spectral_norm_gen if self.G else self.args.spectral_norm_disc
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
 
         if(self.args.int_diffs and self.args.pos_diffs):
@@ -159,9 +159,9 @@ class Graph_GAN(nn.Module):
                 x = self.dropout(self.fnd[-1](x))
             else:
                 x = torch.sum(x[:, :, :1], 1) if self.args.sum else torch.mean(x[:, :, :1], 1)
-                # print(x)
+                # print(    x)
 
-            return x if self.args.wgan else torch.sigmoid(x)
+            return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
 
     def getA(self, x, batch_size):
         x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, self.args.hidden_node_size)
@@ -182,7 +182,7 @@ class Graph_GAN(nn.Module):
     def init_params(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                print(m)
+                # print(m)
                 torch.nn.init.xavier_uniform(m.weight, 0.1)
 
     def load(self, backup):
