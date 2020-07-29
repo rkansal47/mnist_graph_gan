@@ -668,11 +668,16 @@ def main(args):
     train()
 
 
-def add_bool_arg(parser, name, help, default=False):
+def add_bool_arg(parser, name, help, default=False, no_name=None):
     varname = '_'.join(name.split('-'))  # change hyphens to underscores
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument('--' + name, dest=varname, action='store_true', help=help)
-    group.add_argument('--no-' + name, dest=varname, action='store_false', help="don't " + help)
+    if(no_name is None):
+        no_name = 'no-' + name
+        no_help = "don't " + help
+    else:
+        no_help = help
+    group.add_argument('--' + no_name, dest=varname, action='store_false', help=no_help)
     parser.set_defaults(**{varname: default})
 
 
@@ -753,15 +758,12 @@ def parse_args():
 
     add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
-    add_bool_arg(parser, "sum", "sum (as opposed to mean) final features in D", default=True)
 
     add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
     add_bool_arg(parser, "spectral-norm", "use spectral normalization in discriminator", default=False)
 
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('--train', dest='train', action='store_true', help=help)
-    group.add_argument('--test', dest='train', action='store_false', help=help)
-    parser.set_defaults(**{'train': True})
+    add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
+    add_bool_arg(parser, "sum", "mean or sum in models", default=True, no_name="mean")
 
     args = parser.parse_args()
 

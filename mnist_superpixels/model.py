@@ -55,7 +55,8 @@ class Graph_GAN(nn.Module):
             if self.args.batch_norm: bne = nn.ModuleList()
             for j in range(len(self.args.fe) - 1):
                 linear = nn.Linear(self.args.fe[j], self.args.fe[j + 1])
-                if self.args.spectral_norm: linear = SpectralNorm(linear)
+                # if self.args.spectral_norm: linear = SpectralNorm(linear)
+                # fe_iter.append(SpectralNorm(linear) if self.args.spectral_norm else linear)
                 fe_iter.append(linear)
                 if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[j + 1]))
 
@@ -67,7 +68,7 @@ class Graph_GAN(nn.Module):
             if self.args.batch_norm: bnn = nn.ModuleList()
             for j in range(len(self.args.fn) - 1):
                 linear = nn.Linear(self.args.fn[j], self.args.fn[j + 1])
-                if self.args.spectral_norm: linear = SpectralNorm(linear)
+                # if self.args.spectral_norm: linear = SpectralNorm(linear)
                 fn_iter.append(linear)
                 if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[j + 1]))
 
@@ -79,13 +80,27 @@ class Graph_GAN(nn.Module):
             self.bnd = nn.ModuleList()
             for i in range(len(self.args.fnd) - 1):
                 linear = nn.Linear(self.args.fnd[i], self.args.fnd[i + 1])
-                if self.args.spectral_norm: linear = SpectralNorm(linear)
+                # if self.args.spectral_norm: linear = SpectralNorm(linear)
                 self.fnd.append(linear)
                 if self.args.batch_norm: self.bnd.append(nn.BatchNorm1d(self.args.fnd[i + 1]))
 
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
 
+        self.init_params()
+
+        if self.args.spectral_norm:
+            for ml in self.fe:
+                for i in range(len(ml)):
+                    ml[i] = SpectralNorm(ml[i])
+
+            for ml in self.fn:
+                for i in range(len(ml)):
+                    ml[i] = SpectralNorm(ml[i])
+
+            if self.args.dea:
+                for i in range(len(self.fnd)):
+                    self.fnd[i] = SpectralNorm(self.fnd[i])
         # print("after")
 
         print("fe: ")
@@ -115,7 +130,8 @@ class Graph_GAN(nn.Module):
                 A = self.dropout(A)
 
             # message aggregation into new features
-            A = torch.sum(A.view(batch_size, self.args.num_hits, self.args.num_hits, self.args.fe_out_size), 2)
+            A = A.view(batch_size, self.args.num_hits, self.args.num_hits, self.args.fe_out_size)
+            A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, self.args.fe_out_size + self.args.hidden_node_size)
 
             for j in range(len(self.fn[i]) - 1):
@@ -126,6 +142,8 @@ class Graph_GAN(nn.Module):
 
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
+
+        # print(x)
 
         if(self.G):
             x = torch.tanh(x[:, :, :self.args.node_feat_size])
@@ -141,6 +159,7 @@ class Graph_GAN(nn.Module):
                 x = self.dropout(self.fnd[-1](x))
             else:
                 x = torch.sum(x[:, :, :1], 1) if self.args.sum else torch.mean(x[:, :, :1], 1)
+                # print(x)
 
             return x if self.args.wgan else torch.sigmoid(x)
 
@@ -159,6 +178,12 @@ class Graph_GAN(nn.Module):
             A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
 
         return A
+
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                print(m)
+                torch.nn.init.xavier_uniform(m.weight, 0.1)
 
     def load(self, backup):
         for m_from, m_to in zip(backup.modules(), self.modules()):
