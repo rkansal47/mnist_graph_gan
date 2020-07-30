@@ -74,7 +74,7 @@ def parse_args():
     parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
     parser.add_argument("--mp-iters-disc", type=int, default=2, help="number of message passing iterations in the discriminator (if applicable)")
     parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
-    utils.add_bool_arg(parser, "sum", "mean or sum in models", default=True, no_name="mean")
+    utils.add_bool_arg(parser, "sum", "mean or sum in models", default=False, no_name="mean")
 
     utils.add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     utils.add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
