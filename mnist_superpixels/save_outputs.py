@@ -116,7 +116,7 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     print("saved figs")
 
 
-def save_models(args, G, D, name, epoch, k=-1, j=-1):
+def save_models(args, D, G, name, epoch, k=-1, j=-1):
     g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
     torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + g_only + ".pt")
     torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + g_only + ".pt")

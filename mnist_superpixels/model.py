@@ -125,7 +125,7 @@ class Graph_GAN(nn.Module):
 
             for j in range(len(self.fe[i])):
                 A = F.leaky_relu(self.fe[i][j](A), negative_slope=self.args.leaky_relu_alpha)
-                if(self.args.batch_norm): A = self.bne[i][j](A)
+                if(self.args.batch_norm): A = self.bne[i][j](A)  # try before activation
                 # if(self.args.spectral_norm): A = SpectralNorm(A)
                 A = self.dropout(A)
 

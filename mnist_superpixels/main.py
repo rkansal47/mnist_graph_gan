@@ -451,7 +451,7 @@ def main(args):
                 save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, i + 1, losses)
 
             if((i + 1) % 5 == 0):
-                save_outputs.save_models(args, args.name, i + 1)
+                save_outputs.save_models(args, D, G, args.name, i + 1)
 
     train()
 
