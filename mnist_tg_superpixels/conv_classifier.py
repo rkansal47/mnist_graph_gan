@@ -128,7 +128,8 @@ def main(args):
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
     if(args.load_model):
-        C = torch.load(args.model_path + args.name + "/C_" + str(start_epoch) + ".pt").to(device)
+        print(args.model_path + args.name + "/C_" + str(args.start_epoch) + ".pt")
+        C = torch.load(args.model_path + args.name + "/C_" + str(args.start_epoch) + ".pt").to(device)
     else:
         C = MoNet(args.kernel_size).to(device)
 
@@ -182,8 +183,12 @@ def main(args):
         test_loss /= len(test_loader.dataset)
         test_losses.append(test_loss)
 
+        print('test')
+
         f = open(args.out_path + args.name + '.txt', 'a')
+        print(args.out_path + args.name + '.txt')
         s = "After {} epochs, on test set: Avg. loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(epoch, test_loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset))
+        print(s)
         f.write(s)
         f.close()
 
