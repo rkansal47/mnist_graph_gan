@@ -126,7 +126,7 @@ def parse_args():
     # evaluation
 
     parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
-    parser.add_argument("--fid-batch-size", type=int, default=128, help="batch size when generating samples for fid eval")
+    parser.add_argument("--fid-batch-size", type=int, default=64, help="batch size when generating samples for fid eval")
 
     args = parser.parse_args()
 
