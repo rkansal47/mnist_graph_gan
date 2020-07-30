@@ -95,7 +95,7 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
     parser.set_defaults(**{varname: default})
 
 
-dir_path = dirname(realpath(__file__))
+dir_path = "."  # dirname(realpath(__file__))
 parser = argparse.ArgumentParser()
 
 add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
@@ -106,6 +106,8 @@ args = parser.parse_args()
 
 model_path = dir_path + "/cmodels/12_global_edge_attr_test/C_100.pt"
 dataset_path = dir_path + '/dataset/cartesian/'
+
+dataset_path += str(args.num) + "s/" if args.num != -1 else "all_nums"
 
 
 def pf(data):
@@ -127,7 +129,24 @@ torch.save(pretrained_model.state_dict(), "../mnist_superpixels/eval/C_state_dic
 
 print("loaded model)")
 
-# TEST WITH CLASSIFICATION FIRST
+# Testing Classification - remember to comment the first return in MoNet.forward()
+
+# test_dataset = MNISTSuperpixels(dir_path + '/dataset/cartesian/', False, pre_transform=T.Cartesian())
+# test_loader = DataLoader(test_dataset, batch_size=128)
+#
+# C.eval()
+# test_loss = 0
+# correct = 0
+# with torch.no_grad():
+#     for data in test_loader:
+#         output = C(data)
+#         test_loss += F.nll_loss(output, data.y, size_average=False).item()
+#         pred = output.data.max(1, keepdim=True)[1]
+#         correct += pred.eq(data.y.data.view_as(pred)).sum()
+#
+# test_loss /= len(test_loader.dataset)
+#
+# print(100. * correct / len(test_loader.dataset))
 
 for batch_ndx, data in tqdm(enumerate(train_loader), total=len(train_loader)):
     if(batch_ndx == 0):

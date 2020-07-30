@@ -23,6 +23,7 @@ class Graph_GAN(nn.Module):
         self.test = 10
 
         self.args.spectral_norm = self.args.spectral_norm_gen if self.G else self.args.spectral_norm_disc
+        self.args.batch_norm = self.args.batch_norm_gen if self.G else self.args.batch_norm_disc
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
 
         if(self.args.int_diffs and self.args.pos_diffs):

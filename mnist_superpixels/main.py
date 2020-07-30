@@ -102,7 +102,8 @@ def parse_args():
 
     # regularization
 
-    utils.add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
+    utils.add_bool_arg(parser, "batch-norm-disc", "use batch normalization", default=False)
+    utils.add_bool_arg(parser, "batch-norm-gen", "use batch normalization", default=False)
     utils.add_bool_arg(parser, "spectral-norm-disc", "use spectral normalization in discriminator", default=False)
     utils.add_bool_arg(parser, "spectral-norm-gen", "use spectral normalization in generator", default=False)
 
