@@ -364,6 +364,7 @@ def main(args):
     def train():
         k = 0
         temp_ng = args.num_gen
+        losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             Dr_loss = 0
@@ -371,7 +372,6 @@ def main(args):
             G_loss = 0
             D_loss = 0
             gp_loss = 0
-            losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
                 data = data.to(args.device)
