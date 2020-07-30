@@ -68,7 +68,7 @@ class MoNet(torch.nn.Module):
 
 
 def load(args):
-    C = MoNet(25)
+    C = MoNet(25).to(args.device)
     C.load_state_dict(torch.load(args.eval_path + "C_state_dict.pt"))
     mu2 = np.loadtxt(args.eval_path + "mu2.txt")
     sigma2 = np.loadtxt(args.eval_path + "sigma2.txt")
@@ -79,13 +79,15 @@ def load(args):
 def get_fid(args, C, G, dist, mu2, sigma2):
     print("evaluating fid")
     G.eval()
+    C.eval()
     num_iters = np.ceil(float(args.fid_eval_size) / float(args.fid_batch_size))
-    for i in tqdm(range(int(num_iters))):
-        gen_data = utils.tg_transform(args, utils.gen(args, G, dist, args.fid_batch_size))
-        if(i == 0):
-            activations = C(gen_data)
-        else:
-            activations = torch.cat((C(gen_data), activations), axis=0)
+    with torch.no_grad():
+        for i in tqdm(range(int(num_iters))):
+            gen_data = utils.tg_transform(args, utils.gen(args, G, dist, args.fid_batch_size))
+            if(i == 0):
+                activations = C(gen_data)
+            else:
+                activations = torch.cat((C(gen_data), activations), axis=0)
 
     activations = activations.cpu().detach().numpy()
 
