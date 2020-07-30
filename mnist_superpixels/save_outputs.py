@@ -101,11 +101,20 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     plt.savefig(args.losses_path + name + ".png")
     plt.close()
 
+    plt.figure()
+    plt.plot(losses['fid'])
+    plt.xlabel('Epoch')
+    plt.ylabel('FID')
+    plt.legend()
+    plt.savefig(args.losses_path + name + "_fid.png")
+    plt.close()
+
     if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])
     np.savetxt(args.losses_path + args.name + "/" + "D.txt", losses['D'])
     np.savetxt(args.losses_path + args.name + "/" + "G.txt", losses['G'])
     np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", losses['Dr'])
     np.savetxt(args.losses_path + args.name + "/" + "Df.txt", losses['Df'])
+    np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
     try:
         if(j == -1): remove(args.losses_path + args.name + "/" + str(epoch - 5) + ".png")

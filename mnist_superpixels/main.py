@@ -2,7 +2,7 @@
 
 import torch
 from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
-import utils, save_outputs
+import utils, save_outputs, eval
 from superpixels_dataset import SuperpixelsDataset
 from graph_dataset_mnist import MNISTGraphDataset
 from torch.utils.data import DataLoader
@@ -122,6 +122,11 @@ def parse_args():
 
     parser.add_argument("--unrolled-steps", type=int, default=0, help="number of unrolled D steps for G training")
 
+    # evaluation
+
+    parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
+    parser.add_argument("--fid-batch-size", type=int, default=128, help="batch size when generating samples for fid eval")
+
     args = parser.parse_args()
 
     if(not(args.loss == 'w' or args.loss == 'og' or args.loss == 'ls' or args.loss == 'hinge')):
@@ -152,6 +157,7 @@ def init(args):
     args.figs_path = args.dir_path + '/figs/'
     args.dataset_path = args.dir_path + '/raw/' if not args.sparse_mnist else args.dir_path + '/mnist_dataset/'
     args.err_path = args.dir_path + '/err/'
+    args.eval_path = args.dir_path + '/eval/'
 
     if(not exists(args.model_path)):
         mkdir(args.model_path)
@@ -273,6 +279,8 @@ def main(args):
 
     print("optimizers loaded")
 
+    C, mu2, sigma2 = eval.load(args)
+
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
 
     def train_D(data, gen_data=None, unrolled=False):
@@ -328,6 +336,7 @@ def main(args):
             losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
             losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
             losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
+            losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
 
             if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
         except:
@@ -335,6 +344,7 @@ def main(args):
             losses['Dr'] = []
             losses['Df'] = []
             losses['G'] = []
+            losses['fid'] = []
 
             if(args.gp): losses['gp'] = []
 
@@ -343,6 +353,7 @@ def main(args):
         losses['Dr'] = []
         losses['Df'] = []
         losses['G'] = []
+        losses['fid'] = []
 
         if(args.gp): losses['gp'] = []
 
@@ -359,6 +370,7 @@ def main(args):
             G_loss = 0
             D_loss = 0
             gp_loss = 0
+            losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
                 data = data.to(args.device)
@@ -452,6 +464,9 @@ def main(args):
 
             if((i + 1) % 5 == 0):
                 save_outputs.save_models(args, D, G, args.name, i + 1)
+
+            if((i + 1) % 1 == 0):
+                losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
     train()
 
