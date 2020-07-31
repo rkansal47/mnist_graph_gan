@@ -88,7 +88,7 @@ class Graph_GAN(nn.Module):
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
 
-        self.init_params()
+        # self.init_params()
 
         if self.args.spectral_norm:
             for ml in self.fe:
