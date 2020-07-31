@@ -96,28 +96,22 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
 
 
 dir_path = "."  # dirname(realpath(__file__))
-parser = argparse.ArgumentParser()
+num = 3
 
-add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
-parser.add_argument("--batch-size", type=int, default=128, help="batch size")
-parser.add_argument("--num", type=int, default=3, help="number to train on")
-
-args = parser.parse_args()
-
-model_path = dir_path + "/cmodels/12_global_edge_attr_test/C_100.pt"
+model_path = dir_path + "/cmodels/12_global_edge_attr_test/C_300.pt"
 dataset_path = dir_path + '/dataset/cartesian/'
 
-dataset_path += str(args.num) + "s/" if args.num != -1 else "all_nums"
+dataset_path += str(num) + "s/" if num != -1 else "all_nums"
 
 
 def pf(data):
-    return data.y == args.num
+    return data.y == num
 
 
-pre_filter = pf if args.num != -1 else None
+pre_filter = pf if num != -1 else None
 
 train_dataset = MNISTSuperpixels(dataset_path, True, pre_transform=T.Cartesian(), pre_filter=pre_filter)
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size)
+train_loader = DataLoader(train_dataset, batch_size=128)
 
 print("loaded data")
 
