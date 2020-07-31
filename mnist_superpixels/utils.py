@@ -178,8 +178,8 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
         D_real_loss = -real_outputs.mean()
         D_fake_loss = fake_outputs.mean()
     elif(args.loss == 'hinge'):
-        D_real_loss = -torch.mean(torch.min(real_outputs - 1, torch.zeros(run_batch_size, 1).to(args.device)))
-        D_fake_loss = -torch.mean(torch.min(-fake_outputs - 1, torch.zeros(run_batch_size, 1).to(args.device)))
+        D_real_loss = torch.nn.ReLU()(1.0 - real_outputs).mean()
+        D_fake_loss = torch.nn.ReLU()(1.0 + fake_outputs).mean()
 
     D_loss = D_real_loss + D_fake_loss
 
