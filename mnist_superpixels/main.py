@@ -125,6 +125,7 @@ def parse_args():
 
     # evaluation
 
+    utils.add_bool_arg(parser, "fid", "calc fid", default=True)
     parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
     parser.add_argument("--fid-batch-size", type=int, default=32, help="batch size when generating samples for fid eval")
 
@@ -284,6 +285,38 @@ def main(args):
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
 
+    losses = {}
+
+    if(args.load_model):
+        try:
+            losses['D'] = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
+            losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
+            losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
+            losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
+            losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
+
+            if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
+        except:
+            losses['D'] = []
+            losses['Dr'] = []
+            losses['Df'] = []
+            losses['G'] = []
+            losses['fid'] = []
+
+            if(args.gp): losses['gp'] = []
+
+    else:
+        losses['D'] = []
+        losses['Dr'] = []
+        losses['Df'] = []
+        losses['G'] = []
+        losses['fid'] = []
+
+        if(args.gp): losses['gp'] = []
+
+    if(args.save_zero):
+        save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, 0, losses)
+
     def train_D(data, gen_data=None, unrolled=False):
         if args.debug: print("dtrain")
         D.train()
@@ -329,42 +362,10 @@ def main(args):
 
         return G_loss.item()
 
-    losses = {}
-
-    if(args.load_model):
-        try:
-            losses['D'] = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
-            losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
-            losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
-            losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
-            losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
-
-            if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
-        except:
-            losses['D'] = []
-            losses['Dr'] = []
-            losses['Df'] = []
-            losses['G'] = []
-            losses['fid'] = []
-
-            if(args.gp): losses['gp'] = []
-
-    else:
-        losses['D'] = []
-        losses['Dr'] = []
-        losses['Df'] = []
-        losses['G'] = []
-        losses['fid'] = []
-
-        if(args.gp): losses['gp'] = []
-
-    if(args.save_zero):
-        save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, 0, losses)
-
     def train():
         k = 0
         temp_ng = args.num_gen
-        losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
+        if(args.fid): losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             Dr_loss = 0
@@ -466,7 +467,7 @@ def main(args):
             if((i + 1) % 5 == 0):
                 save_outputs.save_models(args, D, G, args.name, i + 1)
 
-            if((i + 1) % 1 == 0):
+            if(args.fid and (i + 1) % 1 == 0):
                 losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
     train()
