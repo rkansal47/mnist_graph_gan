@@ -86,6 +86,8 @@ def parse_args():
 
     utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
 
+    parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
+
     # optimization
 
     parser.add_argument("--optimizer", type=str, default="None", help="optimizer - options are adam, rmsprop, adadelta")

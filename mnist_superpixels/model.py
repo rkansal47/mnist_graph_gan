@@ -88,7 +88,7 @@ class Graph_GAN(nn.Module):
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
 
-        # self.init_params()
+        if self.args.glorot: self.init_params()
 
         if self.args.spectral_norm:
             for ml in self.fe:
@@ -185,10 +185,11 @@ class Graph_GAN(nn.Module):
         return A
 
     def init_params(self):
+        print("glorot-ing")
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 # print(m)
-                torch.nn.init.xavier_uniform(m.weight, 0.1)
+                torch.nn.init.xavier_uniform(m.weight, self.args.glorot)
 
     def load(self, backup):
         for m_from, m_to in zip(backup.modules(), self.modules()):
