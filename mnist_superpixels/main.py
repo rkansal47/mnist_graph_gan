@@ -74,7 +74,7 @@ def parse_args():
     parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
     parser.add_argument("--mp-iters-disc", type=int, default=2, help="number of message passing iterations in the discriminator (if applicable)")
     parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
-    utils.add_bool_arg(parser, "sum", "mean or sum in models", default=False, no_name="mean")
+    utils.add_bool_arg(parser, "sum", "mean or sum in models", default=True, no_name="mean")
 
     utils.add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     utils.add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
@@ -112,7 +112,7 @@ def parse_args():
     parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
     parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
 
-    utils.add_bool_arg(parser, "label-smoothing", "use label smotthing with discriminator", default=False)
+    utils.add_bool_arg(parser, "label-smoothing", "use label smoothing with discriminator", default=False)
     parser.add_argument("--label-noise", type=float, default=0, help="discriminator label noise (between 0 and 1)")
 
     utils.add_bool_arg(parser, "gp", "use gradient penalty", default=False)
