@@ -153,8 +153,6 @@ def init(args):
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
 
-    args.device = device
-
     args.model_path = args.dir_path + '/models/'
     args.losses_path = args.dir_path + '/losses/'
     args.args_path = args.dir_path + '/args/'
@@ -224,6 +222,8 @@ def init(args):
         f.close()
         args.load_model = True
         args.start_epoch, args.num_epochs = temp
+
+    args.device = device
 
     return args
 

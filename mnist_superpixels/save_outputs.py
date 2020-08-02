@@ -101,11 +101,15 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     plt.savefig(args.losses_path + name + ".png")
     plt.close()
 
+    fid_5 = losses['fid'][::5]
+    x = np.arange(len(losses['fid']), step=5)
+
     plt.figure()
-    plt.plot(losses['fid'])
+    plt.plot(x, np.log(fid_5))
+    # plt.ylim((0, 5))
     plt.xlabel('Epoch')
-    plt.ylabel('FID')
-    plt.legend()
+    plt.ylabel('LogFID')
+    # plt.legend()
     plt.savefig(args.losses_path + name + "_fid.png")
     plt.close()
 
