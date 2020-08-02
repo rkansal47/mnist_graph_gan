@@ -130,7 +130,7 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
     gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
 
     # Return gradient penalty
-    gp = args.gp_weight * ((gradients_norm - 1) ** 2).mean()
+    gp = args.gp * ((gradients_norm - 1) ** 2).mean()
     # print("gradient penalty")
     # print(gp)
     return gp
@@ -156,29 +156,30 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
         print("fake outputs")
         print(fake_outputs[:10])
 
-    if args.label_smoothing:
-        Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(args.device)
-        Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3).to(args.device)
-    else:
-        Y_real = torch.ones(run_batch_size, 1).to(args.device)
-        Y_fake = torch.zeros(run_batch_size, 1).to(args.device)
+    if(args.loss == 'og' or args.loss == 'ls'):
+        if args.label_smoothing:
+            Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(args.device)
+            Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3).to(args.device)
+        else:
+            Y_real = torch.ones(run_batch_size, 1).to(args.device)
+            Y_fake = torch.zeros(run_batch_size, 1).to(args.device)
 
-    # randomly flipping labels for D
-    Y_real[torch.rand(run_batch_size) < args.label_noise] = 0
-    Y_fake[torch.rand(run_batch_size) < args.label_noise] = 1
+        # randomly flipping labels for D
+        Y_real[torch.rand(run_batch_size) < args.label_noise] = 0
+        Y_fake[torch.rand(run_batch_size) < args.label_noise] = 1
 
     if(args.loss == 'og'):
         D_real_loss = bce(real_outputs, Y_real)
         D_fake_loss = bce(fake_outputs, Y_fake)
     elif(args.loss == 'ls'):
-        D_real_loss = bce(real_outputs, Y_real)
-        D_fake_loss = bce(fake_outputs, Y_fake)
+        D_real_loss = mse(real_outputs, Y_real)
+        D_fake_loss = mse(fake_outputs, Y_fake)
     elif(args.loss == 'w'):
         D_real_loss = -real_outputs.mean()
         D_fake_loss = fake_outputs.mean()
     elif(args.loss == 'hinge'):
-        D_real_loss = -torch.mean(torch.min(real_outputs - 1, torch.zeros(run_batch_size, 1).to(args.device)))
-        D_fake_loss = -torch.mean(torch.min(-fake_outputs - 1, torch.zeros(run_batch_size, 1).to(args.device)))
+        D_real_loss = torch.nn.ReLU()(1.0 - real_outputs).mean()
+        D_fake_loss = torch.nn.ReLU()(1.0 + fake_outputs).mean()
 
     D_loss = D_real_loss + D_fake_loss
 
@@ -194,7 +195,8 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
 def calc_G_loss(args, fake_outputs):
     if args.debug: print(fake_outputs[:10])
 
-    Y_real = torch.ones(args.batch_size, 1).to(args.device)
+    if(args.loss == 'og' or args.loss == 'ls'):
+        Y_real = torch.ones(args.batch_size, 1).to(args.device)
 
     if(args.loss == 'og'):
         G_loss = bce(fake_outputs, Y_real)

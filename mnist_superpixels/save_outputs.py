@@ -117,7 +117,9 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
     try:
-        if(j == -1): remove(args.losses_path + args.name + "/" + str(epoch - 5) + ".png")
+        if(j == -1):
+            remove(args.losses_path + args.name + "/" + str(epoch - 5) + ".png")
+            remove(args.losses_path + args.name + "/" + str(epoch - 5) + "_fid.png")
         else: remove(args.losses_path + args.name + "/" + str(epoch) + "_g_only_" + str(k) + "_" + str(j - 5) + ".png")
     except:
         print("couldn't remove loss file")

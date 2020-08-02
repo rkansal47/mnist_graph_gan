@@ -23,6 +23,7 @@ class Graph_GAN(nn.Module):
         self.test = 10
 
         self.args.spectral_norm = self.args.spectral_norm_gen if self.G else self.args.spectral_norm_disc
+        self.args.batch_norm = self.args.batch_norm_gen if self.G else self.args.batch_norm_disc
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
 
         if(self.args.int_diffs and self.args.pos_diffs):
@@ -87,7 +88,7 @@ class Graph_GAN(nn.Module):
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
 
-        self.init_params()
+        if self.args.glorot: self.init_params()
 
         if self.args.spectral_norm:
             for ml in self.fe:
@@ -101,7 +102,6 @@ class Graph_GAN(nn.Module):
             if self.args.dea:
                 for i in range(len(self.fnd)):
                     self.fnd[i] = SpectralNorm(self.fnd[i])
-        # print("after")
 
         print("fe: ")
         print(self.fe)
@@ -158,13 +158,14 @@ class Graph_GAN(nn.Module):
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
-                x = torch.sum(x[:, :, :1], 1) if self.args.sum else torch.mean(x[:, :, :1], 1)
+                # x = torch.sum(x[:, :, :1], 1) if self.args.sum else torch.mean(x[:, :, :1], 1)
+                x = torch.mean(x[:, :, :1], 1)
                 # print(    x)
 
-            # print(x)
+            if self.args.debug: print(x)
             # print(torch.sigmoid(x))
-            # return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
-            return torch.sigmoid(x)
+            return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
+            # return torch.sigmoid(x)
 
     def getA(self, x, batch_size):
         x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, self.args.hidden_node_size)
@@ -183,10 +184,11 @@ class Graph_GAN(nn.Module):
         return A
 
     def init_params(self):
+        print("glorot-ing")
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 # print(m)
-                torch.nn.init.xavier_uniform(m.weight, 0.1)
+                torch.nn.init.xavier_uniform(m.weight, self.args.glorot)
 
     def load(self, backup):
         for m_from, m_to in zip(backup.modules(), self.modules()):

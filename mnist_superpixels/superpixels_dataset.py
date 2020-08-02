@@ -29,7 +29,7 @@ class SuperpixelsDataset(Dataset):
 
         # print(X.size())
         print(X.shape)
-        print(X[0])
+        # print(X[0])
 
     def __len__(self):
         return len(self.X)

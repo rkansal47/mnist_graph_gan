@@ -34,7 +34,7 @@ class SpectralNorm(nn.Module):
 
         # sigma = torch.dot(u.data, torch.mv(w.view(height,-1).data, v.data))
         sigma = u.dot(w.view(height, -1).mv(v))
-        setattr(self.module, self.name, w / sigma.expand_as(w))
+        setattr(self.module, self.name, w / (sigma.expand_as(w) + 1e-12))
 
     def _made_params(self):
         try:

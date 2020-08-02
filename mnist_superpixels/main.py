@@ -2,7 +2,7 @@
 
 import torch
 from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
-import utils, save_outputs, eval
+import utils, save_outputs, evaluation
 from superpixels_dataset import SuperpixelsDataset
 from graph_dataset_mnist import MNISTGraphDataset
 from torch.utils.data import DataLoader
@@ -69,7 +69,7 @@ def parse_args():
     parser.add_argument("--hidden-node-size", type=int, default=32, help="latent vector size of each node (incl node feature size)")
 
     parser.add_argument("--fn", type=int, nargs='*', default=[256, 256], help="hidden fn layers e.g. 256 256")
-    parser.add_argument("--fe", type=int, nargs='+', default=[64, 128], help="hidden and output fe layers e.g. 64 128")
+    parser.add_argument("--fe", type=int, nargs='+', default=[96, 128, 192], help="hidden and output fe layers e.g. 64 128")
     parser.add_argument("--fnd", type=int, nargs='*', default=[256, 128], help="hidden disc output layers e.g. 256 128")
     parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
     parser.add_argument("--mp-iters-disc", type=int, default=2, help="number of message passing iterations in the discriminator (if applicable)")
@@ -85,6 +85,8 @@ def parse_args():
     parser.add_argument("--cutoff", type=float, default=0.32178, help="cutoff edge distance")  # found empirically to match closest to Superpixels
 
     utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
+
+    parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
 
     # optimization
 
@@ -102,18 +104,19 @@ def parse_args():
 
     # regularization
 
-    utils.add_bool_arg(parser, "batch-norm", "use batch normalization", default=False)
+    utils.add_bool_arg(parser, "batch-norm-disc", "use batch normalization", default=False)
+    utils.add_bool_arg(parser, "batch-norm-gen", "use batch normalization", default=False)
     utils.add_bool_arg(parser, "spectral-norm-disc", "use spectral normalization in discriminator", default=False)
     utils.add_bool_arg(parser, "spectral-norm-gen", "use spectral normalization in generator", default=False)
 
     parser.add_argument("--disc-dropout", type=float, default=0.5, help="fraction of discriminator dropout")
     parser.add_argument("--gen-dropout", type=float, default=0, help="fraction of generator dropout")
 
-    utils.add_bool_arg(parser, "label-smoothing", "use label smotthing with discriminator", default=False)
+    utils.add_bool_arg(parser, "label-smoothing", "use label smoothing with discriminator", default=False)
     parser.add_argument("--label-noise", type=float, default=0, help="discriminator label noise (between 0 and 1)")
 
-    utils.add_bool_arg(parser, "gp", "use gradient penalty", default=False)
-    parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight (if we are using gp)")
+    # utils.add_bool_arg(parser, "gp", "use gradient penalty", default=False)
+    parser.add_argument("--gp", type=float, default=0, help="WGAN generator penalty weight - 0 means not used")
 
     utils.add_bool_arg(parser, "gom", "use gen only mode", default=False)
     utils.add_bool_arg(parser, "bgm", "use boost g mode", default=False)
@@ -124,8 +127,9 @@ def parse_args():
 
     # evaluation
 
+    utils.add_bool_arg(parser, "fid", "calc fid", default=True)
     parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
-    parser.add_argument("--fid-batch-size", type=int, default=128, help="batch size when generating samples for fid eval")
+    parser.add_argument("--fid-batch-size", type=int, default=32, help="batch size when generating samples for fid eval")
 
     args = parser.parse_args()
 
@@ -157,7 +161,7 @@ def init(args):
     args.figs_path = args.dir_path + '/figs/'
     args.dataset_path = args.dir_path + '/raw/' if not args.sparse_mnist else args.dir_path + '/mnist_dataset/'
     args.err_path = args.dir_path + '/err/'
-    args.eval_path = args.dir_path + '/eval/'
+    args.eval_path = args.dir_path + '/evaluation/'
 
     if(not exists(args.model_path)):
         mkdir(args.model_path)
@@ -279,9 +283,41 @@ def main(args):
 
     print("optimizers loaded")
 
-    C, mu2, sigma2 = eval.load(args)
+    C, mu2, sigma2 = evaluation.load(args)
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
+
+    losses = {}
+
+    if(args.load_model):
+        try:
+            losses['D'] = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
+            losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
+            losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
+            losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
+            losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
+
+            if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
+        except:
+            losses['D'] = []
+            losses['Dr'] = []
+            losses['Df'] = []
+            losses['G'] = []
+            losses['fid'] = []
+
+            if(args.gp): losses['gp'] = []
+
+    else:
+        losses['D'] = []
+        losses['Dr'] = []
+        losses['Df'] = []
+        losses['G'] = []
+        losses['fid'] = []
+
+        if(args.gp): losses['gp'] = []
+
+    if(args.save_zero):
+        save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, 0, losses)
 
     def train_D(data, gen_data=None, unrolled=False):
         if args.debug: print("dtrain")
@@ -328,41 +364,10 @@ def main(args):
 
         return G_loss.item()
 
-    losses = {}
-
-    if(args.load_model):
-        try:
-            losses['D'] = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
-            losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
-            losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
-            losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
-            losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
-
-            if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
-        except:
-            losses['D'] = []
-            losses['Dr'] = []
-            losses['Df'] = []
-            losses['G'] = []
-            losses['fid'] = []
-
-            if(args.gp): losses['gp'] = []
-
-    else:
-        losses['D'] = []
-        losses['Dr'] = []
-        losses['Df'] = []
-        losses['G'] = []
-        losses['fid'] = []
-
-        if(args.gp): losses['gp'] = []
-
-    if(args.save_zero):
-        save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, 0, losses)
-
     def train():
         k = 0
         temp_ng = args.num_gen
+        if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             Dr_loss = 0
@@ -370,7 +375,6 @@ def main(args):
             G_loss = 0
             D_loss = 0
             gp_loss = 0
-            losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
                 data = data.to(args.device)
@@ -465,8 +469,8 @@ def main(args):
             if((i + 1) % 5 == 0):
                 save_outputs.save_models(args, D, G, args.name, i + 1)
 
-            if((i + 1) % 1 == 0):
-                losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
+            if(args.fid and (i + 1) % 1 == 0):
+                losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
     train()
 
