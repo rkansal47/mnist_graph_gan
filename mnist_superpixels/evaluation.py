@@ -2,10 +2,8 @@
 
 import torch
 from torch import nn
-from torch_geometric.data import DataLoader
 import torch.nn.functional as F
 
-from torch_geometric.datasets import MNISTSuperpixels
 import torch_geometric.transforms as T
 
 from torch_geometric.utils import normalized_cut

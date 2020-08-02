@@ -2,7 +2,7 @@
 
 import torch
 from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
-import utils, save_outputs, eval
+import utils, save_outputs, evaluation
 from superpixels_dataset import SuperpixelsDataset
 from graph_dataset_mnist import MNISTGraphDataset
 from torch.utils.data import DataLoader
@@ -161,7 +161,7 @@ def init(args):
     args.figs_path = args.dir_path + '/figs/'
     args.dataset_path = args.dir_path + '/raw/' if not args.sparse_mnist else args.dir_path + '/mnist_dataset/'
     args.err_path = args.dir_path + '/err/'
-    args.eval_path = args.dir_path + '/eval/'
+    args.eval_path = args.dir_path + '/evaluation/'
 
     if(not exists(args.model_path)):
         mkdir(args.model_path)
@@ -283,7 +283,7 @@ def main(args):
 
     print("optimizers loaded")
 
-    C, mu2, sigma2 = eval.load(args)
+    C, mu2, sigma2 = evaluation.load(args)
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
 
@@ -367,7 +367,7 @@ def main(args):
     def train():
         k = 0
         temp_ng = args.num_gen
-        if(args.fid): losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
+        if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             Dr_loss = 0
@@ -470,7 +470,7 @@ def main(args):
                 save_outputs.save_models(args, D, G, args.name, i + 1)
 
             if(args.fid and (i + 1) % 1 == 0):
-                losses['fid'].append(eval.get_fid(args, C, G, normal_dist, mu2, sigma2))
+                losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
     train()
 
