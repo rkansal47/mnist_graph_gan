@@ -102,7 +102,6 @@ class Graph_GAN(nn.Module):
             if self.args.dea:
                 for i in range(len(self.fnd)):
                     self.fnd[i] = SpectralNorm(self.fnd[i])
-        # print("after")
 
         print("fe: ")
         print(self.fe)

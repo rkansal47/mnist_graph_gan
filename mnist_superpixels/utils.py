@@ -130,7 +130,7 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
     gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
 
     # Return gradient penalty
-    gp = args.gp_weight * ((gradients_norm - 1) ** 2).mean()
+    gp = args.gp * ((gradients_norm - 1) ** 2).mean()
     # print("gradient penalty")
     # print(gp)
     return gp

@@ -115,8 +115,8 @@ def parse_args():
     utils.add_bool_arg(parser, "label-smoothing", "use label smoothing with discriminator", default=False)
     parser.add_argument("--label-noise", type=float, default=0, help="discriminator label noise (between 0 and 1)")
 
-    utils.add_bool_arg(parser, "gp", "use gradient penalty", default=False)
-    parser.add_argument("--gp-weight", type=float, default=10, help="WGAN generator penalty weight (if we are using gp)")
+    # utils.add_bool_arg(parser, "gp", "use gradient penalty", default=False)
+    parser.add_argument("--gp", type=float, default=0, help="WGAN generator penalty weight - 0 means not used")
 
     utils.add_bool_arg(parser, "gom", "use gen only mode", default=False)
     utils.add_bool_arg(parser, "bgm", "use boost g mode", default=False)
