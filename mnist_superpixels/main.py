@@ -69,7 +69,7 @@ def parse_args():
     parser.add_argument("--hidden-node-size", type=int, default=32, help="latent vector size of each node (incl node feature size)")
 
     parser.add_argument("--fn", type=int, nargs='*', default=[256, 256], help="hidden fn layers e.g. 256 256")
-    parser.add_argument("--fe", type=int, nargs='+', default=[128, 192], help="hidden and output fe layers e.g. 64 128")
+    parser.add_argument("--fe", type=int, nargs='+', default=[96, 128, 192], help="hidden and output fe layers e.g. 64 128")
     parser.add_argument("--fnd", type=int, nargs='*', default=[256, 128], help="hidden disc output layers e.g. 256 128")
     parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
     parser.add_argument("--mp-iters-disc", type=int, default=2, help="number of message passing iterations in the discriminator (if applicable)")
