@@ -5,6 +5,7 @@ from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Grap
 import utils, save_outputs, evaluation
 from superpixels_dataset import SuperpixelsDataset
 from graph_dataset_mnist import MNISTGraphDataset
+from acgd import ACGD
 from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 
@@ -90,7 +91,7 @@ def parse_args():
 
     # optimization
 
-    parser.add_argument("--optimizer", type=str, default="None", help="optimizer - options are adam, rmsprop, adadelta")
+    parser.add_argument("--optimizer", type=str, default="adam", help="optimizer - options are adam, rmsprop, adadelta or acgd")
     parser.add_argument("--loss", type=str, default="ls", help="loss to use - options are og, ls, w, hinge")
 
     parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
@@ -134,15 +135,20 @@ def parse_args():
     args = parser.parse_args()
 
     if(not(args.loss == 'w' or args.loss == 'og' or args.loss == 'ls' or args.loss == 'hinge')):
-        print("invalid loss")
+        print("invalid loss - exiting")
         sys.exit()
 
     if(args.int_diffs and not args.pos_diffs):
-        print("int_diffs = true and pos_diffs = false not supported yet")
+        print("int_diffs = true and pos_diffs = false not supported yet - exiting")
+        sys.exit()
+
+    if(args.optimizer == 'acgd' and (args.num_critic != 1 or args.num_gen != 1)):
+        print("acgd can't have num critic or num gen > 1 - exiting")
         sys.exit()
 
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/mnist_superpixels"
+        args.save_zero = True
 
     args.channels = [64, 32, 16, 1]
 
@@ -251,9 +257,12 @@ def main(args):
 
     print("loaded data")
 
+    # model
+
     if(args.load_model):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
+
     else:
         # G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(args.device)
         if(args.gcnn):
@@ -269,6 +278,8 @@ def main(args):
 
     print("Models loaded")
 
+    # optimizer
+
     D_params_filter = filter(lambda p: p.requires_grad, D.parameters())  # spectral norm has untrainable params so this excludes those
 
     if(args.optimizer == 'rmsprop'):
@@ -277,9 +288,21 @@ def main(args):
     elif(args.optimizer == 'adadelta'):
         G_optimizer = optim.Adadelta(G.parameters(), lr=args.lr_gen)
         D_optimizer = optim.Adadelta(D_params_filter, lr=args.lr_disc)
-    else:
+    elif(args.optimizer == 'acgd'):
+        optimizer = ACGD(max_params=G.parameters(), min_params=D.parameters(), lr_max=args.lr_gen, lr_min=args.lr_disc, device=args.device)
+    elif(args.optimizer == 'adam' or args.optimizer == 'None'):
         G_optimizer = optim.Adam(G.parameters(), lr=args.lr_gen, weight_decay=5e-4, betas=(args.beta1, args.beta2))
         D_optimizer = optim.Adam(D_params_filter, lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2))
+
+    if(args.load_model):
+        try:
+            if(not args.optimizer == 'acgd'):
+                G_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/G_optim_" + str(args.start_epoch) + ".pt"))
+                D_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/D_optim_" + str(args.start_epoch) + ".pt"))
+            else:
+                optimizer.load_state_dict(torch.load(args.model_path + args.name + "/optim_" + str(args.start_epoch) + ".pt"))
+        except:
+            print("Error loading optimizer")
 
     print("optimizers loaded")
 
@@ -364,6 +387,30 @@ def main(args):
 
         return G_loss.item()
 
+    def train_acgd(data):
+        if args.debug: print("acgd train")
+        D.train()
+        G.train()
+        optimizer.zero_grad()
+
+        run_batch_size = data.shape[0] if not args.gcnn else data.y.shape[0]
+
+        gen_data = utils.gen(args, G, normal_dist, run_batch_size)
+        if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, run_batch_size)
+
+        D_real_output = D(data.clone())
+        D_fake_output = D(gen_data)
+
+        D_loss, D_loss_items = utils.calc_D_loss(args, D, data, gen_data, D_real_output, D_fake_output, run_batch_size)
+
+        optimizer.step(loss=D_loss)
+
+        G.eval()
+        with torch.no_grad():
+            G_loss = utils.calc_G_loss(args, D_fake_output)
+
+        return D_loss_items, G_loss.item()
+
     def train():
         k = 0
         temp_ng = args.num_gen
@@ -383,24 +430,31 @@ def main(args):
                     row, col = data.edge_index
                     data.edge_attr = (data.pos[col] - data.pos[row]) / (2 * args.cutoff) + 0.5
 
-                if(args.num_critic > 1):
-                    D_loss_items = train_D(data)
-                    D_loss += D_loss_items['D']
-                    Dr_loss += D_loss_items['Dr']
-                    Df_loss += D_loss_items['Df']
-                    if(args.gp): gp_loss += D_loss_items['gp']
-
-                    if((batch_ndx - 1) % args.num_critic == 0):
-                        G_loss += train_G(data)
-                else:
-                    if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
+                if(not args.optimizer == 'acgd'):
+                    if(args.num_critic > 1):
                         D_loss_items = train_D(data)
                         D_loss += D_loss_items['D']
                         Dr_loss += D_loss_items['Dr']
                         Df_loss += D_loss_items['Df']
                         if(args.gp): gp_loss += D_loss_items['gp']
 
-                    G_loss += train_G(data)
+                        if((batch_ndx - 1) % args.num_critic == 0):
+                            G_loss += train_G(data)
+                    else:
+                        if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
+                            D_loss_items = train_D(data)
+                            D_loss += D_loss_items['D']
+                            Dr_loss += D_loss_items['Dr']
+                            Df_loss += D_loss_items['Df']
+                            if(args.gp): gp_loss += D_loss_items['gp']
+
+                        G_loss += train_G(data)
+                else:
+                    D_loss_items, G_loss_item = train_acgd(data)
+                    D_loss += D_loss_items['D']
+                    Dr_loss += D_loss_items['Dr']
+                    Df_loss += D_loss_items['Df']
+                    G_loss += G_loss_item
 
                 # if(batch_ndx == 10):
                 #     return
