@@ -133,10 +133,10 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
 
 def save_models(args, D, G, optimizers, name, epoch, k=-1, j=-1):
     g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
-    torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + g_only + ".pt")
     torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + g_only + ".pt")
+    torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + g_only + ".pt")
     if(args.optimizer == 'acgd'):
         torch.save(optimizers.state_dict(), args.model_path + args.name + "/optim_" + str(epoch) + g_only + ".pt")
     else:
-        torch.save(optimizers[0].state_dict(), args.model_path + args.name + "/G_optim_" + str(epoch) + g_only + ".pt")
-        torch.save(optimizers[1].state_dict(), args.model_path + args.name + "/D_optim_" + str(epoch) + g_only + ".pt")
+        torch.save(optimizers[0].state_dict(), args.model_path + args.name + "/D_optim_" + str(epoch) + g_only + ".pt")
+        torch.save(optimizers[1].state_dict(), args.model_path + args.name + "/G_optim_" + str(epoch) + g_only + ".pt")
