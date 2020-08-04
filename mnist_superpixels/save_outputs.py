@@ -91,7 +91,7 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
         plt.plot(losses['Dr'], label='Discriminitive real loss')
         plt.plot(losses['Df'], label='Discriminitive fake loss')
         plt.plot(losses['G'], label='Generative loss')
-        plt.plot(losses['D'], label='Disciriminative total loss')
+        # plt.plot(losses['D'], label='Disciriminative total loss')
 
     if(args.gp): plt.plot(losses['gp'], label='Gradient penalty')
 
