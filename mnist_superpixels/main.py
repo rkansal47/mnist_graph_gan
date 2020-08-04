@@ -126,6 +126,9 @@ def parse_args():
 
     parser.add_argument("--unrolled-steps", type=int, default=0, help="number of unrolled D steps for G training")
 
+    utils.add_bool_arg(parser, "augment", "augment data", default=False)
+    parser.add_argument("--translate-ratio", type=float, default=0.125, help="random translate ratio")
+
     # evaluation
 
     utils.add_bool_arg(parser, "fid", "calc fid", default=True)
@@ -140,6 +143,10 @@ def parse_args():
 
     if(args.int_diffs and not args.pos_diffs):
         print("int_diffs = true and pos_diffs = false not supported yet - exiting")
+        sys.exit()
+
+    if(args.augment and args.gcnn):
+        print("augmentation not implemented with GCNN yet - exiting")
         sys.exit()
 
     if(args.optimizer == 'acgd' and (args.num_critic != 1 or args.num_gen != 1)):
@@ -353,6 +360,10 @@ def main(args):
             gen_data = utils.gen(args, G, normal_dist, run_batch_size)
             if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, run_batch_size)
 
+        if args.augment:
+            data = utils.rand_translate(args, data)
+            gen_data = utils.rand_translate(args, gen_data)
+
         D_real_output = D(data.clone())
         D_fake_output = D(gen_data)
 
@@ -369,6 +380,9 @@ def main(args):
 
         gen_data = utils.gen(args, G, normal_dist, args.batch_size)
         if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, args.batch_size)
+
+        if args.augment:
+            gen_data = utils.rand_translate(args, gen_data)
 
         if(args.unrolled_steps > 0):
             D_backup = deepcopy(D)
@@ -397,6 +411,10 @@ def main(args):
 
         gen_data = utils.gen(args, G, normal_dist, run_batch_size)
         if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, run_batch_size)
+
+        if args.augment:
+            data = utils.rand_translate(args, data)
+            gen_data = utils.rand_translate(args, gen_data)
 
         D_real_output = D(data.clone())
         D_fake_output = D(gen_data)

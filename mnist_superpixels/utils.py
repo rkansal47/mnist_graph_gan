@@ -260,3 +260,11 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
     tr_covmean = np.trace(covmean)
 
     return (diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean)
+
+
+def rand_translate(args, X):
+    batch_size = X.size(0)
+    shift_xy = ((torch.rand(batch_size, args.num_hits, 2).to(args.device) * 2) - 1) * args.translate_ratio
+    zeros = torch.zeros(batch_size, args.num_hits, 1).to(args.device)
+    add = torch.cat((shift_xy, zeros), axis=2)
+    return X + add
