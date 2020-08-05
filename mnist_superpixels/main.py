@@ -346,9 +346,6 @@ def main(args):
 
         if(args.gp): losses['gp'] = []
 
-    if(args.save_zero):
-        save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, 0, losses)
-
     def train_D(data, gen_data=None, unrolled=False):
         if args.debug: print("dtrain")
         D.train()
@@ -433,6 +430,7 @@ def main(args):
         k = 0
         temp_ng = args.num_gen
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
+        if(args.save_zero): save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, 0, losses)
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             Dr_loss = 0
@@ -536,14 +534,14 @@ def main(args):
                     D.reset_params()
 
             if((i + 1) % 5 == 0):
-                save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, i + 1, losses)
-
-            if((i + 1) % 5 == 0):
                 optimizers = optimizer if args.optimizer == 'acgd' else (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
 
             if(args.fid and (i + 1) % 1 == 0):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
+
+            if((i + 1) % 5 == 0):
+                save_outputs.save_sample_outputs(args, D, G, normal_dist, args.name, i + 1, losses)
 
     train()
 
