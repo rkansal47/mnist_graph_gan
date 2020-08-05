@@ -26,7 +26,7 @@ def draw_graph(graph, node_r, im_px):
 def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     print("drawing figs")
     fig = plt.figure(figsize=(10, 10))
-    plt.suptitle("FID: " + str(losses['fid'][-1]))
+    if(args.fid): plt.suptitle("FID: " + str(losses['fid'][-1]))
 
     num_ims = 100
 
