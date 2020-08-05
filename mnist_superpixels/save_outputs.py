@@ -77,8 +77,6 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
     name = args.name + "/" + str(epoch) + g_only
 
-
-
     plt.savefig(args.figs_path + name + ".png")
     plt.close()
 
@@ -108,10 +106,10 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     x = np.arange(len(losses['fid']), step=5)
 
     plt.figure()
-    plt.plot(x, np.log(fid_5))
+    plt.plot(x, np.log10(fid_5))
     # plt.ylim((0, 5))
     plt.xlabel('Epoch')
-    plt.ylabel('LogFID')
+    plt.ylabel('Log10FID')
     # plt.legend()
     plt.savefig(args.losses_path + name + "_fid.png")
     plt.close()
