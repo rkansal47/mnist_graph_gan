@@ -87,7 +87,7 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     if(args.loss == "og" or args.loss == "ls"):
         plt.plot(losses['Dr'], label='Discriminitive real loss')
         plt.plot(losses['Df'], label='Discriminitive fake loss')
-        if not args.optimizer == 'acgd': plt.plot(losses['G'], label='Generative loss')
+        plt.plot(losses['G'], label='Generative loss')
     elif(args.loss == 'w'):
         plt.plot(losses['D'], label='Critic loss')
     elif(args.loss == 'hinge'):
