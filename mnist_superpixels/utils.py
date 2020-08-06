@@ -264,7 +264,8 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
 
 def rand_translate(args, X):
     batch_size = X.size(0)
-    shift_xy = (torch.rand(batch_size, args.num_hits, 2).to(args.device) - 0.5) * args.translate_ratio
+
+    shift_xy = (torch.rand(batch_size, 1, 2).to(args.device).repeat(1, args.num_hits, 1) - 0.5) * args.translate_ratio
     zeros = torch.zeros(batch_size, args.num_hits, 1).to(args.device)
     add = torch.cat((shift_xy, zeros), axis=2)
     return X + add
