@@ -96,8 +96,8 @@ def parse_args():
 
     parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
     parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
-    parser.add_argument("--beta1", type=float, default=0, help="Adam optimizer beta1")
-    parser.add_argument("--beta2", type=float, default=0.9, help="Adam optimizer beta2")
+    parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
+    parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
 
     parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
