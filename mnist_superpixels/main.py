@@ -287,8 +287,11 @@ def main(args):
 
     # optimizer
 
-    G_params_filter = filter(lambda p: p.requires_grad, G.parameters())  # spectral norm has untrainable params so this excludes those
-    D_params_filter = filter(lambda p: p.requires_grad, D.parameters())  # spectral norm has untrainable params so this excludes those
+    if args.spectral_norm_gen: G_params = filter(lambda p: p.requires_grad, G.parameters())
+    else: G_params = G.parameters()
+
+    if args.spectral_norm_gen: D_params = filter(lambda p: p.requires_grad, D.parameters())
+    else: D_params = D.parameters()
 
     if(args.optimizer == 'rmsprop'):
         G_optimizer = optim.RMSprop(G_params_filter, lr=args.lr_gen)

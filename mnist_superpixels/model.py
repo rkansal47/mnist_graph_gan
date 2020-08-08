@@ -25,6 +25,7 @@ class Graph_GAN(nn.Module):
         self.args.spectral_norm = self.args.spectral_norm_gen if self.G else self.args.spectral_norm_disc
         self.args.batch_norm = self.args.batch_norm_gen if self.G else self.args.batch_norm_disc
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
+        if self.G: self.args.dea = False
 
         if(self.args.int_diffs and self.args.pos_diffs):
             self.args.fe_in_size = 2 * self.args.hidden_node_size + 2
