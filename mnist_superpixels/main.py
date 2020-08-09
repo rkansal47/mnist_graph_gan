@@ -294,16 +294,16 @@ def main(args):
     else: D_params = D.parameters()
 
     if(args.optimizer == 'rmsprop'):
-        G_optimizer = optim.RMSprop(G_params_filter, lr=args.lr_gen)
-        D_optimizer = optim.RMSprop(D_params_filter, lr=args.lr_disc)
+        G_optimizer = optim.RMSprop(G_params, lr=args.lr_gen)
+        D_optimizer = optim.RMSprop(D_params, lr=args.lr_disc)
     elif(args.optimizer == 'adadelta'):
-        G_optimizer = optim.Adadelta(G_params_filter, lr=args.lr_gen)
-        D_optimizer = optim.Adadelta(D_params_filter, lr=args.lr_disc)
+        G_optimizer = optim.Adadelta(G_params, lr=args.lr_gen)
+        D_optimizer = optim.Adadelta(D_params, lr=args.lr_disc)
     elif(args.optimizer == 'acgd'):
-        optimizer = ACGD(max_params=G_params_filter, min_params=D_params_filter, lr_max=args.lr_gen, lr_min=args.lr_disc, device=args.device)
+        optimizer = ACGD(max_params=G_params, min_params=D_params, lr_max=args.lr_gen, lr_min=args.lr_disc, device=args.device)
     elif(args.optimizer == 'adam' or args.optimizer == 'None'):
-        G_optimizer = optim.Adam(G_params_filter, lr=args.lr_gen, weight_decay=5e-4, betas=(args.beta1, args.beta2))
-        D_optimizer = optim.Adam(D_params_filter, lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2))
+        G_optimizer = optim.Adam(G_params, lr=args.lr_gen, weight_decay=5e-4, betas=(args.beta1, args.beta2))
+        D_optimizer = optim.Adam(D_params, lr=args.lr_disc, weight_decay=5e-4, betas=(args.beta1, args.beta2))
 
     if(args.load_model):
         try:
