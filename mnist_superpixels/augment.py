@@ -9,6 +9,8 @@ def augment(args, X):
         X = rand_flip(args, X)
     if args.aug_t:
         X = rand_translate(args, X)
+    if args.aug_s:
+        X = rand_scale(args, X)
 
     return X
 
@@ -50,3 +52,12 @@ def rand_translate_per_node(args, X):
     zeros = torch.zeros(batch_size, args.num_hits, 1).to(args.device)
     add = torch.cat((shift_xy, zeros), axis=2)
     return X + add
+
+
+def rand_scale(args, X):
+    batch_size = X.size(0)
+    lognormal = torch.distributions.log_normal.LogNormal(torch.tensor([0.0]).to(args.device), torch.tensor([args.scale_sd]).to(args.device))
+    scale = lognormal.sample((batch_size, 1)).repeat(1, args.num_hits, 2)
+    ones = torch.ones(batch_size, args.num_hits, 1).to(args.device)
+    mult = torch.cat((scale, ones), axis=2)
+    return X * mult

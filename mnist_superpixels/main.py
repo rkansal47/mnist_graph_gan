@@ -133,7 +133,9 @@ def parse_args():
     utils.add_bool_arg(parser, "aug-t", "augment with translations", default=False)
     utils.add_bool_arg(parser, "aug-f", "augment with flips", default=False)
     utils.add_bool_arg(parser, "aug-r90", "augment with 90 deg rotations", default=False)
+    utils.add_bool_arg(parser, "aug-s", "augment with scalings", default=False)
     parser.add_argument("--translate-ratio", type=float, default=0.125, help="random translate ratio")
+    parser.add_argument("--scale-sd", type=float, default=0.125, help="random scale lognormal standard deviation")
     parser.add_argument("--translate-pn-ratio", type=float, default=0.05, help="random translate per node ratio")
 
     # evaluation
@@ -144,7 +146,7 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if(args.aug_t or args.aug_f or args.aug_r90):
+    if(args.aug_t or args.aug_f or args.aug_r90 or args.aug_s):
         args.augment = True
     else:
         args.augment = False
