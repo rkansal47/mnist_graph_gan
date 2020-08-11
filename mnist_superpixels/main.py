@@ -2,7 +2,7 @@
 
 import torch
 from model import Graph_GAN, MoNet, GaussianGenerator  # , Graph_Generator, Graph_Discriminator, Gaussian_Discriminator
-import utils, save_outputs, evaluation
+import utils, save_outputs, evaluation, augment
 from superpixels_dataset import SuperpixelsDataset
 from graph_dataset_mnist import MNISTGraphDataset
 from acgd import ACGD
@@ -127,8 +127,14 @@ def parse_args():
 
     parser.add_argument("--unrolled-steps", type=int, default=0, help="number of unrolled D steps for G training")
 
-    utils.add_bool_arg(parser, "augment", "augment data", default=False)
+    # augmentation
+
+    # remember to add any new args to the if statement below
+    utils.add_bool_arg(parser, "aug-t", "augment with translations", default=False)
+    utils.add_bool_arg(parser, "aug-f", "augment with flips", default=False)
+    utils.add_bool_arg(parser, "aug-r90", "augment with 90 deg rotations", default=False)
     parser.add_argument("--translate-ratio", type=float, default=0.125, help="random translate ratio")
+    parser.add_argument("--translate-pn-ratio", type=float, default=0.05, help="random translate per node ratio")
 
     # evaluation
 
@@ -137,6 +143,11 @@ def parse_args():
     parser.add_argument("--fid-batch-size", type=int, default=32, help="batch size when generating samples for fid eval")
 
     args = parser.parse_args()
+
+    if(args.aug_t or args.aug_f or args.aug_r90):
+        args.augment = True
+    else:
+        args.augment = False
 
     if(not(args.loss == 'w' or args.loss == 'og' or args.loss == 'ls' or args.loss == 'hinge')):
         print("invalid loss - exiting")
@@ -165,6 +176,7 @@ def parse_args():
     if(args.lx):
         args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/mnist_superpixels"
         args.save_zero = True
+
 
     args.channels = [64, 32, 16, 1]
 
@@ -371,8 +383,8 @@ def main(args):
             if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, run_batch_size)
 
         if args.augment:
-            data = utils.rand_translate(args, data)
-            gen_data = utils.rand_translate(args, gen_data)
+            data = augment.augment(args, data)
+            gen_data = augment.augment(args, gen_data)
 
         D_real_output = D(data.clone())
         D_fake_output = D(gen_data)
@@ -392,7 +404,7 @@ def main(args):
         if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, args.batch_size)
 
         if args.augment:
-            gen_data = utils.rand_translate(args, gen_data)
+            gen_data = augment.augment(args, gen_data)
 
         if(args.unrolled_steps > 0):
             D_backup = deepcopy(D)
