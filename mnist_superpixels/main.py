@@ -56,6 +56,7 @@ def parse_args():
     utils.add_bool_arg(parser, "sparse-mnist", "use sparse mnist dataset (as opposed to superpixels)", default=False)
 
     utils.add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
+    utils.add_bool_arg(parser, "lx", "run on lxplus", default=False)
 
     utils.add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
 
@@ -153,8 +154,16 @@ def parse_args():
         print("acgd can't have num critic or num gen > 1 - exiting")
         sys.exit()
 
+    if(args.n and args.lx):
+        print("can't be on nautilus and lxplus both")
+        sys.exit()
+
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/mnist_superpixels"
+        args.save_zero = True
+
+    if(args.lx):
+        args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/mnist_superpixels"
         args.save_zero = True
 
     args.channels = [64, 32, 16, 1]
