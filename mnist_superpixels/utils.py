@@ -260,3 +260,16 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
     tr_covmean = np.trace(covmean)
 
     return (diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean)
+
+
+def rand_mix(args, X1, X2, p):
+    if p == 1: return X1
+
+    assert X1.size(0) == X2.size(0), "Error: different batch sizes of rand mix data"
+    batch_size = X1.size(0)
+
+    rand = torch.rand(batch_size, 1, 1).to(args.device)
+    mix = torch.zeros(batch_size, 1, 1).to(args.device)
+    mix[rand < p] = 1
+
+    return X1 * (1 - mix) + X2 * mix

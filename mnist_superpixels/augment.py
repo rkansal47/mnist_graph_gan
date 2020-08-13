@@ -1,16 +1,17 @@
 import torch
 import numpy as np
+import utils
 
 
-def augment(args, X):
+def augment(args, X, p):
     if args.aug_r90:
-        X = rand_90_rotation(args, X)
+        X = utils.rand_mix(args, X, rand_90_rotation(args, X), p)
     if args.aug_f:
-        X = rand_flip(args, X)
+        X = utils.rand_mix(args, X, rand_flip(args, X), p)
     if args.aug_t:
-        X = rand_translate(args, X)
+        X = utils.rand_mix(args, X, rand_translate(args, X), p)
     if args.aug_s:
-        X = rand_scale(args, X)
+        X = utils.rand_mix(args, X, rand_scale(args, X), p)
 
     return X
 

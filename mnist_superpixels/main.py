@@ -138,6 +138,9 @@ def parse_args():
     parser.add_argument("--scale-sd", type=float, default=0.125, help="random scale lognormal standard deviation")
     parser.add_argument("--translate-pn-ratio", type=float, default=0.05, help="random translate per node ratio")
 
+    utils.add_bool_arg(parser, "adaptive-prob", "adaptive augment probability", default=False)
+    parser.add_argument("--aug-prob", type=float, default=1.0, help="probability of being augmented")
+
     # evaluation
 
     utils.add_bool_arg(parser, "fid", "calc fid", default=True)
@@ -385,8 +388,9 @@ def main(args):
             if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, run_batch_size)
 
         if args.augment:
-            data = augment.augment(args, data)
-            gen_data = augment.augment(args, gen_data)
+            p = args.aug_prob if not args.adaptive_prob else losses['p'][-1]
+            data = augment.augment(args, data, p)
+            gen_data = augment.augment(args, gen_data, p)
 
         D_real_output = D(data.clone())
         D_fake_output = D(gen_data)
@@ -406,7 +410,8 @@ def main(args):
         if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, args.batch_size)
 
         if args.augment:
-            gen_data = augment.augment(args, gen_data)
+            p = args.aug_prob if not args.adaptive_prob else losses['p'][-1]
+            gen_data = augment.augment(args, gen_data, p)
 
         if(args.unrolled_steps > 0):
             D_backup = deepcopy(D)
@@ -437,8 +442,9 @@ def main(args):
         if(args.gcnn): gen_data = utils.convert_to_batch(args, gen_data, run_batch_size)
 
         if args.augment:
-            data = utils.rand_translate(args, data)
-            gen_data = utils.rand_translate(args, gen_data)
+            p = args.aug_prob if not args.adaptive_prob else losses['p'][-1]
+            data = utils.rand_translate(args, data, p)
+            gen_data = utils.rand_translate(args, gen_data, p)
 
         D_real_output = D(data.clone())
         D_fake_output = D(gen_data)
