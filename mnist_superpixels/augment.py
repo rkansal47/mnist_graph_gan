@@ -36,7 +36,7 @@ def rand_90_rotation(args, X):
 
     rot_mat = torch.cat((torch.cat((cos, -sin, zeros), axis=2), torch.cat((sin, cos, zeros), axis=2), torch.cat((zeros, zeros, ones), axis=2)), axis=1)
 
-    return torch.matmul(rot_mat.unsqueeze(1), X.unsqueeze(3)).squeeze()
+    return torch.matmul(rot_mat.unsqueeze(1), X.unsqueeze(3)).squeeze(3)
 
 
 def rand_translate(args, X):
