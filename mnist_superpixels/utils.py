@@ -26,13 +26,17 @@ class objectview(object):
         self.__dict__ = d
 
 
-def gen(args, G, dist, num_samples, noise=0, disp=False):
-    if(noise == 0):
+def gen(args, G, dist=None, num_samples=0, noise=None, disp=False):
+    if(noise is None):
         if(args.gcnn):
             rand = dist.sample((num_samples * 5, 2 + args.channels[0]))
             noise = Data(pos=rand[:, :2], x=rand[:, 2:])
         else:
             noise = dist.sample((num_samples, args.num_hits, args.hidden_node_size))
+    elif(args.gcnn):
+        num_samples = noise.size(0) / 5
+        noise = Data(pos=noise[:, :2], x=noise[:, 2:])
+    else: num_samples = noise.size(0)
 
     gen_data = G(noise)
 

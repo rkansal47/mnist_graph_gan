@@ -53,6 +53,8 @@ def parse_args():
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
 
+    parser.add_argument("--num_samples", type=int, default=100, help="num samples to save every 5 epochs")
+
     utils.add_bool_arg(parser, "sparse-mnist", "use sparse mnist dataset (as opposed to superpixels)", default=False)
 
     utils.add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
@@ -171,7 +173,11 @@ def parse_args():
         sys.exit()
 
     if(args.n and args.lx):
-        print("can't be on nautilus and lxplus both")
+        print("can't be on nautilus and lxplus both - exiting")
+        sys.exit()
+
+    if(args.num_samples != 100):
+        print("save outputs not coded for anything other than 100 samples yet - exiting")
         sys.exit()
 
     if(args.n):
@@ -181,7 +187,6 @@ def parse_args():
     if(args.lx):
         args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/mnist_superpixels"
         args.save_zero = True
-
 
     args.channels = [64, 32, 16, 1]
 
@@ -199,6 +204,7 @@ def init(args):
     args.dataset_path = args.dir_path + '/raw/' if not args.sparse_mnist else args.dir_path + '/mnist_dataset/'
     args.err_path = args.dir_path + '/err/'
     args.eval_path = args.dir_path + '/evaluation/'
+    args.noise_path = args.dir_path + '/noise/'
 
     if(not exists(args.model_path)):
         mkdir(args.model_path)
@@ -210,6 +216,8 @@ def init(args):
         mkdir(args.figs_path)
     if(not exists(args.err_path)):
         mkdir(args.err_path)
+    if(not exists(args.noise_path)):
+        mkdir(args.noise_path)
     if(not exists(args.dataset_path)):
         mkdir(args.dataset_path)
         print("Downloading dataset")
@@ -346,6 +354,17 @@ def main(args):
     C, mu2, sigma2 = evaluation.load(args)
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
+
+    args.noise_file_name = "num_samples_" + str(args.num_samples) + "_num_nodes_" + str(args.num_hits) + "_hidden_node_size_" + str(args.hidden_node_size) + "_sd_" + str(args.sd) + ".pt"
+    if args.gcnn: args.noise_file_name = "gcnn_" + args.noise_file_name
+
+    noise_file_names = listdir(args.noise_path)
+
+    if args.noise_file_name not in noise_file_names:
+        if(args.gcnn):
+            torch.save(normal_dist.sample((args.num_samples * 5, 2 + args.channels[0])), args.noise_path + args.noise_file_name)
+        else:
+            torch.save(normal_dist.sample((args.num_samples, args.num_hits, args.hidden_node_size)), args.noise_path + args.noise_file_name)
 
     losses = {}
 

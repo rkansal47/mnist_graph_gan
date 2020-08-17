@@ -28,12 +28,13 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     fig = plt.figure(figsize=(10, 10))
     if(args.fid): plt.suptitle("FID: " + str(losses['fid'][-1]))
 
-    num_ims = 100
+    num_ims = args.num_samples
+    noise = torch.load(args.noise_path + args.noise_file_name)
 
-    gen_out = utils.gen(args, G, dist, args.batch_size, disp=True).cpu().detach().numpy()
+    gen_out = utils.gen(args, G, noise=noise[:args.batch_size], disp=True).cpu().detach().numpy()
 
     for i in range(int(num_ims / args.batch_size)):
-        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist, args.batch_size, disp=True).cpu().detach().numpy()), 0)
+        gen_out = np.concatenate((gen_out, utils.gen(args, G, noise=noise[args.batch_size * (i + 1):args.batch_size * (i + 2)], disp=True).cpu().detach().numpy()), 0)
 
     gen_out = gen_out[:num_ims]
 
