@@ -16,12 +16,6 @@ from tqdm import tqdm
 
 import numpy as np
 
-from os import listdir, mkdir
-from os.path import exists, dirname, realpath
-
-import sys
-import argparse
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cutoff = 0.32178
 
@@ -82,21 +76,8 @@ class MoNet(torch.nn.Module):
                     m_to.bias.data = m_from.bias.data.clone()
 
 
-def add_bool_arg(parser, name, help, default=False, no_name=None):
-    varname = '_'.join(name.split('-'))  # change hyphens to underscores
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument('--' + name, dest=varname, action='store_true', help=help)
-    if(no_name is None):
-        no_name = 'no-' + name
-        no_help = "don't " + help
-    else:
-        no_help = help
-    group.add_argument('--' + no_name, dest=varname, action='store_false', help=no_help)
-    parser.set_defaults(**{varname: default})
-
-
 dir_path = "."  # dirname(realpath(__file__))
-num = 3
+num = -1
 
 model_path = dir_path + "/cmodels/12_global_edge_attr_test/C_300.pt"
 dataset_path = dir_path + '/dataset/cartesian/'
@@ -119,7 +100,7 @@ pretrained_model = torch.load(model_path, map_location=device)
 C = MoNet(25)
 C.load_state_dict(pretrained_model.state_dict())
 
-torch.save(pretrained_model.state_dict(), "../mnist_superpixels/eval/C_state_dict.pt")
+torch.save(pretrained_model.state_dict(), "../mnist_superpixels/evaluation/C_state_dict.pt")
 
 print("loaded model)")
 
@@ -160,5 +141,7 @@ print(mu.shape)
 print(sigma)
 print(sigma.shape)
 
-np.savetxt("../mnist_superpixels/eval/mu2.txt", mu)
-np.savetxt("../mnist_superpixels/eval/sigma2.txt", sigma)
+numstr = str(num) if num != -1 else "all_nums"
+
+np.savetxt("../mnist_superpixels/evaluation/" + numstr + "_sp_mu2.txt", mu)
+np.savetxt("../mnist_superpixels/evaluation/" + numstr + "_sp_sigma2.txt", sigma)

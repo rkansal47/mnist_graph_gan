@@ -68,8 +68,10 @@ class MoNet(torch.nn.Module):
 def load(args):
     C = MoNet(25).to(args.device)
     C.load_state_dict(torch.load(args.eval_path + "C_state_dict.pt"))
-    mu2 = np.loadtxt(args.eval_path + "mu2.txt")
-    sigma2 = np.loadtxt(args.eval_path + "sigma2.txt")
+    numstr = str(args.num) if args.num != -1 else "all_nums"
+    dstr = "_sm_" if args.sparse_mnist else "_sp_"
+    mu2 = np.loadtxt(args.eval_path + numstr + dstr + "mu2.txt")
+    sigma2 = np.loadtxt(args.eval_path + numstr + dstr + "sigma2.txt")
     return (C, mu2, sigma2)
 
 
