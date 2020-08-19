@@ -128,6 +128,8 @@ for batch_ndx, data in tqdm(enumerate(train_loader), total=len(train_loader)):
         activations = C(data)
     else:
         activations = torch.cat((C(data), activations), axis=0)
+    if batch_ndx == 113:
+        break
 
 activations = activations.cpu().detach().numpy()
 
