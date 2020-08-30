@@ -16,6 +16,8 @@ from tqdm import tqdm
 
 import numpy as np
 
+import sys
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 cutoff = 0.32178
 
@@ -77,7 +79,11 @@ class MoNet(torch.nn.Module):
 
 
 dir_path = "."  # dirname(realpath(__file__))
-num = -1
+
+try:
+    num = int(sys.argv[1])
+except:
+    num = 3
 
 model_path = dir_path + "/cmodels/12_global_edge_attr_test/C_300.pt"
 dataset_path = dir_path + '/dataset/cartesian/'
