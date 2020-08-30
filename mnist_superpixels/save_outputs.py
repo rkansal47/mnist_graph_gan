@@ -29,7 +29,7 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     if(args.fid): plt.suptitle("FID: " + str(losses['fid'][-1]))
 
     num_ims = args.num_samples
-    noise = torch.load(args.noise_path + args.noise_file_name)
+    noise = torch.load(args.noise_path + args.noise_file_name).to(args.device)
 
     gen_out = utils.gen(args, G, noise=noise[:args.batch_size], disp=True).cpu().detach().numpy()
 
