@@ -188,6 +188,10 @@ def parse_args():
         args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/mnist_superpixels"
         args.save_zero = True
 
+    if(args.sparse_mnist and args.fid):
+        print("no FID for sparse mnist yet")
+        args.fid = False
+
     args.channels = [64, 32, 16, 1]
 
     return args
@@ -351,7 +355,7 @@ def main(args):
 
     print("optimizers loaded")
 
-    C, mu2, sigma2 = evaluation.load(args)
+    if args.fid: C, mu2, sigma2 = evaluation.load(args)
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
 
@@ -374,16 +378,14 @@ def main(args):
             losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
             losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
             losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
-            losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
-
+            if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
             if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
         except:
             losses['D'] = []
             losses['Dr'] = []
             losses['Df'] = []
             losses['G'] = []
-            losses['fid'] = []
-
+            if args.fid: losses['fid'] = []
             if(args.gp): losses['gp'] = []
 
     else:
@@ -391,8 +393,7 @@ def main(args):
         losses['Dr'] = []
         losses['Df'] = []
         losses['G'] = []
-        losses['fid'] = []
-
+        if args.fid: losses['fid'] = []
         if(args.gp): losses['gp'] = []
 
     def train_D(data, gen_data=None, unrolled=False):

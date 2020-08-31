@@ -6,7 +6,9 @@ import numpy as np
 class MNISTGraphDataset(Dataset):
     def __init__(self, dataset_path, num_thresholded, train=True, intensities=True, num=-1):
         if(train):
-            dataset = np.loadtxt(dataset_path + 'mnist_train.csv', delimiter=',', dtype=np.float32)
+            dataset_tr = np.loadtxt(dataset_path + 'mnist_train.csv', delimiter=',', dtype=np.float32)
+            dataset_te = np.loadtxt(dataset_path + 'mnist_test.csv', delimiter=',', dtype=np.float32)
+            dataset = np.concatenate((dataset_tr, dataset_te), axis=0)
         else:
             dataset = np.loadtxt(dataset_path + 'mnist_test.csv', delimiter=',', dtype=np.float32)
 
@@ -35,7 +37,7 @@ class MNISTGraphDataset(Dataset):
 
         self.X = torch.FloatTensor(self.X)
 
-        # print(self.X.shape)
+        print(self.X.shape)
         # print(self.X[0])
         print("Data Processed")
 
