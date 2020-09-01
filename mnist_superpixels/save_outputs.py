@@ -103,24 +103,25 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     plt.savefig(args.losses_path + name + ".png")
     plt.close()
 
-    fid_5 = losses['fid'][::5]
-    x = np.arange(len(losses['fid']), step=5)
+    if args.fid:
+        fid_5 = losses['fid'][::5]
+        x = np.arange(len(losses['fid']), step=5)
 
-    plt.figure()
-    plt.plot(x, np.log10(fid_5))
-    # plt.ylim((0, 5))
-    plt.xlabel('Epoch')
-    plt.ylabel('Log10FID')
-    # plt.legend()
-    plt.savefig(args.losses_path + name + "_fid.png")
-    plt.close()
+        plt.figure()
+        plt.plot(x, np.log10(fid_5))
+        # plt.ylim((0, 5))
+        plt.xlabel('Epoch')
+        plt.ylabel('Log10FID')
+        # plt.legend()
+        plt.savefig(args.losses_path + name + "_fid.png")
+        plt.close()
 
     if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])
     np.savetxt(args.losses_path + args.name + "/" + "D.txt", losses['D'])
     np.savetxt(args.losses_path + args.name + "/" + "G.txt", losses['G'])
     np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", losses['Dr'])
     np.savetxt(args.losses_path + args.name + "/" + "Df.txt", losses['Df'])
-    np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
+    if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
     try:
         if(j == -1):
