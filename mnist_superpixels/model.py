@@ -396,7 +396,7 @@ class Graph_Discriminator(nn.Module):
         x = F.pad(x, (0, self.hidden_node_size - self.node_size, 0, 0, 0, 0))
 
         for i in range(self.mp_iters):
-            A = self.getA(x, batch_size)
+            A, dists = self.getA(x, batch_size)
 
             A = F.leaky_relu(self.fe1[i](A), negative_slope=self.alpha)
             if(self.batch_norm): A = self.bne1[i](A)
@@ -406,7 +406,11 @@ class Graph_Discriminator(nn.Module):
             if(self.batch_norm): A = self.bne2[i](A)
             A = self.dropout(A)
 
-            A = torch.sum(A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size), 2)
+            A = A.view(batch_size, self.num_hits, self.num_hits, self.fe_out_size)
+
+            if not self.args.fcg: A[dists.squeeze() > self.args.cutoff] = 0
+
+            A = torch.sum(A, 2)
             x = torch.cat((A, x), 2)
             x = x.view(batch_size * self.num_hits, self.fe_out_size + self.hidden_node_size)
 
@@ -444,7 +448,7 @@ class Graph_Discriminator(nn.Module):
         else:
             A = torch.cat((x1, x2), 2).view(batch_size * self.num_hits * self.num_hits, self.fe_in_size)
 
-        return A
+        return A, dists
 
     def initHidden(self, batch_size):
         return torch.zeros(self.fn_num_layers, batch_size * self.num_hits, self.fn_hidden_size).to(self.device)

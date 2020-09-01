@@ -89,6 +89,7 @@ def parse_args():
     parser.add_argument("--cutoff", type=float, default=0.32178, help="cutoff edge distance")  # found empirically to match closest to Superpixels
 
     utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
+    utils.add_bool_arg(parser, "fcg", "use a fully connected graph", default=True)
 
     parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
 
