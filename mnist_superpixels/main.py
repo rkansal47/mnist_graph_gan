@@ -58,6 +58,7 @@ def parse_args():
     utils.add_bool_arg(parser, "sparse-mnist", "use sparse mnist dataset (as opposed to superpixels)", default=False)
 
     utils.add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
+    utils.add_bool_arg(parser, "bottleneck", "use torch.utils.bottleneck settings", default=False)
     utils.add_bool_arg(parser, "lx", "run on lxplus", default=False)
 
     utils.add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
@@ -184,6 +185,9 @@ def parse_args():
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/mnist_superpixels"
         args.save_zero = True
+
+    if(args.bottleneck):
+        args.save_zero = False
 
     if(args.lx):
         args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/mnist_superpixels"
@@ -529,8 +533,9 @@ def main(args):
                     Df_loss += D_loss_items['Df']
                     G_loss += G_loss_item
 
-                # if(batch_ndx == 10):
-                #     return
+                if args.bottleneck:
+                    if(batch_ndx == 10):
+                        return
 
             losses['D'].append(D_loss / (lenX / args.num_gen))
             losses['Dr'].append(Dr_loss / (lenX / args.num_gen))
