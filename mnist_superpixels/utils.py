@@ -152,7 +152,7 @@ bce = torch.nn.BCELoss()
 mse = torch.nn.MSELoss()
 
 
-def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_size):
+def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_size, Y_real, Y_fake):
     if args.debug:
         print("real outputs")
         print(real_outputs[:10])
@@ -165,12 +165,13 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
             Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(args.device)
             Y_fake = torch.empty(run_batch_size).uniform_(0.0, 0.3).to(args.device)
         else:
-            Y_real = torch.ones(run_batch_size, 1).to(args.device)
-            Y_fake = torch.zeros(run_batch_size, 1).to(args.device)
+            Y_real = Y_real[:run_batch_size]
+            Y_fake = Y_fake[:run_batch_size]
 
         # randomly flipping labels for D
-        Y_real[torch.rand(run_batch_size) < args.label_noise] = 0
-        Y_fake[torch.rand(run_batch_size) < args.label_noise] = 1
+        if args.label_noise:
+            Y_real[torch.rand(run_batch_size) < args.label_noise] = 0
+            Y_fake[torch.rand(run_batch_size) < args.label_noise] = 1
 
     if(args.loss == 'og'):
         D_real_loss = bce(real_outputs, Y_real)
@@ -196,11 +197,8 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
     return (D_loss, {'Dr': D_real_loss.item(), 'Df': D_fake_loss.item(), 'gp': gpitem, 'D': D_real_loss.item() + D_fake_loss.item()})
 
 
-def calc_G_loss(args, fake_outputs):
+def calc_G_loss(args, fake_outputs, Y_real):
     if args.debug: print(fake_outputs[:10])
-
-    if(args.loss == 'og' or args.loss == 'ls'):
-        Y_real = torch.ones(args.batch_size, 1).to(args.device)
 
     if(args.loss == 'og'):
         G_loss = bce(fake_outputs, Y_real)

@@ -397,6 +397,9 @@ def main(args):
         if args.fid: losses['fid'] = []
         if(args.gp): losses['gp'] = []
 
+    Y_real = torch.ones(args.batch_size, 1).to(args.device)
+    Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
+
     def train_D(data, gen_data=None, unrolled=False):
         if args.debug: print("dtrain")
         D.train()
@@ -416,7 +419,7 @@ def main(args):
         D_real_output = D(data.clone())
         D_fake_output = D(gen_data)
 
-        D_loss, D_loss_items = utils.calc_D_loss(args, D, data, gen_data, D_real_output, D_fake_output, run_batch_size)
+        D_loss, D_loss_items = utils.calc_D_loss(args, D, data, gen_data, D_real_output, D_fake_output, run_batch_size, Y_real, Y_fake)
         D_loss.backward(create_graph=unrolled)
 
         D_optimizer.step()
@@ -441,7 +444,7 @@ def main(args):
 
         D_fake_output = D(gen_data)
 
-        G_loss = utils.calc_G_loss(args, D_fake_output)
+        G_loss = utils.calc_G_loss(args, D_fake_output, Y_real)
 
         G_loss.backward()
         G_optimizer.step()
