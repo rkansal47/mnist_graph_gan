@@ -25,18 +25,18 @@ class Graph_GAN(nn.Module):
         self.args.spectral_norm = self.args.spectral_norm_gen if self.G else self.args.spectral_norm_disc
         self.args.batch_norm = self.args.batch_norm_gen if self.G else self.args.batch_norm_disc
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
+        self.args.fe1 = self.args.fe1g if self.G else self.args.fe1d
         if self.G: self.args.dea = False
 
-        if(self.args.int_diffs and self.args.pos_diffs):
-            self.args.fe_in_size = 2 * self.args.hidden_node_size + 2
-        elif(self.args.int_diffs or self.args.pos_diffs):
-            self.args.fe_in_size = 2 * self.args.hidden_node_size + 1
-        else:
-            self.args.fe_in_size = 2 * self.args.hidden_node_size
+        if not self.args.fe1: self.args.fe1 = self.args.fe.copy()
+        self.args.fn1 = self.args.fn.copy()
 
+        anc = int(self.args.int_diffs) + int(self.args.pos_diffs)
+        self.args.fe_in_size = 2 * self.args.hidden_node_size + anc
         self.args.fe_out_size = self.args.fe[-1]
 
         self.args.fe.insert(0, self.args.fe_in_size)
+
         self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size)
         self.args.fn.append(self.args.hidden_node_size)
 
@@ -51,31 +51,68 @@ class Graph_GAN(nn.Module):
             self.bne = nn.ModuleList()
             self.bnn = nn.ModuleList()
 
-        for i in range(self.args.mp_iters):
-            # edge network
+        if self.D or self.args.latent_node_size:
+            self.args.fe1_in_size = 2 * self.args.latent_node_size if self.G else 2 * self.args.node_feat_size
+            self.args.fe1_in_size += anc
+            self.args.fe1.insert(0, self.args.fe1_in_size)
+            self.args.fe1_out_size = self.args.fe1[-1]
             fe_iter = nn.ModuleList()
             if self.args.batch_norm: bne = nn.ModuleList()
-            for j in range(len(self.args.fe) - 1):
-                linear = nn.Linear(self.args.fe[j], self.args.fe[j + 1])
+            for j in range(len(self.args.fe1) - 1):
+                linear = nn.Linear(self.args.fe1[j], self.args.fe1[j + 1])
                 # if self.args.spectral_norm: linear = SpectralNorm(linear)
                 # fe_iter.append(SpectralNorm(linear) if self.args.spectral_norm else linear)
                 fe_iter.append(linear)
-                if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[j + 1]))
+                if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe1[j + 1]))
 
             self.fe.append(fe_iter)
             if self.args.batch_norm: self.bne.append(bne)
 
+            node_size = self.args.latent_node_size if self.G else self.args.node_feat_size
+            self.args.fn1.insert(0, self.args.fe1_out_size + node_size)
+            self.args.fn1.append(self.args.hidden_node_size)
+
             # node network
             fn_iter = nn.ModuleList()
             if self.args.batch_norm: bnn = nn.ModuleList()
-            for j in range(len(self.args.fn) - 1):
-                linear = nn.Linear(self.args.fn[j], self.args.fn[j + 1])
+            for j in range(len(self.args.fn1) - 1):
+                linear = nn.Linear(self.args.fn1[j], self.args.fn1[j + 1])
                 # if self.args.spectral_norm: linear = SpectralNorm(linear)
                 fn_iter.append(linear)
-                if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[j + 1]))
+                if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn1[j + 1]))
 
             self.fn.append(fn_iter)
             if self.args.batch_norm: self.bnn.append(bnn)
+        else:
+            self.args.fe1_in_size = self.args.fe_in_size
+            self.args.fe1_out_size = self.args.fe_out_size
+
+        for i in range(self.args.mp_iters):
+            # edge network
+            if not (self.D or self.args.latent_node_size) or i:
+                fe_iter = nn.ModuleList()
+                if self.args.batch_norm: bne = nn.ModuleList()
+                for j in range(len(self.args.fe) - 1):
+                    linear = nn.Linear(self.args.fe[j], self.args.fe[j + 1])
+                    # if self.args.spectral_norm: linear = SpectralNorm(linear)
+                    # fe_iter.append(SpectralNorm(linear) if self.args.spectral_norm else linear)
+                    fe_iter.append(linear)
+                    if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[j + 1]))
+
+                self.fe.append(fe_iter)
+                if self.args.batch_norm: self.bne.append(bne)
+
+                # node network
+                fn_iter = nn.ModuleList()
+                if self.args.batch_norm: bnn = nn.ModuleList()
+                for j in range(len(self.args.fn) - 1):
+                    linear = nn.Linear(self.args.fn[j], self.args.fn[j + 1])
+                    # if self.args.spectral_norm: linear = SpectralNorm(linear)
+                    fn_iter.append(linear)
+                    if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[j + 1]))
+
+                self.fn.append(fn_iter)
+                if self.args.batch_norm: self.bnn.append(bnn)
 
         if(self.args.dea):
             self.fnd = nn.ModuleList()
@@ -117,12 +154,15 @@ class Graph_GAN(nn.Module):
     def forward(self, x):
         batch_size = x.shape[0]
 
-        if(self.D): x = F.pad(x, (0, self.args.hidden_node_size - self.args.node_feat_size, 0, 0, 0, 0))
+        # if(self.D): x = F.pad(x, (0, self.args.hidden_node_size - self.args.node_feat_size, 0, 0, 0, 0))
 
         for i in range(self.args.mp_iters):
+            node_size = x.size(2)
+            fe_in_size = self.args.fe_in_size if i else self.args.fe1_in_size
+            fe_out_size = self.args.fe_out_size if i else self.args.fe1_out_size
 
             # message passing
-            A = self.getA(x, batch_size)
+            A = self.getA(x, batch_size, fe_in_size)
 
             for j in range(len(self.fe[i])):
                 A = F.leaky_relu(self.fe[i][j](A), negative_slope=self.args.leaky_relu_alpha)
@@ -131,9 +171,9 @@ class Graph_GAN(nn.Module):
                 A = self.dropout(A)
 
             # message aggregation into new features
-            A = A.view(batch_size, self.args.num_hits, self.args.num_hits, self.args.fe_out_size)
+            A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
-            x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, self.args.fe_out_size + self.args.hidden_node_size)
+            x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
 
             for j in range(len(self.fn[i]) - 1):
                 x = F.leaky_relu(self.fn[i][j](x), negative_slope=self.args.leaky_relu_alpha)
@@ -168,19 +208,20 @@ class Graph_GAN(nn.Module):
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
             # return torch.sigmoid(x)
 
-    def getA(self, x, batch_size):
-        x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, self.args.hidden_node_size)
+    def getA(self, x, batch_size, fe_in_size):
+        node_size = x.size(2)
+        x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
         x2 = x.repeat(1, self.args.num_hits, 1)
 
         if(self.args.int_diffs):
             dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
             int_diffs = 1 - ((x2[:, :, 2] - x1[:, :, 2])).unsqueeze(2)
-            A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
+            A = (torch.cat((x1, x2, dists, int_diffs), 2)).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
         elif(self.args.pos_diffs):
             dists = torch.norm(x2[:, :, :2] - x1[:, :, :2] + 1e-12, dim=2).unsqueeze(2)
-            A = torch.cat((x1, x2, dists), 2).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
+            A = torch.cat((x1, x2, dists), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
         else:
-            A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, self.args.fe_in_size)
+            A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
 
         return A
 

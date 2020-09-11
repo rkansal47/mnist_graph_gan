@@ -71,9 +71,12 @@ def parse_args():
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
-    parser.add_argument("--hidden-node-size", type=int, default=32, help="latent vector size of each node (incl node feature size)")
+    parser.add_argument("--hidden-node-size", type=int, default=32, help="hidden vector size of each node (incl node feature size)")
+    parser.add_argument("--latent-node-size", type=int, default=0, help="latent vector size of each node - 0 means same as hidden node size")
 
     parser.add_argument("--fn", type=int, nargs='*', default=[256, 256], help="hidden fn layers e.g. 256 256")
+    parser.add_argument("--fe1g", type=int, nargs='*', default=0, help="hidden and output gen fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
+    parser.add_argument("--fe1d", type=int, nargs='*', default=0, help="hidden and output disc fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe", type=int, nargs='+', default=[64, 128], help="hidden and output fe layers e.g. 64 128")
     parser.add_argument("--fnd", type=int, nargs='*', default=[256, 128], help="hidden disc output layers e.g. 256 128")
     parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
@@ -195,6 +198,10 @@ def parse_args():
 
     if(args.sparse_mnist and args.fid):
         print("no FID for sparse mnist yet")
+        args.fid = False
+
+    if(args.latent_node_size and args.latent_node_size < 2):
+        print("latent node size can't be less than 2")
         args.fid = False
 
     args.channels = [64, 32, 16, 1]
@@ -386,6 +393,7 @@ def main(args):
             if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
             if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
         except:
+            print("couldn't load losses")
             losses['D'] = []
             losses['Dr'] = []
             losses['Df'] = []

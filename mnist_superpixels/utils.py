@@ -32,7 +32,7 @@ def gen(args, G, dist=None, num_samples=0, noise=None, disp=False):
             rand = dist.sample((num_samples * 5, 2 + args.channels[0]))
             noise = Data(pos=rand[:, :2], x=rand[:, 2:])
         else:
-            noise = dist.sample((num_samples, args.num_hits, args.hidden_node_size))
+            noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
     elif(args.gcnn):
         num_samples = noise.size(0) / 5
         noise = Data(pos=noise[:, :2], x=noise[:, 2:])
