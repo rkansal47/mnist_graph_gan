@@ -371,7 +371,9 @@ def main(args):
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
 
-    args.noise_file_name = "num_samples_" + str(args.num_samples) + "_num_nodes_" + str(args.num_hits) + "_hidden_node_size_" + str(args.hidden_node_size) + "_sd_" + str(args.sd) + ".pt"
+    lns = args.latent_node_size if args.latent_node_size else args.hidden_node_size
+
+    args.noise_file_name = "num_samples_" + str(args.num_samples) + "_num_nodes_" + str(args.num_hits) + "_latent_node_size_" + str(lns) + "_sd_" + str(args.sd) + ".pt"
     if args.gcnn: args.noise_file_name = "gcnn_" + args.noise_file_name
 
     noise_file_names = listdir(args.noise_path)
@@ -380,7 +382,7 @@ def main(args):
         if(args.gcnn):
             torch.save(normal_dist.sample((args.num_samples * 5, 2 + args.channels[0])), args.noise_path + args.noise_file_name)
         else:
-            torch.save(normal_dist.sample((args.num_samples, args.num_hits, args.hidden_node_size)), args.noise_path + args.noise_file_name)
+            torch.save(normal_dist.sample((args.num_samples, args.num_hits, lns)), args.noise_path + args.noise_file_name)
 
     losses = {}
 
