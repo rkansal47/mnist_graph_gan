@@ -309,7 +309,7 @@ def main(args):
 
     if args.load_model:
         if args.start_epoch == -1:
-            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.models_path + name + '/')]
+            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.model_path + name + '/')]
             if len(prev_models):
                 args.start_epoch = max(prev_models)
             else:
