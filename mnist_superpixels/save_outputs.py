@@ -40,40 +40,40 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
 
     # print(gen_out)
 
-    if(args.sparse_mnist):
-        gen_out = gen_out * [28, 28, 1] + [14, 14, 1]
+    # if(args.sparse_mnist):
+    #     gen_out = gen_out * [28, 28, 1] + [14, 14, 1]
+    #
+    #     for i in range(1, num_ims + 1):
+    #         fig.add_subplot(10, 10, i)
+    #         im_disp = np.zeros((28, 28)) - 0.5
+    #
+    #         im_disp += np.min(gen_out[i - 1])
+    #
+    #         for x in gen_out[i - 1]:
+    #             x0 = int(round(x[0])) if x[0] < 27 else 27
+    #             x0 = x0 if x0 > 0 else 0
+    #
+    #             x1 = int(round(x[1])) if x[1] < 27 else 27
+    #             x1 = x1 if x1 > 0 else 0
+    #
+    #             im_disp[x1, x0] = x[2]
+    #
+    #         plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
+    #         plt.axis('off')
+    # else:
+    node_r = 30
+    im_px = 1000
 
-        for i in range(1, num_ims + 1):
-            fig.add_subplot(10, 10, i)
-            im_disp = np.zeros((28, 28)) - 0.5
+    gen_out[gen_out > 0.47] = 0.47
+    gen_out[gen_out < -0.5] = -0.5
 
-            im_disp += np.min(gen_out[i - 1])
+    gen_out = gen_out * [im_px, im_px, 1] + [(im_px + node_r) / 2, (im_px + node_r) / 2, 0.55]
 
-            for x in gen_out[i - 1]:
-                x0 = int(round(x[0])) if x[0] < 27 else 27
-                x0 = x0 if x0 > 0 else 0
-
-                x1 = int(round(x[1])) if x[1] < 27 else 27
-                x1 = x1 if x1 > 0 else 0
-
-                im_disp[x1, x0] = x[2]
-
-            plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
-            plt.axis('off')
-    else:
-        node_r = 30
-        im_px = 1000
-
-        gen_out[gen_out > 0.47] = 0.47
-        gen_out[gen_out < -0.5] = -0.5
-
-        gen_out = gen_out * [im_px, im_px, 1] + [(im_px + node_r) / 2, (im_px + node_r) / 2, 0.55]
-
-        for i in range(1, num_ims + 1):
-            fig.add_subplot(10, 10, i)
-            im_disp = draw_graph(gen_out[i - 1], node_r, im_px)
-            plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
-            plt.axis('off')
+    for i in range(1, num_ims + 1):
+        fig.add_subplot(10, 10, i)
+        im_disp = draw_graph(gen_out[i - 1], node_r, im_px)
+        plt.imshow(im_disp, cmap=cm.gray_r, interpolation='nearest')
+        plt.axis('off')
 
     g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
     name = args.name + "/" + str(epoch) + g_only
