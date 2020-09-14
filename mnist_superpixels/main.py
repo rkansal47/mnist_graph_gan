@@ -309,7 +309,7 @@ def main(args):
 
     if args.load_model:
         if args.start_epoch == -1:
-            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.model_path + name + '/')]
+            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.model_path + args.name + '/')]
             if len(prev_models):
                 args.start_epoch = max(prev_models)
             else:
@@ -321,8 +321,8 @@ def main(args):
     # model
 
     if(args.load_model):
-        G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
-        D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
+        G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt", map_location=args.device)
+        D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt", map_location=args.device)
 
     else:
         # G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(args.device)
