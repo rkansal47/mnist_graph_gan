@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument("--num", type=int, default=3, help="number to train on")
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
-    parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
+    parser.add_argument("--start-epoch", type=int, default=-1, help="which epoch to start training on, only applies if loading a model, by default start at the highest epoch model")
     parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
@@ -306,6 +306,17 @@ def main(args):
             X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
 
     print("loaded data")
+
+    if args.load_model:
+        if args.start_epoch == -1:
+            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.models_path + name + '/')]
+            if len(prev_models):
+                args.start_epoch = max(prev_models)
+            else:
+                print("No model to load from")
+                sys.exit()
+    else:
+        args.start_epoch = 0
 
     # model
 
