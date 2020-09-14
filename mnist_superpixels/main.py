@@ -362,10 +362,10 @@ def main(args):
     if(args.load_model):
         try:
             if(not args.optimizer == 'acgd'):
-                G_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/G_optim_" + str(args.start_epoch) + ".pt"))
-                D_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/D_optim_" + str(args.start_epoch) + ".pt"))
+                G_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/G_optim_" + str(args.start_epoch) + ".pt"), map_location=args.device)
+                D_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/D_optim_" + str(args.start_epoch) + ".pt"), map_location=args.device)
             else:
-                optimizer.load_state_dict(torch.load(args.model_path + args.name + "/optim_" + str(args.start_epoch) + ".pt"))
+                optimizer.load_state_dict(torch.load(args.model_path + args.name + "/optim_" + str(args.start_epoch) + ".pt"), map_location=args.device)
         except:
             print("Error loading optimizer")
 
