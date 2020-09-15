@@ -14,7 +14,10 @@ class MNISTGraphDataset(Dataset):
 
         print("MNIST CSV Loaded")
 
-        if(num > -1):
+        if isinstance(num, list):
+            map1 = list(map(lambda x: x in num, dataset[:, 0]))
+            dataset = dataset[map1]
+        elif num > -1:
             dataset = dataset[dataset[:, 0] == num]
 
         print(dataset.shape)
