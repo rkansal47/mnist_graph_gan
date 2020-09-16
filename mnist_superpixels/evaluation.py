@@ -99,8 +99,9 @@ def load(args, X_loaded):
     C = MoNet(25).to(args.device)
     C.load_state_dict(torch.load(args.eval_path + "C_state_dict.pt"))
     numstr = str(args.num) if args.num != -1 else "all_nums"
-    dstr = "_sm_" if args.sparse_mnist else "_sp_"
+    dstr = "_sm_nh_" + str(args.num_hits) + "_" if args.sparse_mnist else "_sp_"
     fullpath = args.eval_path + numstr + dstr
+    print(fullpath)
     if path.exists(fullpath + "mu2.txt"):
         mu2 = np.loadtxt(fullpath + "mu2.txt")
         sigma2 = np.loadtxt(fullpath + "sigma2.txt")
