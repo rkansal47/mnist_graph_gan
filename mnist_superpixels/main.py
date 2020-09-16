@@ -48,6 +48,7 @@ def parse_args():
     parser.add_argument("--num", type=int, nargs='+', default=[3], help="number to train on")
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=True)
+    utils.add_bool_arg(parser, "override-args", "override original model args when loading with new args", default=False)
     parser.add_argument("--start-epoch", type=int, default=-1, help="which epoch to start training on, only applies if loading a model, by default start at the highest epoch model")
     parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
 
@@ -297,7 +298,7 @@ def init(args):
         f = open(args.args_path + args.name + ".txt", "w+")
         f.write(str(vars(args)))
         f.close()
-    else:
+    elif(not args.override_args):
         temp = args.start_epoch, args.num_epochs
         f = open(args.args_path + args.name + ".txt", "r")
         args_dict = vars(args)
