@@ -71,10 +71,10 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
     activations = 0
     for batch_ndx, data in tqdm(enumerate(X_loaded), total=len(X_loaded)):
         tg_data = utils.tg_transform(args, data.to(args.device))
-        if(batch_ndx % 60 == 0):
-            if(batch_ndx == 60):
+        if(batch_ndx % args.gpu_batch == 0):
+            if(batch_ndx == args.gpu_batch):
                 np_activations = activations.cpu().detach().numpy()
-            elif(batch_ndx > 60):
+            elif(batch_ndx > args.gpu_batch):
                 np_activations = np.concatenate((np_activations, activations.cpu().detach().numpy()))
             activations = C(tg_data)
         else:

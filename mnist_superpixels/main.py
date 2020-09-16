@@ -153,6 +153,7 @@ def parse_args():
     utils.add_bool_arg(parser, "fid", "calc fid", default=True)
     parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
     parser.add_argument("--fid-batch-size", type=int, default=32, help="batch size when generating samples for fid eval")
+    parser.add_argument("--gpu-batch", type=int, default=50, help="")
 
     args = parser.parse_args()
 
