@@ -70,7 +70,7 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
     print("getting mu2, sigma2")
     activations = 0
     for batch_ndx, data in tqdm(enumerate(X_loaded), total=len(X_loaded)):
-        tg_data = utils.tg_transform(args, data)
+        tg_data = utils.tg_transform(args, data.to(args.device))
         if(batch_ndx % 60 == 0):
             if(batch_ndx == 60):
                 np_activations = activations.cpu().detach().numpy()
