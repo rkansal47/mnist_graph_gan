@@ -208,9 +208,9 @@ def parse_args():
         args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/mnist_superpixels"
         args.save_zero = True
 
-    if(args.sparse_mnist and args.fid):
-        print("no FID for sparse mnist yet")
-        args.fid = False
+    # if(args.sparse_mnist and args.fid):
+    #     print("no FID for sparse mnist yet")
+    #     args.fid = False
 
     if(args.latent_node_size and args.latent_node_size < 2):
         print("latent node size can't be less than 2 - exiting")
