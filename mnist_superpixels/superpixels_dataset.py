@@ -13,7 +13,14 @@ class SuperpixelsDataset(Dataset):
             coords1 = dataset1[3]
             coords2 = dataset2[3]
 
-            if(num > -1):
+            if isinstance(num, list):
+                map1 = list(map(lambda x: x in num, dataset1[4]))
+                map2 = list(map(lambda x: x in num, dataset2[4]))
+                ints1 = ints1[map1]
+                ints2 = ints2[map2]
+                coords1 = coords1[map1]
+                coords2 = coords2[map2]
+            elif num > -1:
                 ints1 = ints1[dataset1[4] == num]
                 ints2 = ints2[dataset2[4] == num]
                 coords1 = coords1[dataset1[4] == num]

@@ -1,7 +1,6 @@
 # Getting mu and sigma of activation features of GCNN classifier for the FID score
 
 import torch
-from torch import nn
 import torch.nn.functional as F
 
 import torch_geometric.transforms as T
@@ -15,6 +14,8 @@ from tqdm import tqdm
 import numpy as np
 
 import utils
+
+from os import path
 
 cutoff = 0.32178
 
@@ -65,13 +66,41 @@ class MoNet(torch.nn.Module):
         return F.log_softmax(self.fc2(x), dim=1)
 
 
-def load(args):
+def get_mu2_sigma2(args, C, X_loaded, fullpath):
+    print("getting mu2, sigma2")
+    for batch_ndx, data in tqdm(enumerate(X_loaded), total=len(X_loaded)):
+        tg_data = utils.tg_transform(args, data)
+        if(batch_ndx == 0):
+            activations = C(tg_data)
+        else:
+            activations = torch.cat((C(tg_data), activations), axis=0)
+        if batch_ndx == 113:
+            break
+
+    activations = activations.cpu().detach().numpy()  # because torch doesn't have a built in function for calculating the covariance matrix
+
+    print(activations.shape)
+
+    mu = np.mean(activations, axis=0)
+    sigma = np.cov(activations, rowvar=False)
+
+    np.savetxt(fullpath + "mu2.txt", mu)
+    np.savetxt(fullpath + "sigma2.txt", sigma)
+
+    return mu, sigma
+
+
+def load(args, X_loaded):
     C = MoNet(25).to(args.device)
     C.load_state_dict(torch.load(args.eval_path + "C_state_dict.pt"))
     numstr = str(args.num) if args.num != -1 else "all_nums"
     dstr = "_sm_" if args.sparse_mnist else "_sp_"
-    mu2 = np.loadtxt(args.eval_path + numstr + dstr + "mu2.txt")
-    sigma2 = np.loadtxt(args.eval_path + numstr + dstr + "sigma2.txt")
+    fullpath = args.eval_path + numstr + dstr
+    if path.exists(fullpath + "mu2.txt"):
+        mu2 = np.loadtxt(fullpath + "mu2.txt")
+        sigma2 = np.loadtxt(fullpath + "sigma2.txt")
+    else:
+        mu2, sigma2 = get_mu2_sigma2(args, C, X_loaded, fullpath)
     return (C, mu2, sigma2)
 
 

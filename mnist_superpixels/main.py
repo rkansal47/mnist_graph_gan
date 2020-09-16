@@ -45,10 +45,10 @@ def parse_args():
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
-    parser.add_argument("--num", type=int, default=3, help="number to train on")
+    parser.add_argument("--num", type=int, nargs='+', default=[3], help="number to train on")
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
-    parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
+    parser.add_argument("--start-epoch", type=int, default=-1, help="which epoch to start training on, only applies if loading a model, by default start at the highest epoch model")
     parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
@@ -156,6 +156,16 @@ def parse_args():
 
     args = parser.parse_args()
 
+    if isinstance(args.num, list) and len(args.num) == 1:
+        args.num = args.num[0]
+    elif args.gcnn:
+        print("multiple numbers and gcnn not support yet - exiting")
+        sys.exit()
+    elif isinstance(args.num, list):
+        args.num = list(set(args.num))  # remove duplicates
+        args.num.sort()
+        print(args.num)
+
     if(args.aug_t or args.aug_f or args.aug_r90 or args.aug_s):
         args.augment = True
     else:
@@ -201,8 +211,8 @@ def parse_args():
         args.fid = False
 
     if(args.latent_node_size and args.latent_node_size < 2):
-        print("latent node size can't be less than 2")
-        args.fid = False
+        print("latent node size can't be less than 2 - exiting")
+        sys.exit()
 
     args.channels = [64, 32, 16, 1]
 
@@ -239,7 +249,8 @@ def init(args):
         print("Downloading dataset")
         if(not args.sparse_mnist):
             import tarfile, urllib
-            url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
+            # url = 'http://ls7-www.cs.uni-dortmund.de/cvpr_geometric_dl/mnist_superpixels.tar.gz'
+            url = 'https://ls7-www.cs.tu-dortmund.de/fileadmin/ls7-www/misc/cvpr/mnist_superpixels.tar.gz'
             try:
                 # python2
                 file_tmp = urllib.urlretrieve(url)[0]
@@ -268,6 +279,18 @@ def init(args):
         mkdir(args.losses_path + args.name)
         mkdir(args.model_path + args.name)
         mkdir(args.figs_path + args.name)
+
+    if args.load_model:
+        if args.start_epoch == -1:
+            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.model_path + args.name + '/')]
+            if len(prev_models):
+                args.start_epoch = max(prev_models)
+            else:
+                print("No model to load from")
+                args.start_epoch = 0
+                args.load_model = False
+    else:
+        args.start_epoch = 0
 
     if(not args.load_model):
         f = open(args.args_path + args.name + ".txt", "w+")
@@ -317,8 +340,8 @@ def main(args):
     # model
 
     if(args.load_model):
-        G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt")
-        D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt")
+        G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt", map_location=args.device)
+        D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt", map_location=args.device)
 
     else:
         # G = Graph_Generator(args.node_feat_size, args.fe_hidden_size, args.fe_out_size, args.fn_hidden_size, args.fn_num_layers, args.mp_iters_gen, args.num_hits, args.gen_dropout, args.leaky_relu_alpha, hidden_node_size=args.hidden_node_size, int_diffs=args.int_diffs, pos_diffs=args.pos_diffs, gru=args.gru, batch_norm=args.batch_norm, device=device).to(args.device)
@@ -358,16 +381,16 @@ def main(args):
     if(args.load_model):
         try:
             if(not args.optimizer == 'acgd'):
-                G_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/G_optim_" + str(args.start_epoch) + ".pt"))
-                D_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/D_optim_" + str(args.start_epoch) + ".pt"))
+                G_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/G_optim_" + str(args.start_epoch) + ".pt", map_location=args.device))
+                D_optimizer.load_state_dict(torch.load(args.model_path + args.name + "/D_optim_" + str(args.start_epoch) + ".pt", map_location=args.device))
             else:
-                optimizer.load_state_dict(torch.load(args.model_path + args.name + "/optim_" + str(args.start_epoch) + ".pt"))
+                optimizer.load_state_dict(torch.load(args.model_path + args.name + "/optim_" + str(args.start_epoch) + ".pt", map_location=args.device))
         except:
             print("Error loading optimizer")
 
     print("optimizers loaded")
 
-    if args.fid: C, mu2, sigma2 = evaluation.load(args)
+    if args.fid: C, mu2, sigma2 = evaluation.load(args, X_loaded)
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
 
