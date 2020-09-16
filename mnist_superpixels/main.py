@@ -161,6 +161,10 @@ def parse_args():
     elif args.gcnn:
         print("multiple numbers and gcnn not support yet - exiting")
         sys.exit()
+    elif isinstance(args.num, list):
+        args.num = list(set(args.num))  # remove duplicates
+        args.num.sort()
+        print(args.num)
 
     if(args.aug_t or args.aug_f or args.aug_r90 or args.aug_s):
         args.augment = True
@@ -276,6 +280,18 @@ def init(args):
         mkdir(args.model_path + args.name)
         mkdir(args.figs_path + args.name)
 
+    if args.load_model:
+        if args.start_epoch == -1:
+            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.model_path + args.name + '/')]
+            if len(prev_models):
+                args.start_epoch = max(prev_models)
+            else:
+                print("No model to load from")
+                args.start_epoch = 0
+                args.load_model = False
+    else:
+        args.start_epoch = 0
+
     if(not args.load_model):
         f = open(args.args_path + args.name + ".txt", "w+")
         f.write(str(vars(args)))
@@ -320,17 +336,6 @@ def main(args):
             X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
 
     print("loaded data")
-
-    if args.load_model:
-        if args.start_epoch == -1:
-            prev_models = [int(f[:-3].split('_')[-1]) for f in listdir(args.model_path + args.name + '/')]
-            if len(prev_models):
-                args.start_epoch = max(prev_models)
-            else:
-                print("No model to load from")
-                sys.exit()
-    else:
-        args.start_epoch = 0
 
     # model
 
@@ -385,7 +390,7 @@ def main(args):
 
     print("optimizers loaded")
 
-    if args.fid: C, mu2, sigma2 = evaluation.load(args)
+    if args.fid: C, mu2, sigma2 = evaluation.load(args, X_loaded)
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
 
