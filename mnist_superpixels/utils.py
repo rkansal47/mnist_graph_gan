@@ -40,7 +40,7 @@ def gen(args, G, dist=None, num_samples=0, noise=None, disp=False):
 
     gen_data = G(noise)
 
-    if args.gcnn and disp: return torch.cat((gen_data.pos, gen_data.x), 1).view(num_samples, 75, 3)
+    if args.gcnn and disp: return torch.cat((gen_data.pos, gen_data.x), 1).view(num_samples, args.num_hits, 3)
     return gen_data
 
 
@@ -50,22 +50,22 @@ def tg_transform(args, X):
 
     pos = X[:, :, :2]
 
-    x1 = pos.repeat(1, 1, 75).reshape(batch_size, 75 * 75, 2)
-    x2 = pos.repeat(1, 75, 1)
+    x1 = pos.repeat(1, 1, args.num_hits).reshape(batch_size, args.num_hits * args.num_hits, 2)
+    x2 = pos.repeat(1, args.num_hits, 1)
 
     diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
 
     # diff = x2-x1
     # diff = diff[diff_norms < args.cutoff]
 
-    norms = diff_norms.reshape(batch_size, 75, 75)
+    norms = diff_norms.reshape(batch_size, args.num_hits, args.num_hits)
     neighborhood = torch.nonzero(norms < args.cutoff, as_tuple=False)
     # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
 
     neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
     unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
     # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
-    edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * 75).view(-1, 1)).transpose(0, 1)
+    edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * args.num_hits).view(-1, 1)).transpose(0, 1)
 
     # normalizing edge attributes
     # edge_attr_list = list()
@@ -81,14 +81,14 @@ def tg_transform(args, X):
 
     # edge_attr = diff/(2 * args.cutoff) + 0.5
 
-    x = X[:, :, 2].reshape(batch_size * 75, 1) + 0.5
-    pos = 28 * pos.reshape(batch_size * 75, 2) + 14
+    x = X[:, :, 2].reshape(batch_size * args.num_hits, 1) + 0.5
+    pos = 28 * pos.reshape(batch_size * args.num_hits, 2) + 14
 
     row, col = edge_index
     edge_attr = (pos[col] - pos[row]) / (2 * 28 * args.cutoff) + 0.5
 
-    zeros = torch.zeros(batch_size * 75, dtype=int).to(args.device)
-    zeros[torch.arange(batch_size) * 75] = 1
+    zeros = torch.zeros(batch_size * args.num_hits, dtype=int).to(args.device)
+    zeros[torch.arange(batch_size) * args.num_hits] = 1
     batch = torch.cumsum(zeros, 0) - 1
 
     return Batch(batch=batch, x=x, edge_index=edge_index.contiguous(), edge_attr=edge_attr, y=None, pos=pos)
@@ -104,10 +104,10 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
         interpolated = Variable(interpolated, requires_grad=True).to(args.device)
     else:
         alpha = torch.rand(batch_size, 1, 1).to(args.device)
-        alpha_x = alpha.expand((batch_size, 75, 1))
-        interpolated_x = alpha_x * real_data.x.reshape(batch_size, 75, 1) + (1 - alpha_x) * generated_data.x.reshape(batch_size, 75, 1)
-        alpha_pos = alpha.expand((batch_size, 75, 2))
-        interpolated_pos = alpha_pos * real_data.pos.reshape(batch_size, 75, 2) + (1 - alpha_pos) * generated_data.pos.reshape(batch_size, 75, 2)
+        alpha_x = alpha.expand((batch_size, args.num_hits, 1))
+        interpolated_x = alpha_x * real_data.x.reshape(batch_size, args.num_hits, 1) + (1 - alpha_x) * generated_data.x.reshape(batch_size, args.num_hits, 1)
+        alpha_pos = alpha.expand((batch_size, args.num_hits, 2))
+        interpolated_pos = alpha_pos * real_data.pos.reshape(batch_size, args.num_hits, 2) + (1 - alpha_pos) * generated_data.pos.reshape(batch_size, args.num_hits, 2)
         interpolated_X = Variable(torch.cat(((interpolated_pos - 14) / 28, interpolated_x - 0.5), dim=2), requires_grad=True)
         interpolated = tg_transform(args, interpolated_X)
 
@@ -141,8 +141,8 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
 
 
 def convert_to_batch(args, data, batch_size):
-    zeros = torch.zeros(batch_size * 75, dtype=int).to(args.device)
-    zeros[torch.arange(batch_size) * 75] = 1
+    zeros = torch.zeros(batch_size * args.num_hits, dtype=int).to(args.device)
+    zeros[torch.arange(batch_size) * args.num_hits] = 1
     batch = torch.cumsum(zeros, 0) - 1
 
     return Batch(batch=batch, x=data.x, pos=data.pos, edge_index=data.edge_index, edge_attr=data.edge_attr)
