@@ -68,16 +68,21 @@ class MoNet(torch.nn.Module):
 
 def get_mu2_sigma2(args, C, X_loaded, fullpath):
     print("getting mu2, sigma2")
+    activations = 0
     for batch_ndx, data in tqdm(enumerate(X_loaded), total=len(X_loaded)):
         tg_data = utils.tg_transform(args, data)
-        if(batch_ndx == 0):
+        if(batch_ndx % 60 == 0):
+            if(batch_ndx == 60):
+                np_activations = activations.cpu().detach().numpy()
+            elif(batch_ndx > 60):
+                np_activations = np.concatenate((np_activations, activations.cpu().detach().numpy()))
             activations = C(tg_data)
         else:
             activations = torch.cat((C(tg_data), activations), axis=0)
-        if batch_ndx == 113:
-            break
+        # if batch_ndx == 113:
+        #     break
 
-    activations = activations.cpu().detach().numpy()  # because torch doesn't have a built in function for calculating the covariance matrix
+    activations = np.concatenate((np_activations, activations.cpu().detach().numpy()))  # because torch doesn't have a built in function for calculating the covariance matrix
 
     print(activations.shape)
 
