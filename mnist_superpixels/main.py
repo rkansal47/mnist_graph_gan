@@ -80,8 +80,9 @@ def parse_args():
     parser.add_argument("--fe1d", type=int, nargs='*', default=0, help="hidden and output disc fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe", type=int, nargs='+', default=[64, 128], help="hidden and output fe layers e.g. 64 128")
     parser.add_argument("--fnd", type=int, nargs='*', default=[256, 128], help="hidden disc output layers e.g. 256 128")
-    parser.add_argument("--mp-iters-gen", type=int, default=2, help="number of message passing iterations in the generator")
-    parser.add_argument("--mp-iters-disc", type=int, default=2, help="number of message passing iterations in the discriminator (if applicable)")
+    parser.add_argument("--mp-iters-gen", type=int, default=0, help="number of message passing iterations in the generator")
+    parser.add_argument("--mp-iters-disc", type=int, default=0, help="number of message passing iterations in the discriminator (if applicable)")
+    parser.add_argument("--mp-iters", type=int, default=2, help="number of message passing iterations in gen and disc both - will be overwritten by gen or disc specific args if given")
     parser.add_argument("--kernel-size", type=int, default=25, help="graph convolutional layer kernel size")
     utils.add_bool_arg(parser, "sum", "mean or sum in models", default=True, no_name="mean")
 
@@ -208,9 +209,8 @@ def parse_args():
         args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/mnist_superpixels"
         args.save_zero = True
 
-    # if(args.sparse_mnist and args.fid):
-    #     print("no FID for sparse mnist yet")
-    #     args.fid = False
+    if not args.mp_iters_gen: args.mp_iters_gen = args.mp_iters
+    if not args.mp_iters_disc: args.mp_iters_disc = args.mp_iters
 
     if(args.latent_node_size and args.latent_node_size < 2):
         print("latent node size can't be less than 2 - exiting")
