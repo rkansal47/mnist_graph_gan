@@ -48,6 +48,7 @@ def parse_args():
     utils.add_bool_arg(parser, "lx", "run on lxplus", default=False)
 
     utils.add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
+    parser.add_argument("--save-epochs", types=int, default=5, help="save outputs per how many epochs")
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
 
@@ -437,7 +438,7 @@ def main(args):
             if(args.fid and (i + 1) % 1 == 0):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
-            if((i + 1) % 5 == 0):
+            if((i + 1) % args.save_epochs == 0):
                 save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, i + 1, losses)
 
     train()
