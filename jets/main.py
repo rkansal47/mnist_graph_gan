@@ -32,7 +32,6 @@ def parse_args():
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.85, help="ratio of train/test split")
-    parser.add_argument("--num", type=int, nargs='+', default=[3], help="number to train on")
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=True)
     utils.add_bool_arg(parser, "override-args", "override original model args when loading with new args", default=False)
@@ -86,11 +85,11 @@ def parse_args():
 
     # optimization
 
-    parser.add_argument("--optimizer", type=str, default="adam", help="optimizer - options are adam, rmsprop, adadelta or acgd")
+    parser.add_argument("--optimizer", type=str, default="rmsprop", help="optimizer - options are adam, rmsprop, adadelta or acgd")
     parser.add_argument("--loss", type=str, default="ls", help="loss to use - options are og, ls, w, hinge")
 
-    parser.add_argument("--lr-disc", type=float, default=1e-4, help="learning rate discriminator")
-    parser.add_argument("--lr-gen", type=float, default=1e-4, help="learning rate generator")
+    parser.add_argument("--lr-disc", type=float, default=3e-5, help="learning rate discriminator")
+    parser.add_argument("--lr-gen", type=float, default=1e-5, help="learning rate generator")
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
     parser.add_argument("--batch-size", type=int, default=10, help="batch size")
