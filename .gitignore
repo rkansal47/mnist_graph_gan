@@ -6,3 +6,4 @@
 !**/evaluation/
 !**/noise/
 **/*test*
+.DS_Store

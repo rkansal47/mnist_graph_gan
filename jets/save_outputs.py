@@ -3,7 +3,6 @@ import torch
 import matplotlib.pyplot as plt
 import utils
 from os import remove
-import sys
 
 plt.switch_backend('agg')
 
@@ -24,12 +23,6 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     fig = plt.figure(figsize=(20, 5))
 
-    print(gen_out.shape)
-    print(X[:args.num_samples].shape)
-
-    print(gen_out[0, :, 0])
-    print(X[0, :, 0])
-
     bins = np.arange(-0.2, 0.2, 0.002)
 
     for i in range(3):
@@ -43,8 +36,6 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     plt.savefig(args.figs_path + name + ".png")
     plt.close()
-
-    sys.exit()
 
     plt.figure()
 
