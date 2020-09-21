@@ -1,5 +1,4 @@
 import torch
-from torch_geometric.data import Batch, Data
 
 from torch.autograd import Variable
 from torch.autograd import grad as torch_grad
@@ -26,90 +25,23 @@ class objectview(object):
         self.__dict__ = d
 
 
-def gen(args, G, dist=None, num_samples=0, noise=None, disp=False):
+def gen(args, G, dist=None, num_samples=0, noise=None):
     if(noise is None):
-        if(args.gcnn):
-            rand = dist.sample((num_samples * 5, 2 + args.channels[0]))
-            noise = Data(pos=rand[:, :2], x=rand[:, 2:])
-        else:
-            noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
-    elif(args.gcnn):
-        num_samples = noise.size(0) / 5
-        noise = Data(pos=noise[:, :2], x=noise[:, 2:])
+        noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
     else: num_samples = noise.size(0)
 
     gen_data = G(noise)
 
-    if args.gcnn and disp: return torch.cat((gen_data.pos, gen_data.x), 1).view(num_samples, args.num_hits, 3)
     return gen_data
-
-
-# transform my format to torch_geometric's
-def tg_transform(args, X):
-    batch_size = X.size(0)
-
-    pos = X[:, :, :2]
-
-    x1 = pos.repeat(1, 1, args.num_hits).reshape(batch_size, args.num_hits * args.num_hits, 2)
-    x2 = pos.repeat(1, args.num_hits, 1)
-
-    diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
-
-    # diff = x2-x1
-    # diff = diff[diff_norms < args.cutoff]
-
-    norms = diff_norms.reshape(batch_size, args.num_hits, args.num_hits)
-    neighborhood = torch.nonzero(norms < args.cutoff, as_tuple=False)
-    # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
-
-    neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
-    unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
-    # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
-    edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * args.num_hits).view(-1, 1)).transpose(0, 1)
-
-    # normalizing edge attributes
-    # edge_attr_list = list()
-    # for i in range(batch_size):
-    #     start_index = edge_slices[i]
-    #     end_index = edge_slices[i + 1]
-    #     temp = diff[start_index:end_index]
-    #     max = torch.max(temp)
-    #     temp = temp/(2 * max + 1e-12) + 0.5
-    #     edge_attr_list.append(temp)
-    #
-    # edge_attr = torch.cat(edge_attr_list)
-
-    # edge_attr = diff/(2 * args.cutoff) + 0.5
-
-    x = X[:, :, 2].reshape(batch_size * args.num_hits, 1) + 0.5
-    pos = 28 * pos.reshape(batch_size * args.num_hits, 2) + 14
-
-    row, col = edge_index
-    edge_attr = (pos[col] - pos[row]) / (2 * 28 * args.cutoff) + 0.5
-
-    zeros = torch.zeros(batch_size * args.num_hits, dtype=int).to(args.device)
-    zeros[torch.arange(batch_size) * args.num_hits] = 1
-    batch = torch.cumsum(zeros, 0) - 1
-
-    return Batch(batch=batch, x=x, edge_index=edge_index.contiguous(), edge_attr=edge_attr, y=None, pos=pos)
 
 
 # from https://github.com/EmilienDupont/wgan-gp
 def gradient_penalty(args, D, real_data, generated_data, batch_size):
     # Calculate interpolation
-    if(not args.gcnn):
-        alpha = torch.rand(batch_size, 1, 1).to(args.device)
-        alpha = alpha.expand_as(real_data)
-        interpolated = alpha * real_data + (1 - alpha) * generated_data
-        interpolated = Variable(interpolated, requires_grad=True).to(args.device)
-    else:
-        alpha = torch.rand(batch_size, 1, 1).to(args.device)
-        alpha_x = alpha.expand((batch_size, args.num_hits, 1))
-        interpolated_x = alpha_x * real_data.x.reshape(batch_size, args.num_hits, 1) + (1 - alpha_x) * generated_data.x.reshape(batch_size, args.num_hits, 1)
-        alpha_pos = alpha.expand((batch_size, args.num_hits, 2))
-        interpolated_pos = alpha_pos * real_data.pos.reshape(batch_size, args.num_hits, 2) + (1 - alpha_pos) * generated_data.pos.reshape(batch_size, args.num_hits, 2)
-        interpolated_X = Variable(torch.cat(((interpolated_pos - 14) / 28, interpolated_x - 0.5), dim=2), requires_grad=True)
-        interpolated = tg_transform(args, interpolated_X)
+    alpha = torch.rand(batch_size, 1, 1).to(args.device)
+    alpha = alpha.expand_as(real_data)
+    interpolated = alpha * real_data + (1 - alpha) * generated_data
+    interpolated = Variable(interpolated, requires_grad=True).to(args.device)
 
     del alpha
     torch.cuda.empty_cache()
@@ -118,11 +50,7 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
     prob_interpolated = D(interpolated)
 
     # Calculate gradients of probabilities with respect to examples
-    if(not args.gcnn):
-        gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated, grad_outputs=torch.ones(prob_interpolated.size()).to(args.device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(args.device)
-    if(args.gcnn):
-        gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated_X, grad_outputs=torch.ones(prob_interpolated.size()).to(args.device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(args.device)
-
+    gradients = torch_grad(outputs=prob_interpolated, inputs=interpolated, grad_outputs=torch.ones(prob_interpolated.size()).to(args.device), create_graph=True, retain_graph=True, allow_unused=True)[0].to(args.device)
     gradients = gradients.contiguous()
 
     # Gradients have shape (batch_size, num_channels, img_width, img_height),
@@ -138,14 +66,6 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
     # print("gradient penalty")
     # print(gp)
     return gp
-
-
-def convert_to_batch(args, data, batch_size):
-    zeros = torch.zeros(batch_size * args.num_hits, dtype=int).to(args.device)
-    zeros[torch.arange(batch_size) * args.num_hits] = 1
-    batch = torch.cumsum(zeros, 0) - 1
-
-    return Batch(batch=batch, x=data.x, pos=data.pos, edge_index=data.edge_index, edge_attr=data.edge_attr)
 
 
 bce = torch.nn.BCELoss()
