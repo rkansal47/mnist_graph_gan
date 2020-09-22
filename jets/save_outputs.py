@@ -23,7 +23,10 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     fig = plt.figure(figsize=(20, 5))
 
-    bins = np.arange(-0.2, 0.2, 0.002)
+    if(args.coords == 'cartesian'):
+        bins = np.arange(-0.2, 0.2, 0.002)
+    else:
+        bins = np.arange(-1, 1, 0.02)
 
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
