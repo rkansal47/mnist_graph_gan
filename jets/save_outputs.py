@@ -3,7 +3,6 @@ import torch
 import matplotlib.pyplot as plt
 import utils
 from os import remove
-import sys
 
 plt.switch_backend('agg')
 
@@ -24,12 +23,6 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     fig = plt.figure(figsize=(20, 5))
 
-    print(gen_out.shape)
-    print(X[:args.num_samples].shape)
-
-    print(gen_out[0, :, 0])
-    print(X[0, :, 0])
-
     bins = np.arange(-0.2, 0.2, 0.002)
 
     for i in range(3):
@@ -43,8 +36,6 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     plt.savefig(args.figs_path + name + ".png")
     plt.close()
-
-    sys.exit()
 
     plt.figure()
 
@@ -89,18 +80,17 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
     try:
-        remove(args.losses_path + args.name + "/" + str(epoch - 5) + ".png")
-        remove(args.losses_path + args.name + "/" + str(epoch - 5) + "_fid.png")
+        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".png")
+        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.png")
     except:
         print("couldn't remove loss file")
 
     print("saved figs")
 
 
-def save_models(args, D, G, optimizers, name, epoch, k=-1, j=-1):
-    g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
-    torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + g_only + ".pt")
-    torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + g_only + ".pt")
+def save_models(args, D, G, optimizers, name, epoch):
+    torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + ".pt")
+    torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + ".pt")
 
-    torch.save(optimizers[0].state_dict(), args.model_path + args.name + "/D_optim_" + str(epoch) + g_only + ".pt")
-    torch.save(optimizers[1].state_dict(), args.model_path + args.name + "/G_optim_" + str(epoch) + g_only + ".pt")
+    torch.save(optimizers[0].state_dict(), args.model_path + args.name + "/D_optim_" + str(epoch) + ".pt")
+    torch.save(optimizers[1].state_dict(), args.model_path + args.name + "/G_optim_" + str(epoch) + ".pt")

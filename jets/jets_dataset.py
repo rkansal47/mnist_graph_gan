@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 class JetsDataset(Dataset):
     def __init__(self, args):
-        dataset = torch.load(args.dataset_path + str(args.num_hits) + 'p_' + args.coords + '_jets.pt')
+        dataset = torch.load(args.dataset_path + 'all_g_jets_' + str(args.num_hits) + 'p_' + args.coords + '.pt')
         maxp = torch.max(torch.abs(dataset))
         dataset = dataset / maxp
 
