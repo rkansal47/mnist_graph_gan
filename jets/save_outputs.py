@@ -106,9 +106,11 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     fig = plt.figure()
 
+    # print(losses['jsd'])
+
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
-        plt.plot(x, np.log10(losses['jsd']))
+        plt.plot(x, np.log10(np.array(losses['jsd'])[:, i]))
         # plt.ylim((0, 5))
         plt.xlabel('Epoch')
         plt.ylabel('Particle ' + labels[i] + ' LogJSD')
