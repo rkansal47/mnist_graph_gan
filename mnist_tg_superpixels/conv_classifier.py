@@ -286,7 +286,7 @@ def main(args):
         test_loss = 0
         correct = 0
         with torch.no_grad():
-            for batch_ndx, data in tqdm(enumerate(test_loader), total=len(test_loader)):
+            for data in test_loader:
                 if args.dataset == 'sp':
                     output = C(data.to(device))
                     y = data.y
