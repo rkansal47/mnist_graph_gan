@@ -293,10 +293,10 @@ def main(args):
             for data in test_loader:
                 if args.dataset == 'sp':
                     output = C(data.to(device))
-                    y = data.y
+                    y = data.y.to(device)
                 elif args.dataset == 'sm':
                     output = C(tg_transform(args, data[0]).to(device))
-                    y = data[1]
+                    y = data[1].to(device)
 
                 test_loss += F.nll_loss(output, y, size_average=False).item()
                 pred = output.data.max(1, keepdim=True)[1]
