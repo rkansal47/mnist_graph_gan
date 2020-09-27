@@ -3,6 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 import utils
 from os import remove
+from scipy.spatial.distance import jensenshannon
 
 plt.switch_backend('agg')
 
@@ -19,8 +20,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
     gen_out = gen_out[:args.num_samples]
 
-    labels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)'] if args.coords == 'cartesian' else ['$\eta$', '$\phi$', 'rel $p_T$']
-    if args.coords
+    labels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)'] if args.coords == 'cartesian' else ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
+    # if args.coords
 
     fig = plt.figure(figsize=(20, 5))
 
@@ -30,10 +31,18 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     else:
         bins = [np.arange(-1, 1, 0.02), np.arange(-0.5, 0.5, 0.01), np.arange(0, 1, 0.01)]
 
+    js = []
+
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
 
         Xplot = X[:args.num_samples, :, :].cpu().detach().numpy()
+
+        gen_hist = np.histogram(gen_out, bins=bins[i], density=True)[0]
+        X_hist = np.histogram(Xplot, bins=bins[i], density=True)[0]
+
+        js.append(jensenshannon(gen_hist, X_hist))
+
         if args.coords == 'cartesian':
             Xplot = Xplot * args.maxp
             gen_out = gen_out * args.maxp
@@ -45,14 +54,18 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='real', color='red')
         _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='generated', color='blue')
         plt.xlabel('particle ' + labels[i])
+        plt.ylabel('Number of Particles')
+        plt.title('Particle ' + labels[i] + ' Distributions')
         plt.legend(loc=1, prop={'size': 7})
+
+    losses['jsd'].append(js)
 
     name = args.name + "/" + str(epoch)
 
-    plt.savefig(args.figs_path + name + ".png")
+    plt.savefig(args.figs_path + name + ".pdf")
     plt.close()
 
-    plt.figure()
+    plt.figure(figsize=(20, 5))
 
     if(args.loss == "og" or args.loss == "ls"):
         plt.plot(losses['Dr'], label='Discriminitive real loss')
@@ -71,7 +84,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig(args.losses_path + name + ".png")
+    plt.savefig(args.losses_path + name + ".pdf")
     plt.close()
 
     if args.fid:
@@ -84,19 +97,34 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         plt.xlabel('Epoch')
         plt.ylabel('Log10FID')
         # plt.legend()
-        plt.savefig(args.losses_path + name + "_fid.png")
+        plt.savefig(args.losses_path + name + "_fid.pdf")
         plt.close()
+
+    x = np.arange(len(losses['jsd']), step=5)
+
+    fig = plt.figure()
+
+    for i in range(3):
+        fig.add_subplot(1, 3, i + 1)
+        plt.plot(x, losses['jsd'])
+        # plt.ylim((0, 5))
+        plt.xlabel('Epoch')
+        plt.ylabel('Particle ' + labels[i] + ' JSD')
+    # plt.legend()
+    plt.savefig(args.losses_path + name + "_jsd.pdf")
+    plt.close()
 
     if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])
     np.savetxt(args.losses_path + args.name + "/" + "D.txt", losses['D'])
     np.savetxt(args.losses_path + args.name + "/" + "G.txt", losses['G'])
     np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", losses['Dr'])
     np.savetxt(args.losses_path + args.name + "/" + "Df.txt", losses['Df'])
+    np.savetxt(args.losses_path + args.name + "/" + "jsd.txt", losses['jsd'])
     if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
     try:
-        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".png")
-        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.png")
+        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
+        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
     except:
         print("couldn't remove loss file")
 

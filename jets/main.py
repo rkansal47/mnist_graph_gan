@@ -54,7 +54,7 @@ def parse_args():
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
-    parser.add_argument("--coords", type=str, default="cartesian", help="cartesian, polarrel or polar")
+    parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polar")
 
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
@@ -325,11 +325,17 @@ def main(args):
         losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
         if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
         if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
+
+        try:
+            losses['jsd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsd.txt").tolist()[:args.start_epoch]
+        except:
+            losses['jsd'] = []
     else:
         losses['D'] = []
         losses['Dr'] = []
         losses['Df'] = []
         losses['G'] = []
+        losses['jsd'] = []
         if args.fid: losses['fid'] = []
         if(args.gp): losses['gp'] = []
 
