@@ -7,8 +7,8 @@ class JetsDataset(Dataset):
         dataset = torch.load(args.dataset_path + 'all_g_jets_' + str(args.num_hits) + 'p_' + args.coords + '.pt')
 
         if args.coords == 'cartesian':
-            maxp = torch.max(torch.abs(dataset))
-            dataset = dataset / maxp
+            args.maxp = float(torch.max(torch.abs(dataset)))
+            dataset = dataset / args.maxp
 
             cutoff = int(dataset.size(0) * args.ttsplit)
 
@@ -17,9 +17,9 @@ class JetsDataset(Dataset):
             else:
                 self.X = dataset[cutoff:]
         else:
-            dataset[:, :, 0] /= torch.max(torch.abs(dataset[:, :, 0]))
-            dataset[:, :, 1] /= torch.max(torch.abs(dataset[:, :, 1]))
-            dataset[:, :, 2] /= torch.max(torch.abs(dataset[:, :, 2]))
+            args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
+            for i in range(3):
+                dataset[:, :, i] /= args.maxepp[i]
             self.X = dataset
 
         print("Dataset loaded")

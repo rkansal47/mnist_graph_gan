@@ -19,19 +19,31 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
     gen_out = gen_out[:args.num_samples]
 
-    labels = ['$p_x$', '$p_y$', '$p_z$'] if args.coords == 'cartesian' else ['$\eta$', '$\phi$', '$p_T$']
+    labels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)'] if args.coords == 'cartesian' else ['$\eta$', '$\phi$', 'rel $p_T$']
+    if args.coords
 
     fig = plt.figure(figsize=(20, 5))
 
     if(args.coords == 'cartesian'):
-        bins = np.arange(-0.2, 0.2, 0.002)
+        bin = np.arange(-500, 500, 10)
+        bins = [bin, bin, bin]
     else:
-        bins = np.arange(-1, 1, 0.02)
+        bins = [np.arange(-1, 1, 0.02), np.arange(-0.5, 0.5, 0.01), np.arange(0, 1, 0.01)]
 
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
-        _ = plt.hist(X[:args.num_samples, :, i].reshape(-1).cpu().detach().numpy(), bins, histtype='step', label='real', color='red')
-        _ = plt.hist(gen_out[:, :, i].reshape(-1), bins, histtype='step', label='generated', color='blue')
+
+        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy()
+        if args.coords == 'cartesian':
+            Xplot = Xplot * args.maxp
+            gen_out = gen_out * args.maxp
+        else:
+            for j in range(3):
+                Xplot[:, :, j] *= args.maxepp[j]
+                gen_out[:, :, j] *= args.maxepp[j]
+
+        _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='real', color='red')
+        _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='generated', color='blue')
         plt.xlabel('particle ' + labels[i])
         plt.legend(loc=1, prop={'size': 7})
 
