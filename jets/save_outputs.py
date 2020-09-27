@@ -33,6 +33,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     js = []
 
+    fig.suptitle("Particle Feature Distributions")
+
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
 
@@ -55,7 +57,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='generated', color='blue')
         plt.xlabel('particle ' + labels[i])
         plt.ylabel('Number of Particles')
-        plt.title('Particle ' + labels[i] + ' Distributions')
+        plt.title('JSD = ' + str(round(js[-1], 3)))
         plt.legend(loc=1, prop={'size': 7})
 
     losses['jsd'].append(js)
