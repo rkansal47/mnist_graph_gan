@@ -295,7 +295,7 @@ def main(args):
                     output = C(data.to(device))
                     y = data.y.to(device)
                 elif args.dataset == 'sm':
-                    output = C(tg_transform(args, data[0]).to(device))
+                    output = C(tg_transform(args, data[0].to(device)))
                     y = data[1].to(device)
 
                 test_loss += F.nll_loss(output, y, size_average=False).item()
@@ -322,7 +322,7 @@ def main(args):
             if args.dataset == 'sp':
                 C_loss += train_C(data.to(device), data.y.to(device))
             elif args.dataset == 'sm':
-                C_loss += train_C(tg_transform(args, data[0]).to(device), data[1].to(device))
+                C_loss += train_C(tg_transform(args, data[0].to(device)), data[1].to(device))
 
         train_losses.append(C_loss / len(train_loader))
 
