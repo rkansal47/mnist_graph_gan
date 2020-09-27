@@ -233,6 +233,7 @@ def init(args):
                 print("No model to load from")
                 args.start_epoch = 0
                 args.load_model = False
+        if args.start_epoch == 0: args.load_model = False
     else:
         args.start_epoch = 0
 

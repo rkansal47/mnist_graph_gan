@@ -123,7 +123,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     np.savetxt(args.losses_path + args.name + "/" + "G.txt", losses['G'])
     np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", losses['Dr'])
     np.savetxt(args.losses_path + args.name + "/" + "Df.txt", losses['Df'])
-    np.savetxt(args.losses_path + args.name + "/" + "jsd.txt", losses['jsd'])
+    np.savetxt(args.losses_path + args.name + "/" + "jsd.txt", np.array(losses['jsd']))
     if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
     try:
