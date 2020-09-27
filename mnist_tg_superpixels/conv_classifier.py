@@ -81,6 +81,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
+    add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
 
     add_bool_arg(parser, "load-model", "load a pretrained model", default=False)
     parser.add_argument("--start-epoch", type=int, default=0, help="which epoch to start training on (only makes sense if loading a model)")
@@ -110,6 +111,9 @@ def parse_args():
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
     args = parser.parse_args()
+
+    if(args.n):
+        args.dir_path = "/graphganvol/mnist_graph_gan/mnist_tg_superpixels"
 
     return args
 
