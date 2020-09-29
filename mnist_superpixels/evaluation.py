@@ -97,9 +97,10 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
 
 def load(args, X_loaded):
     C = MoNet(25).to(args.device)
-    C.load_state_dict(torch.load(args.eval_path + "C_state_dict.pt"))
+    mstr = 'C_sm_nh_' + str(args.num_hits) if args.sparse_mnist else 'C'
+    C.load_state_dict(torch.load(args.eval_path + mstr + "_state_dict.pt"))
     numstr = str(args.num) if args.num != -1 else "all_nums"
-    dstr = "_sm_nh_" + str(args.num_hits) + "_" if args.sparse_mnist else "_sp_"
+    dstr = "_sm_2_nh_" + str(args.num_hits) + "_" if args.sparse_mnist else "_sp_"
     fullpath = args.eval_path + numstr + dstr
     print(fullpath)
     if path.exists(fullpath + "mu2.txt"):
