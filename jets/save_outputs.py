@@ -15,6 +15,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     # noise = torch.load(args.noise_path + args.noise_file_name).to(args.device)
 
+    G.eval()
     gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
     for i in range(int(args.num_samples / args.batch_size)):
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
@@ -32,19 +33,21 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     fig = plt.figure(figsize=(22, 7))
     # fig.suptitle("Particle Feature Distributions")
 
+    if args.coords == 'cartesian':
+        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy() * args.maxp
+        gen_out = gen_out * args.maxp
+    else:
+        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy() * args.maxepp
+        gen_out *= args.maxepp
+
+    print(Xplot.shape)
+    print(gen_out.shape)
+
+    print(Xplot[0][:10])
+    print(gen_out[0][:10])
+
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
-
-        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy()
-
-        if args.coords == 'cartesian':
-            Xplot = Xplot * args.maxp
-            gen_out = gen_out * args.maxp
-        else:
-            for j in range(3):
-                Xplot[:, :, j] *= args.maxepp[j]
-                gen_out[:, :, j] *= args.maxepp[j]
-
         _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='Real', color='red')
         _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='Generated', color='blue')
         plt.xlabel('Particle ' + labels[i])
@@ -54,10 +57,10 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     name = args.name + "/" + str(epoch)
 
-    plt.savefig(args.figs_path + name + ".pdf")
+    plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
     plt.close()
 
-    plt.figure(figsize=(20, 5))
+    plt.figure()
 
     if(args.loss == "og" or args.loss == "ls"):
         plt.plot(losses['Dr'], label='Discriminitive real loss')
@@ -76,7 +79,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig(args.losses_path + name + ".pdf")
+    plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     plt.close()
 
     if args.fid:
@@ -89,12 +92,12 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         plt.xlabel('Epoch')
         plt.ylabel('Log10FID')
         # plt.legend()
-        plt.savefig(args.losses_path + name + "_fid.pdf")
+        plt.savefig(args.losses_path + name + "_fid.pdf", bbox_inches='tight')
         plt.close()
 
     x = np.arange(epoch + 1, step=args.save_epochs)
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(20, 5))
 
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
@@ -103,7 +106,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         plt.xlabel('Epoch')
         plt.ylabel('Particle ' + labels[i] + ' LogJSD')
     # plt.legend()
-    plt.savefig(args.losses_path + name + "_jsd.pdf")
+    plt.savefig(args.losses_path + name + "_jsd.pdf", bbox_inches='tight')
     plt.close()
 
     if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])

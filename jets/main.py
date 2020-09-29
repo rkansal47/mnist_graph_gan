@@ -395,7 +395,7 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        if(args.save_zero):
+        if(args.start_epoch == 0 and args.save_zero):
             mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
             print("JSD = " + str(mean) + " ± " + str(std))
             losses['jsdm'].append(mean)
