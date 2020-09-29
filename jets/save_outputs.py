@@ -92,7 +92,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         plt.savefig(args.losses_path + name + "_fid.pdf")
         plt.close()
 
-    x = np.arange(len(losses['jsdm']), step=args.save_epochs)
+    x = np.arange(epoch + 1, step=args.save_epochs)
 
     fig = plt.figure()
 
