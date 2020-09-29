@@ -17,6 +17,8 @@ import utils
 
 from os import path
 
+from scipy.spatial.distance import jensenshannon
+
 cutoff = 0.32178
 
 
@@ -133,3 +135,35 @@ def get_fid(args, C, G, dist, mu2, sigma2):
     print("fid:" + str(fid))
 
     return fid
+
+
+rng = np.random.default_rng()
+
+
+# make sure to deepcopy G passing in
+def calc_jsd(args, X, G, dist):
+    print("evaluating JSD")
+    G.eval()
+
+    bins = [np.arange(-1, 1, 0.02), np.arange(-1, 1, 0.02), np.arange(-1, 1, 0.01)]
+    N = len(X)
+
+    jsds = []
+
+    for j in tqdm(range(10)):
+        gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
+        for i in range(int(args.num_samples / args.batch_size)):
+            gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
+        gen_out = gen_out[:args.num_samples]
+
+        sample = X[rng.choice(N, size=args.num_samples, replace=False)].cpu().detach().numpy()
+        jsd = []
+
+        for i in range(3):
+            hist1 = np.histogram(gen_out[:, :, i].reshape(-1), bins=bins[i], density=True)[0]
+            hist2 = np.histogram(sample[:, :, i].reshape(-1), bins=bins[i], density=True)[0]
+            jsd.append(jensenshannon(hist1, hist2))
+
+        jsds.append(jsd)
+
+    return np.mean(np.array(jsds), axis=0), np.std(np.array(jsds), axis=0)

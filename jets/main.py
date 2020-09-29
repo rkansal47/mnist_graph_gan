@@ -328,15 +328,21 @@ def main(args):
         if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
 
         try:
-            losses['jsd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsd.txt").tolist()[:args.start_epoch]
+            losses['jsdm'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdm.txt").tolist()[:args.start_epoch]
+            losses['jsdstd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdstd.txt").tolist()[:args.start_epoch]
+
+            if losses['jsdm'].ndim == 1: losses['jsdm'].expand_dims(losses['jsdm'], axis=0)
+            if losses['jsdstd'].ndim == 1: losses['jsdstd'].expand_dims(losses['jsdstd'], axis=0)
         except:
-            losses['jsd'] = []
+            losses['jsdm'] = []
+            losses['jsdstd'] = []
     else:
         losses['D'] = []
         losses['Dr'] = []
         losses['Df'] = []
         losses['G'] = []
-        losses['jsd'] = []
+        losses['jsdm'] = []
+        losses['jsdstd'] = []
         if args.fid: losses['fid'] = []
         if(args.gp): losses['gp'] = []
 
@@ -389,7 +395,13 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        if(args.save_zero): save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, 0, losses)
+        if(args.save_zero):
+            mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
+            print("JSD = " + str(mean) + " ± " + str(std))
+            losses['jsdm'].append(mean)
+            losses['jsdstd'].append(std)
+            save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, 0, losses)
+
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             Dr_loss = 0
@@ -445,6 +457,10 @@ def main(args):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
+                mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
+                print("JSD = " + str(mean) + " ± " + str(std))
+                losses['jsdm'].append(mean)
+                losses['jsdstd'].append(std)
                 save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, i + 1, losses)
 
     train()
