@@ -6,10 +6,12 @@ from os.path import isfile, join
 
 import torch
 
-dir_path = '/graphganvol/datasets/jets/train'
+dir_path = '/graphganvol/datasets/jets/30p/train/'
 # dir_path = '/Users/raghav/Documents/Work/CERN/datasets/'
 
 rootfiles = [dir_path + f for f in listdir(dir_path) if isfile(join(dir_path, f))]
+print(rootfiles)
+print(len(rootfiles))
 
 jet_type = 'g'
 particle_features = ['etarel', 'phirel', 'ptrel']
@@ -21,7 +23,7 @@ for f in rootfiles:
     print(n)
     print(f)
 
-    file = h5py.File(f)
+    file = h5py.File(f, 'r')
     print(file.keys())
 
     pfid = [list(file['particleFeatureNames']).index(b'j1_' + pf.encode('UTF-8')) for pf in particle_features]
