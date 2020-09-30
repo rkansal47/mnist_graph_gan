@@ -97,7 +97,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
 
     x = np.arange(epoch + 1, step=args.save_epochs)
 
-    fig = plt.figure(figsize=(20, 5))
+    plt.rcParams.update({'font.size': 12})
+    fig = plt.figure(figsize=(22, 5))
 
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
@@ -121,7 +122,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     try:
         remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
         remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_jsd.pdf")
-        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
+        # remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
     except:
         print("couldn't remove loss file")
 
