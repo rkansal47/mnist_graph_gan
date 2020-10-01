@@ -18,6 +18,7 @@ class JetsDataset(Dataset):
                 self.X = dataset[cutoff:]
         else:
             args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
+            print(args.maxepp)
             for i in range(3):
                 dataset[:, :, i] /= args.maxepp[i]
             self.X = dataset

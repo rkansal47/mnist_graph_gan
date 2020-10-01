@@ -72,19 +72,39 @@ for key in losses:
 
 labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
 
-x = np.arange(epochs + 1, step=5)
+5 * (np.argmin(losses['w1_10000m'][:, 1]) + 1)
+5 * (np.argmin(losses['w1_10000m'][:, 0]) + 1)
+5 * (np.argmin(losses['w1_10000m'][:, 2]) + 1)
+
+for k in range(3):
+    losses['w1_' + str(num_samples[k]) + 'm'] = np.loadtxt('./losses/7/w1_' + str(num_samples[k]) + 'm.txt')
+    losses['w1_' + str(num_samples[k]) + 'std'] = np.loadtxt('./losses/7/w1_' + str(num_samples[k]) + 'std.txt')
+
+
+losses['w1_1000m']
+
+x = np.arange(5, epochs + 1, step=5)
+
+realw1m = [[0.00584264, 0.00556786, 0.0014096 ], [0.00179309, 0.00170772, 0.00046562], [0.00050421, 0.00046688, 0.00010837]]
+realw1std = [[0.00214083, 0.00204827, 0.00051136], [1.06719727e-04, 1.15946909e-04, 1.63954948e-05], [1.06719727e-04, 1.15946909e-04, 1.63954948e-05]]
 
 plt.rcParams.update({'font.size': 12})
-fig = plt.figure(figsize=(22, 5))
+colors = ['blue', 'green', 'orange']
+
+
+fig = plt.figure(figsize=(30, 7))
 
 for i in range(3):
     fig.add_subplot(1, 3, i + 1)
     for k in range(len(num_samples)):
-        plt.plot(x, np.log10(np.array(losses['w1_' + str(num_samples[k]) + 'm'])[:, i]), label=str(num_samples[k]) + ' Jet Samples')
+        plt.plot(x, np.log10(np.array(losses['w1_' + str(num_samples[k]) + 'm'])[:, i]), label=str(num_samples[k]) + ' Jet Samples', color=colors[k])
+        # plt.fill_between(x, np.log10(np.array(losses['w1_' + str(num_samples[k]) + 'm'])[:, i] - np.array(losses['w1_' + str(num_samples[k]) + 'std'])[:, i]), np.log10(np.array(losses['w1_' + str(num_samples[k]) + 'm'])[:, i] + np.array(losses['w1_' + str(num_samples[k]) + 'std'])[:, i]), color=colors[k], alpha=0.2)
+        plt.plot(x, np.ones(len(x)) * np.log10(realw1m[k][i]), '--', label=str(num_samples[k]) + ' Real W1', color=colors[k])
+        plt.fill_between(x, np.log10(np.ones(len(x)) * (realw1m[k][i] - realw1std[k][i])), np.log10(np.ones(len(x)) * (realw1m[k][i] + realw1std[k][i])), color=colors[k], alpha=0.2)
     # plt.ylim((0, 5))
-    plt.legend(loc=1, prop={'size': 11})
+    plt.legend(loc=2, prop={'size': 11})
     plt.xlabel('Epoch')
-    plt.ylabel('Particle ' + labels[i] + ' LogJSD')
+    plt.ylabel('Particle ' + labels[i] + ' LogW1')
 # plt.legend()
-plt.savefig(dir + 'losses/' + name + "/w1.pdf", bbox_inches='tight')
-plt.close()
+plt.savefig(dir + 'losses/7/logw1.pdf', bbox_inches='tight')
+plt.show()

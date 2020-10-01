@@ -3,27 +3,29 @@ import numpy as np
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import wasserstein_distance
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 dataset = np.array(torch.load('datasets/all_g_jets_30p_polarrel.pt'))
 
 N = dataset.shape[0]
 
-batch_size = 10000
+
 
 rng = np.random.default_rng()
 
-
-
+batch_size = 100
 w1s2 = []
 
-for j in range(100):
-    print(j)
+for j in tqdm(range(1000)):
     w1 = []
     sample1 = dataset[rng.choice(N, size=batch_size, replace=False)]
     sample2 = dataset[rng.choice(N, size=batch_size, replace=False)]
     for i in range(3):
         w1.append(wasserstein_distance(sample1[:, :, i].reshape(-1), sample2[:, :, i].reshape(-1)))
     w1s2.append(w1)
+
+np.mean(np.array(w1s2), axis=0)
+np.std(np.array(w1s2), axis=0)
 
 w1s = []
 
@@ -43,8 +45,7 @@ w1s2
 np.mean(np.array(w1s), axis=0)
 np.std(np.array(w1s), axis=0)
 
-np.mean(np.array(w1s2), axis=0)
-np.std(np.array(w1s2), axis=0)
+
 
 
 
