@@ -14,7 +14,7 @@ print(rootfiles)
 print(len(rootfiles))
 
 jet_type = 'g'
-particle_features = ['etarel', 'phirel', 'ptrel']
+particle_features = ['etarel', 'phirel', 'pt']
 
 n = 0
 tot_jets = 0
@@ -44,4 +44,4 @@ for f in rootfiles:
     n += 1
     file.close()
 
-torch.save(torch.tensor(jets), './datasets/all_g_jets_30p_polarrel.pt')
+torch.save(torch.tensor(jets), './datasets/all_g_jets_30p_polarrelabspt.pt')
