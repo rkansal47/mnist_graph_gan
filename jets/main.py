@@ -54,7 +54,7 @@ def parse_args():
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
-    parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polar")
+    parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polarrelabspt")
 
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
@@ -133,6 +133,11 @@ def parse_args():
     parser.add_argument("--fid-batch-size", type=int, default=32, help="batch size when generating samples for fid eval")
     parser.add_argument("--gpu-batch", type=int, default=50, help="")
 
+    utils.add_bool_arg(parser, "w1", "calc w1", default=True)
+    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
+
+    parser.add_argument("--jet-features", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
+
     args = parser.parse_args()
 
     if(args.aug_t or args.aug_f or args.aug_r90 or args.aug_s):
@@ -140,9 +145,15 @@ def parse_args():
     else:
         args.augment = False
 
-    if not(args.coords == 'cartesian' or args.coords == 'polarrel' or args.coords == 'polar'):
+    if not(args.coords == 'cartesian' or args.coords == 'polarrel' or args.coords == 'polarrelabspt'):
         print("invalid coordinate system - exiting")
         sys.exit()
+
+    if not args.coords == 'polarrelabspt':
+        print("Can't have jet level features for this coordinate system")
+        args.jf = False
+    elif len(args.jet_features):
+        args.jf = True
 
     if(not(args.loss == 'w' or args.loss == 'og' or args.loss == 'ls' or args.loss == 'hinge')):
         print("invalid loss - exiting")
@@ -327,22 +338,46 @@ def main(args):
         if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
         if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
 
-        try:
-            losses['jsdm'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdm.txt").tolist()[:args.start_epoch]
-            losses['jsdstd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdstd.txt").tolist()[:args.start_epoch]
+        if args.w1:
+            for k in range(len(args.w1_num_samples)):
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt')
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
 
-            if losses['jsdm'].ndim == 1: losses['jsdm'].expand_dims(losses['jsdm'], axis=0)
-            if losses['jsdstd'].ndim == 1: losses['jsdstd'].expand_dims(losses['jsdstd'], axis=0)
-        except:
-            losses['jsdm'] = []
-            losses['jsdstd'] = []
+            if args.jf:
+                for k in range(len(args.w1_num_samples)):
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt')
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt')
+                    if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0)
+                    if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0)
+        # try:
+        #     losses['jsdm'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdm.txt").tolist()[:args.start_epoch]
+        #     losses['jsdstd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdstd.txt").tolist()[:args.start_epoch]
+        #
+        #     if losses['jsdm'].ndim == 1: losses['jsdm'].expand_dims(losses['jsdm'], axis=0)
+        #     if losses['jsdstd'].ndim == 1: losses['jsdstd'].expand_dims(losses['jsdstd'], axis=0)
+        # except:
+        #     losses['jsdm'] = []
+        #     losses['jsdstd'] = []
     else:
         losses['D'] = []
         losses['Dr'] = []
         losses['Df'] = []
         losses['G'] = []
-        losses['jsdm'] = []
-        losses['jsdstd'] = []
+        # losses['jsdm'] = []
+        # losses['jsdstd'] = []
+
+        if args.w1:
+            for k in range(len(args.w1_num_samples)):
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = []
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = []
+
+            if args.jf:
+                for k in range(len(args.w1_num_samples)):
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = []
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = []
+
         if args.fid: losses['fid'] = []
         if(args.gp): losses['gp'] = []
 
@@ -395,11 +430,12 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
+        if(args.w1): evaluation.calc_w1(args, X, G, normal_dist, losses)
         if(args.start_epoch == 0 and args.save_zero):
-            mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
-            print("JSD = " + str(mean) + " ± " + str(std))
-            losses['jsdm'].append(mean)
-            losses['jsdstd'].append(std)
+            # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
+            # print("JSD = " + str(mean) + " ± " + str(std))
+            # losses['jsdm'].append(mean)
+            # losses['jsdstd'].append(std)
             save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, 0, losses)
 
         for i in range(args.start_epoch, args.num_epochs):
@@ -457,10 +493,11 @@ def main(args):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
-                mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
-                print("JSD = " + str(mean) + " ± " + str(std))
-                losses['jsdm'].append(mean)
-                losses['jsdstd'].append(std)
+                if args.w1: evaluation.calc_w1(args, X, G, normal_dist, losses)
+                # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
+                # print("JSD = " + str(mean) + " ± " + str(std))
+                # losses['jsdm'].append(mean)
+                # losses['jsdstd'].append(std)
                 save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, i + 1, losses)
 
     train()

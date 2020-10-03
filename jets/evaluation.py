@@ -18,6 +18,9 @@ import utils
 from os import path
 
 from scipy.spatial.distance import jensenshannon
+from scipy.stats import wasserstein_distance
+
+from skhep.math.vectors import LorentzVector
 
 cutoff = 0.32178
 
@@ -167,3 +170,68 @@ def calc_jsd(args, X, G, dist):
         jsds.append(jsd)
 
     return np.mean(np.array(jsds), axis=0), np.std(np.array(jsds), axis=0)
+
+
+# make sure to deepcopy G passing in
+def calc_w1(args, X, G, dist, losses):
+    print("evaluating 1-WD")
+    num_batches = np.array(100000 / np.array(args.w1_num_samples), dtype=int)
+    # num_batches = [5, 5, 5]
+    G.eval()
+
+    N = len(X)
+
+    for k in range(len(args.w1_num_samples)):
+        print("Num Samples: " + str(args.w1_num_samples[k]))
+        w1s = []
+        if args.jf: w1js = []
+        for j in tqdm(range(num_batches[k])):
+            gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
+            for i in range(int(args.w1_num_samples[k] / args.batch_size)):
+                gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
+            gen_out = gen_out[:args.w1_num_samples[k]]
+
+            sample = X[rng.choice(N, size=args.w1_num_samples[k])].cpu().detach().numpy()
+            w1 = []
+
+            for i in range(3):
+                w1.append(wasserstein_distance(sample[:, :, i].reshape(-1), gen_out[:, :, i].reshape(-1)))
+
+            w1s.append(w1)
+
+            if args.jf:
+                realj = []
+                genj = []
+
+                for i in range(args.w1_num_samples[k]):
+                    jetv = LorentzVector()
+
+                    for part in sample[i]:
+                        vec = LorentzVector()
+                        vec.setptetaphim(part[2], part[0], part[1], 0)
+                        jetv += vec
+
+                    realj.append([jetv.mass, jetv.pt])
+
+                for i in range(args.w1_num_samples[k]):
+                    jetv = LorentzVector()
+
+                    for part in gen_out[i]:
+                        vec = LorentzVector()
+                        vec.setptetaphim(part[2], part[0], part[1], 0)
+                        jetv += vec
+
+                    genj.append([jetv.mass, jetv.pt])
+
+                w1j = []
+                for i in range(len(args.jet_features)):
+                    w1j.append(wasserstein_distance(np.array(realj)[:, i], np.array(genj)[:, i]))
+
+                w1js.append(w1j)
+
+        losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))
+        losses['w1_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1s), axis=0))
+
+        if args.jf:
+            losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1js), axis=0))
+            losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1js), axis=0))

@@ -80,19 +80,28 @@ for k in range(3):
     losses['w1_' + str(num_samples[k]) + 'm'] = np.loadtxt('./losses/7/w1_' + str(num_samples[k]) + 'm.txt')
     losses['w1_' + str(num_samples[k]) + 'std'] = np.loadtxt('./losses/7/w1_' + str(num_samples[k]) + 'std.txt')
 
+len(losses['w1_1000m'])
 
-losses['w1_1000m']
+790/5 - 1
+
+losses['w1_100m'][157]
+losses['w1_100std'][157]
+losses['w1_1000m'][157]
+losses['w1_1000std'][157]
+losses['w1_10000m'][157]
+losses['w1_10000std'][157]
+
 
 x = np.arange(5, epochs + 1, step=5)
 
-realw1m = [[0.00584264, 0.00556786, 0.0014096 ], [0.00179309, 0.00170772, 0.00046562], [0.00050421, 0.00046688, 0.00010837]]
+realw1m = [[0.00584264, 0.00556786, 0.0014096], [0.00179309, 0.00170772, 0.00046562], [0.00050421, 0.00046688, 0.00010837]]
 realw1std = [[0.00214083, 0.00204827, 0.00051136], [1.06719727e-04, 1.15946909e-04, 1.63954948e-05], [1.06719727e-04, 1.15946909e-04, 1.63954948e-05]]
 
 plt.rcParams.update({'font.size': 12})
 colors = ['blue', 'green', 'orange']
 
 
-fig = plt.figure(figsize=(30, 7))
+fig = plt.figure(figsize=(20, 7))
 
 for i in range(3):
     fig.add_subplot(1, 3, i + 1)

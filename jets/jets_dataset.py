@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 class JetsDataset(Dataset):
     def __init__(self, args):
-        dataset = torch.load(args.dataset_path + 'all_g_jets_' + str(args.num_hits) + 'p_' + args.coords + '.pt')
+        dataset = torch.load(args.dataset_path + 'all_g_jets_' + str(args.num_hits) + 'p_' + args.coords + '.pt').float()
 
         if args.coords == 'cartesian':
             args.maxp = float(torch.max(torch.abs(dataset)))
@@ -16,7 +16,7 @@ class JetsDataset(Dataset):
                 self.X = dataset[:cutoff]
             else:
                 self.X = dataset[cutoff:]
-        else:
+        elif args.coords == 'polarrel' or args.coords == 'polarrelabspt':
             args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
             print(args.maxepp)
             for i in range(3):
