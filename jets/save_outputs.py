@@ -178,7 +178,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     # if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
     if args.w1:
-        x = np.arange(0, epoch + 1, 5)
+        x = np.arange(5, epoch + 1, 5)
 
         plt.rcParams.update({'font.size': 12})
         colors = ['blue', 'green', 'orange']

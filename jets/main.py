@@ -430,7 +430,7 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        if(args.w1): evaluation.calc_w1(args, X, G, normal_dist, losses)
+        # if(args.w1): evaluation.calc_w1(args, X, G, normal_dist, losses)
         if(args.start_epoch == 0 and args.save_zero):
             # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
             # print("JSD = " + str(mean) + " ± " + str(std))
