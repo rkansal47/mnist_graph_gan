@@ -488,12 +488,12 @@ def main(args):
             if((i + 1) % 5 == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
+                if args.w1: evaluation.calc_w1(args, X, G, normal_dist, losses)
 
             if(args.fid and (i + 1) % 1 == 0):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
-                if args.w1: evaluation.calc_w1(args, X, G, normal_dist, losses)
                 # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
                 # print("JSD = " + str(mean) + " ± " + str(std))
                 # losses['jsdm'].append(mean)
