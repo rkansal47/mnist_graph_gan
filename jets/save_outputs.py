@@ -177,7 +177,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     # np.savetxt(args.losses_path + args.name + "/" + "jsdstd.txt", np.array(losses['jsdstd']))
     # if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
-    if args.w1:
+    if args.w1 and epoch > 0:
         x = np.arange(5, epoch + 1, 5)
 
         plt.rcParams.update({'font.size': 12})
