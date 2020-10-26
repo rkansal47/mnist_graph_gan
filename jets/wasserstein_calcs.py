@@ -101,7 +101,7 @@ plt.rcParams.update({'font.size': 12})
 colors = ['blue', 'green', 'orange']
 
 
-fig = plt.figure(figsize=(20, 7))
+fig = plt.figure(figsize=(30, 7))
 
 for i in range(3):
     fig.add_subplot(1, 3, i + 1)

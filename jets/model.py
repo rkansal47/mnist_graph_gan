@@ -24,13 +24,13 @@ class Graph_GAN(nn.Module):
 
         anc = 0
         if self.args.pos_diffs:
-            if self.args.scalar_diffs:
-                anc += 1
-            else:
+            if self.args.deltacoords:
                 if self.args.coords == 'cartesian':
                     anc += 3
                 elif self.args.coords == 'polar' or self.args.coords == 'polarrel':
                     anc += 2
+            if self.args.deltar:
+                anc += 1
 
         anc += int(self.args.int_diffs)
         self.args.fe_in_size = 2 * self.args.hidden_node_size + anc
@@ -201,10 +201,13 @@ class Graph_GAN(nn.Module):
         if(self.args.pos_diffs):
             num_coords = 3 if self.args.coords == 'cartesian' else 2
             diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
-            if self.args.scalar_diffs:
-                dists = torch.norm(diffs + 1e-12, dim=2).unsqueeze(2)
+            dists = torch.norm(diffs + 1e-12, dim=2).unsqueeze(2)
+
+            if self.args.deltar and self.args.deltacoords:
+                A = torch.cat((x1, x2, diffs, dists), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+            elif self.args.deltar:
                 A = torch.cat((x1, x2, dists), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
-            else:
+            elif self.args.deltacoords:
                 A = torch.cat((x1, x2, diffs), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
         else:
             A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
