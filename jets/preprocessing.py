@@ -54,4 +54,4 @@ for f in rootfiles:
     file.close()
 
 
-torch.save(torch.tensor(jets), './datasets/all_g_jets_30p_polarrelabspt.pt')
+torch.save(torch.tensor(jets), './datasets/all_g_jets_30p_jetptetamass.pt')
