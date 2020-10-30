@@ -25,12 +25,18 @@ class objectview(object):
         self.__dict__ = d
 
 
-def gen(args, G, dist=None, num_samples=0, noise=None):
+def gen(args, G, dist=None, num_samples=0, noise=None, labels=None, X_loaded=None):
     if(noise is None):
         noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
     else: num_samples = noise.size(0)
 
-    gen_data = G(noise)
+    if args.clabels and labels is None:
+        labels = next(iter(X_loaded))[1]
+        while(labels.size(0) < num_samples):
+            labels = torch.cat((labels, next(iter(X_loaded))[1]), axis=0)
+        labels = labels[:num_samples]
+
+    gen_data = G(noise, labels)
 
     return gen_data
 

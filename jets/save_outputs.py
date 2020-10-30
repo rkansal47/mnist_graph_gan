@@ -9,7 +9,7 @@ from skhep.math.vectors import LorentzVector
 plt.switch_backend('agg')
 
 
-def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
+def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None):
     print("drawing figs")
     plt.rcParams.update({'font.size': 16})
     plt.style.use(hep.style.CMS)
@@ -17,9 +17,9 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     # noise = torch.load(args.noise_path + args.noise_file_name).to(args.device)
 
     G.eval()
-    gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
+    gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
     for i in range(int(args.num_samples / args.batch_size)):
-        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
+        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
     gen_out = gen_out[:args.num_samples]
 
     if args.coords == 'cartesian':
