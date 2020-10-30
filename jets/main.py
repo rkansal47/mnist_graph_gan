@@ -426,7 +426,9 @@ def main(args):
         G.train()
         G_optimizer.zero_grad()
 
-        gen_data = utils.gen(args, G, normal_dist, args.batch_size, labels=labels)
+        run_batch_size = labels.shape[0] if labels is not None else args.batch_size
+
+        gen_data = utils.gen(args, G, normal_dist, run_batch_size, labels=labels)
 
         if args.augment:
             p = args.aug_prob if not args.adaptive_prob else losses['p'][-1]
