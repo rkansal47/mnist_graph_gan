@@ -436,7 +436,7 @@ def main(args):
 
         D_fake_output = D(gen_data, labels)
 
-        G_loss = utils.calc_G_loss(args, D_fake_output, Y_real)
+        G_loss = utils.calc_G_loss(args, D_fake_output, Y_real, run_batch_size)
 
         G_loss.backward()
         G_optimizer.step()

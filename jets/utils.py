@@ -123,13 +123,13 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
     return (D_loss, {'Dr': D_real_loss.item(), 'Df': D_fake_loss.item(), 'gp': gpitem, 'D': D_real_loss.item() + D_fake_loss.item()})
 
 
-def calc_G_loss(args, fake_outputs, Y_real):
+def calc_G_loss(args, fake_outputs, Y_real, run_batch_size):
     if args.debug: print(fake_outputs[:10])
 
     if(args.loss == 'og'):
-        G_loss = bce(fake_outputs, Y_real)
+        G_loss = bce(fake_outputs, Y_real[:run_batch_size])
     elif(args.loss == 'ls'):
-        G_loss = mse(fake_outputs, Y_real)
+        G_loss = mse(fake_outputs, Y_real[:run_batch_size])
     elif(args.loss == 'w' or args.loss == 'hinge'):
         G_loss = -fake_outputs.mean()
 
