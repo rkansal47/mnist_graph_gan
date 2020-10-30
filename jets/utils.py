@@ -31,7 +31,7 @@ def gen(args, G, dist=None, num_samples=0, noise=None, labels=None, X_loaded=Non
     else: num_samples = noise.size(0)
 
     if args.clabels and labels is None:
-        labels = next(iter(X_loaded))[1]
+        labels = next(iter(X_loaded))[1].to(args.device)
         while(labels.size(0) < num_samples):
             labels = torch.cat((labels, next(iter(X_loaded))[1]), axis=0)
         labels = labels[:num_samples]

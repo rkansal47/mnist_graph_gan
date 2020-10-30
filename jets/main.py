@@ -461,7 +461,7 @@ def main(args):
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
                 if args.clabels:
-                    labels = data[1].to(device)
+                    labels = data[1].to(args.device)
                 else: labels = None
 
                 data = data[0].to(args.device)
