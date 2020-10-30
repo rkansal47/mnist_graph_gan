@@ -200,7 +200,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
             plt.ylabel('Particle ' + labels[i] + ' LogW1')
 
         plt.savefig(args.losses_path + name + "_w1.pdf", bbox_inches='tight')
-        plt.show()
+        plt.close()
 
         if args.jf:
             fig = plt.figure(figsize=(20, 7))
@@ -214,7 +214,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
                 plt.ylabel('Particle ' + labelsj[i] + ' LogW1')
 
             plt.savefig(args.losses_path + name + "_w1j.pdf", bbox_inches='tight')
-            plt.show()
+            plt.close()
 
     for key in losses:
         np.savetxt(args.losses_path + args.name + "/" + key + '.txt', losses[key])
