@@ -17,14 +17,18 @@ plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+model = 7
 epoch = 790
+name = str(model) + '_' + str(epoch)
+figpath = "figs/" + str(model) + '/' + name
 
-G = torch.load('./models/7_batch_size_128_coords_polarrel/G_' + str(epoch) + '.pt', map_location=device)
-w1m = np.loadtxt('./losses/7/w1_100m.txt')
-w1std = np.loadtxt('./losses/7/w1_100std.txt')
 
-realw1m = [0.00584264, 0.00556786, 0.0014096]
-realw1std = [0.00214083, 0.00204827, 0.00051136]
+G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
+# w1m = np.loadtxt('./losses/7/w1_100m.txt')
+# w1std = np.loadtxt('./losses/7/w1_100std.txt')
+#
+# realw1m = [0.00584264, 0.00556786, 0.0014096]
+# realw1std = [0.00214083, 0.00204827, 0.00051136]
 
 batch_size = 128
 
@@ -46,10 +50,11 @@ num_samples = 100000
 # for i in range(int(num_samples / batch_size)):
 #     gen_out = np.concatenate((gen_out, utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
 # gen_out = gen_out[:num_samples]
-#
-# np.save("790_gen_out", gen_out)
-gen_out = np.load("790_gen_out.npy")
 
+# np.save(name + "_gen_out", gen_out)
+gen_out = np.load(name + "_gen_out.npy")
+
+# gen_out /= maxepp
 # fig.suptitle("Particle Feature Distributions")
 
 labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
@@ -70,8 +75,8 @@ real_masses = []
 real_pt = []
 gen_masses = []
 gen_pt = []
-real_jets = []
-gen_jets = []
+# real_jets = []
+# gen_jets = []
 
 for i in range(num_samples):
     jetv = LorentzVector()
@@ -79,47 +84,37 @@ for i in range(num_samples):
     for part in Xplot[i]:
         vec = LorentzVector()
         vec.setptetaphim(part[2], part[0], part[1], 0)
-        # rel_mass += vec.mass / (vec.pt + 1e-12)
         jetv += vec
 
     real_masses.append(jetv.mass)
     real_pt.append(jetv.pt)
-    real_jets.append([jetv.pt, jetv.eta, jetv.phi])
+    # real_jets.append([jetv.pt, jetv.eta, jetv.phi])
 
 for i in range(num_samples):
     jetv = LorentzVector()
 
-    rel_mass = 0
-
     for part in gen_out[i]:
         vec = LorentzVector()
         vec.setptetaphim(part[2], part[0], part[1], 0)
-        # rel_mass += vec.mass / (vec.pt + 1e-12)
         jetv += vec
 
     gen_masses.append(jetv.mass)
     gen_pt.append(jetv.pt)
-    gen_jets.append([jetv.pt, jetv.eta, jetv.phi])
+    # gen_jets.append([jetv.pt, jetv.eta, jetv.phi])
 
 len(real_masses)
 len(gen_masses)
 
-plt.rcParams.update({'font.size': 16})
-plt.style.use(hep.style.CMS)
-
-# bins = np.arange(-2e-7, 2e-7, step=0.1e-7)
 binsm = np.arange(0, 0.3, 0.003)
 binspt = np.arange(0.5, 1.2, 0.007)
-
-# bins
 
 fig = plt.figure(figsize=(16, 8))
 
 fig.add_subplot(1, 2, 1)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
-_ = plt.hist(real_masses, bins=binsm, histtype='step', label='real', color='blue')
-_ = plt.hist(gen_masses, bins=binsm, histtype='step', label='generated', color='red')
+_ = plt.hist(real_masses, bins=binsm, histtype='step', label='Real', color='blue')
+_ = plt.hist(gen_masses, bins=binsm, histtype='step', label='Generated', color='red')
 plt.xlabel('Jet Relative Mass')
 plt.ylabel('Jets')
 plt.legend(loc=1, prop={'size': 18})
@@ -127,19 +122,15 @@ plt.legend(loc=1, prop={'size': 18})
 fig.add_subplot(1, 2, 2)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
-_ = plt.hist(real_pt, bins=binspt, histtype='step', label='real', color='blue')
-_ = plt.hist(gen_pt, bins=binspt, histtype='step', label='generated', color='red')
+_ = plt.hist(real_pt, bins=binspt, histtype='step', label='Real', color='blue')
+_ = plt.hist(gen_pt, bins=binspt, histtype='step', label='Generated', color='red')
 plt.xlabel('Jet Relative Pt')
 plt.ylabel('Jets')
 plt.legend(loc=1, prop={'size': 18})
 
 plt.tight_layout(2.0)
-plt.savefig("7_" + str(epoch) + "_100000_jets_rel_mass_pt.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_100000_jets_rel_mass_pt.pdf", bbox_inches='tight')
 plt.show()
-
-
-plt.rcParams.update({'font.size': 16})
-plt.style.use(hep.style.CMS)
 
 sf = [3, 2, 3]
 rnd = [0, 1, 0]
@@ -178,7 +169,7 @@ plt.legend(loc=1, prop={'size': 18})
 # name = args.name + "/" + str(epoch)
 
 plt.tight_layout(2.0)
-plt.savefig("7_" + str(epoch) + ".pdf", bbox_inches='tight')
+# plt.savefig(figpath + ".pdf", bbox_inches='tight')
 plt.show()
 
 
@@ -237,18 +228,13 @@ N = 100000
 gen_out_efp_format = np.concatenate((np.expand_dims(gen_out[:, :, 2], 2), gen_out[:, :, :2], np.zeros((gen_out.shape[0], gen_out.shape[1], 1))), axis=2)
 X_efp_format = np.concatenate((np.expand_dims(Xplot[:, :, 2], 2), Xplot[:, :, :2], np.zeros((N, 30, 1))), axis=2)
 
-
 gen_out_efp = efpset.batch_compute(gen_out_efp_format)
 X_efp = efpset.batch_compute(X_efp_format)
 
 gen_out_efp.shape
 X_efp.shape
 
-
 fig = plt.figure(figsize=(20, 12))
-plt.rcParams.update({'font.size': 16})
-plt.style.use(hep.style.CMS)
-
 bins0 = np.arange(0, 0.0013, step=0.000013)
 bins1 = np.arange(0, 0.0004, step=0.000004)
 
@@ -269,7 +255,7 @@ for i in range(5):
     # lg.get_title().set_fontsize(13)
 
 plt.tight_layout(0.5)
-plt.savefig("7_" + str(epoch) + "_100000_jets_efp_fix.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_100000_jets_efp.pdf", bbox_inches='tight')
 plt.show()
 
 
@@ -280,11 +266,12 @@ X_efp2 = efpset2.batch_compute(X_efp_format)
 
 X_efp2.shape
 
+gen_out_efp2[gen_out_efp2 < 0] = 0
 
-fig = plt.figure(figsize=(30, 10))
+fig = plt.figure(figsize=(40, 10))
 
 binsm = np.arange(0, 0.25, 0.0025)
-fig.add_subplot(1, 3, 3)
+fig.add_subplot(1, 4, 3)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(real_masses, bins=binsm, histtype='step', label='Real', color='red')
 _ = plt.hist(gen_masses, bins=binsm, histtype='step', label='Generated', color='blue')
@@ -294,7 +281,7 @@ plt.legend(loc=1, prop={'size': 18})
 
 bins = np.arange(0, 0.07, 0.0007)
 
-fig.add_subplot(1, 3, 1)
+fig.add_subplot(1, 4, 1)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(X_efp2[:, 0], bins, histtype='step', label='Real', color='red')
 _ = plt.hist(gen_out_efp2[:, 0], bins, histtype='step', label='Generated', color='blue')
@@ -302,7 +289,7 @@ plt.xlabel('EFP (d=2, n=2)')
 plt.ylabel('Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
 
-fig.add_subplot(1, 3, 2)
+fig.add_subplot(1, 4, 2)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(np.sqrt(X_efp2[:, 0] / 2), binsm, histtype='step', label='Real', color='red')
 _ = plt.hist(np.sqrt(gen_out_efp2[:, 0] / 2), binsm, histtype='step', label='Generated', color='blue')
@@ -310,11 +297,7 @@ plt.xlabel('$\sqrt{EFP/2}$')
 plt.ylabel('Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
 
-plt.tight_layout(0.5)
-plt.savefig("7_" + str(epoch) + "_100000_jets_efp_mass_2.pdf", bbox_inches='tight')
-plt.show()
-
-plt.figure()
+fig.add_subplot(1, 4, 4)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(np.sqrt(X_efp2[:, 0] / 2), binsm, histtype='step', label='Real EFP', color='red')
 _ = plt.hist(np.sqrt(gen_out_efp2[:, 0] / 2), binsm, histtype='step', label='Generated EFP', color='blue')
@@ -323,7 +306,7 @@ _ = plt.hist(gen_masses, bins=binsm, histtype='step', label='Generated Mass', co
 # plt.xlabel('$\sqrt{EFP/2}$')
 plt.ylabel('Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
-plt.savefig("7_" + str(epoch) + "_100000_jets_efp_mass_comp_2.pdf", bbox_inches='tight')
+# plt.savefig(figpath + "_100000_jets_efp_mass_comp.pdf", bbox_inches='tight')
 plt.show()
 
 
@@ -333,27 +316,41 @@ _ = plt.hist(np.sqrt(gen_out_efp2[:, 0] / 2), binsm, histtype='step', label='Gen
 plt.xlabel('Jet $m/p_T$')
 plt.ylabel('Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
-plt.savefig("7_" + str(epoch) + "_100000_jets_efp_mass.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_100000_jets_efp_mass.pdf", bbox_inches='tight')
 plt.show()
 
 
-def average_jet_image_plot(ptyphi_jets, num_pixels, n_jets, jet_image_name):  # ptyphi_jets shape (jets, N-particles, M-features)
-    num_particles = ptyphi_jets.shape[1]
-    # initialize average image array with zeros
-    average_jet_image = np.zeros((num_pixels, num_pixels, 1))
-    # Compute average jet image
-    for i in range(len(ptyphi_jets)):
-        average_jet_image += ut.pixelate(ptyphi_jets[i, :, :], npix=num_pixels, nb_chan=1, norm=False, charged_counts_only=False)
-    average_jet_image /= n_jets
-    # Plot average jet image
-    # Set colormap of your choice
-    plt.imshow(average_jet_image[:, :, 0], origin='lower', cmap = 'binary', norm=LogNorm(vmin=0.01))
-    plt.colorbar()
-    plt.title(jet_image_name, fontsize=18)
-    plt.xlabel('$i\phi$')
-    plt.ylabel('$i\eta$')
-    plt.savefig('7_790_' + jet_image_name + str(num_particles) + 'p.pdf', dpi=250, bbox_inches='tight')
-    plt.clf()
+
+real_efp_masses = np.sqrt(X_efp2[:, 0] / 2)
+gen_efp_masses = np.sqrt(gen_out_efp2[:, 0] / 2)
+
+real_mass_diff = real_masses - real_efp_masses
+gen_mass_diff = gen_masses - gen_efp_masses
+
+real_mass_hist_diff = np.histogram(real_masses, binsm)[0] - np.histogram(real_efp_masses, binsm)[0]
+gen_mass_hist_diff = np.histogram(gen_masses, binsm)[0] - np.histogram(gen_efp_masses, binsm)[0]
+
+binsmd = np.arange(-7e-4, 7e-4, 7e-6)
+
+fig = plt.figure(figsize=(20, 10))
+fig.add_subplot(1, 2, 1)
+plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
+_ = plt.hist(real_mass_diff, binsmd, histtype='step', label='Real', color='red')
+_ = plt.hist(gen_mass_diff, binsmd, histtype='step', label='Generated', color='blue')
+plt.xlabel('Mass Difference (Exact - EFP)', x = 0.5)
+plt.ylabel('Jets')
+lg = plt.legend(loc=1, prop={'size': 18})
+
+fig.add_subplot(1, 2, 2)
+plt.plot(binsm[:-1], real_mass_hist_diff, label='Real', color='red')
+plt.plot(binsm[:-1], gen_mass_hist_diff, label='Generated', color='blue')
+plt.xlabel('Mass', x = 0.5)
+plt.ylabel('# Exact - # EFP Jets')
+lg = plt.legend(loc=1, prop={'size': 18})
+plt.savefig(figpath + "_100000_jets_mass_diff.pdf", bbox_inches='tight')
+plt.show()
+
 
 
 num_pixels = 100
@@ -371,7 +368,6 @@ for i in range(Njets):
 average_gen_jet_image /= Njets
 
 plt.rcParams.update({'font.size': 12})
-plt.style.use(hep.style.CMS)
 fig = plt.figure(figsize=(20, 10))
 fig.add_subplot(1, 2, 1)
 plt.imshow(average_real_jet_image[:, :, 0], origin='lower', cmap = 'binary', norm=LogNorm(vmin=1e-7))
@@ -379,8 +375,6 @@ plt.colorbar()
 plt.title("Average of Real Jets", fontsize=25)
 plt.xlabel('$i\phi$')
 plt.ylabel('$i\eta$')
-# plt.savefig('7_790_real_jets_ave.pdf', dpi=250, bbox_inches='tight')
-# plt.show()
 
 fig.add_subplot(1, 2, 2)
 plt.imshow(average_gen_jet_image[:, :, 0], origin='lower', cmap='binary', norm=LogNorm(vmin=1e-7))
@@ -389,43 +383,9 @@ plt.title("Average of Generated Jets", fontsize=25)
 plt.xlabel('$i\phi$')
 plt.ylabel('$i\eta$')
 
-plt.savefig('7_790_jets_ave.pdf', dpi=250, bbox_inches='tight')
+plt.savefig(figpath + '_jets_ave.pdf', dpi=250, bbox_inches='tight')
 plt.show()
-
-
-real_efp_masses = np.sqrt(X_efp2[:, 0] / 2)
-gen_efp_masses = np.sqrt(gen_out_efp2[:, 0] / 2)
-
-real_mass_diff = real_masses - real_efp_masses
-gen_mass_diff = gen_masses - gen_efp_masses
-
-real_mass_hist_diff = np.histogram(real_masses, binsm)[0] - np.histogram(real_efp_masses, binsm)[0]
-gen_mass_hist_diff = np.histogram(gen_masses, binsm)[0] - np.histogram(gen_efp_masses, binsm)[0]
-
-plt.plot(binsm[:-1], real_mass_hist_diff)
-
-bins = np.arange(-7e-4, 7e-4, 7e-6)
-
-fig = plt.figure(figsize=(20, 10))
-fig.add_subplot(1, 2, 1)
-plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
-_ = plt.hist(real_mass_diff, bins, histtype='step', label='Real', color='red')
-_ = plt.hist(gen_mass_diff, bins, histtype='step', label='Generated', color='blue')
-plt.xlabel('Mass Difference (Exact - EFP)', x = 0.5)
-plt.ylabel('Jets')
-lg = plt.legend(loc=1, prop={'size': 18})
-
-fig.add_subplot(1, 2, 2)
-plt.plot(binsm[:-1], real_mass_hist_diff, label='Real', color='red')
-plt.plot(binsm[:-1], gen_mass_hist_diff, label='Generated', color='blue')
-plt.xlabel('Mass', x = 0.5)
-plt.ylabel('# Exact - # EFP Jets')
-lg = plt.legend(loc=1, prop={'size': 18})
-plt.savefig("7_" + str(epoch) + "_100000_jets_mass_diff.pdf", bbox_inches='tight')
-plt.show()
-
-
+plt.rcParams.update({'font.size': 16})
 
 
 Nangle = 1000
@@ -449,22 +409,12 @@ for i in range(Nangle):
 real_delta_etaphi = np.array(real_delta_etaphi)
 gen_delta_etaphi = np.array(gen_delta_etaphi)
 
-len(real_delta_etaphi)
-len(gen_delta_etaphi)
-
-max(gen_delta_etaphi[:, 0])
-max(gen_delta_etaphi[:, 1])
-
-real_delta_etaphi[:, 0]
-
-plt.hist(real_delta_etaphi[:, 0], np.arange(0, 0.8, 0.008), histtype='step', label='Real', color='red')
-plt.hist(gen_delta_etaphi[:, 0], np.arange(0, 0.8, 0.008), histtype='step', label='Real', color='red')
-
 binseta = np.arange(0, 0.6, 0.006)
 binsphi = np.arange(0, 0.4, 0.004)
 
-fig = plt.figure(figsize=(20, 8))
-fig.add_subplot(1, 2, 1)
+
+fig = plt.figure(figsize=(40, 10))
+fig.add_subplot(1, 4, 1)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(real_delta_etaphi[:, 0], binseta, histtype='step', label='Real', color='red')
 _ = plt.hist(gen_delta_etaphi[:, 0], binseta, histtype='step', label='Generated', color='blue')
@@ -472,7 +422,7 @@ plt.xlabel('$\Delta\eta$')
 plt.ylabel('#')
 lg = plt.legend(loc=1, prop={'size': 18})
 
-fig.add_subplot(1, 2, 2)
+fig.add_subplot(1, 4, 2)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(real_delta_etaphi[:, 1], binseta, histtype='step', label='Real', color='red')
 _ = plt.hist(gen_delta_etaphi[:, 1], binseta, histtype='step', label='Generated', color='blue')
@@ -480,11 +430,7 @@ plt.xlabel('$\Delta\phi$')
 plt.ylabel('#')
 lg = plt.legend(loc=1, prop={'size': 18})
 
-# plt.savefig("7_" + str(epoch) + "_10000_jets_delta_eta_phi.pdf", bbox_inches='tight')
-plt.show()
-
-fig = plt.figure(figsize=(20, 10))
-fig.add_subplot(1, 2, 1)
+fig.add_subplot(1, 4, 3)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(real_delta_etaphi[:, 0], binseta, histtype='step', label='Real $\Delta \phi$', color='red')
 _ = plt.hist(real_delta_etaphi[:, 1], binseta, histtype='step', label='Real $\Delta \eta$', color='orange')
@@ -492,7 +438,7 @@ _ = plt.hist(real_delta_etaphi[:, 1], binseta, histtype='step', label='Real $\De
 plt.ylabel('#')
 lg = plt.legend(loc=1, prop={'size': 18})
 
-fig.add_subplot(1, 2, 2)
+fig.add_subplot(1, 4, 4)
 plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
 _ = plt.hist(gen_delta_etaphi[:, 0], binseta, histtype='step', label='Generated $\Delta \phi$', color='blue')
 _ = plt.hist(gen_delta_etaphi[:, 1], binseta, histtype='step', label='Generated $\Delta \eta$', color='green')
@@ -500,5 +446,51 @@ _ = plt.hist(gen_delta_etaphi[:, 1], binseta, histtype='step', label='Generated 
 plt.ylabel('#')
 lg = plt.legend(loc=1, prop={'size': 18})
 
-plt.savefig("7_" + str(epoch) + "_1000_jets_delta_eta_phi_real_gen.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_" + str(Nangle) + "_jets_delta_eta_phi.pdf", bbox_inches='tight')
 plt.show()
+
+
+
+N = 100000
+
+mass_diffs = []
+
+for i in range(N):
+    jetv = LorentzVector()
+
+    for part in gen_out[i]:
+        vec = LorentzVector()
+        vec.setptetaphim(part[2], part[0], part[1], 0)
+        jetv += vec
+
+    dmass = jetv.mass
+
+    efp = efpset2.compute(gen_out_efp_format[i])[0]
+
+    if(efp < 0):
+        efpmass = -10
+    else:
+        efpmass = np.sqrt(efp / 2)
+
+    mass_diffs.append([dmass, efpmass, dmass - efpmass])
+
+mass_diffs = np.array(mass_diffs)
+
+len(mass_diffs[mass_diffs[:, 1] < 0])
+
+binsm10000 = np.arange(0, 0.25, 0.005)
+fig = plt.figure()
+plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+_ = plt.hist(mass_diffs[:, 0], binsm, histtype='step', log=True, label='Direct', color='blue')
+_ = plt.hist(mass_diffs[:, 1], binsm, histtype='step', log=True, label='EFP', color='green')
+plt.ylabel('#')
+lg = plt.legend(loc=1, prop={'size': 18})
+plt.show()
+
+plt.hist(mass_diffs[:, 2], bins=np.arange(-0.002, 0.002, 0.00002), histtype='step', log=True)
+
+gen_mass_hist_diff = np.histogram(mass_diffs[:, 0], binsm)[0] - np.histogram(mass_diffs[:, 1], binsm)[0]
+
+plt.plot(binsm[:-1], gen_mass_hist_diff)
+
+mass_diffs

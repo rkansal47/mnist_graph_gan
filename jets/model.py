@@ -22,6 +22,8 @@ class Graph_GAN(nn.Module):
         if not self.args.fe1: self.args.fe1 = self.args.fe.copy()
         self.args.fn1 = self.args.fn.copy()
 
+        self.args.hidden_node_size += self.args.clabels_hidden_layers
+
         anc = 0
         if self.args.pos_diffs:
             if self.args.deltacoords:
@@ -52,62 +54,95 @@ class Graph_GAN(nn.Module):
             self.bne = nn.ModuleList()
             self.bnn = nn.ModuleList()
 
-        if self.D or self.args.latent_node_size:
-            self.args.fe1_in_size = 2 * self.args.latent_node_size if self.G else 2 * self.args.node_feat_size
-            self.args.fe1_in_size += anc
-            self.args.fe1.insert(0, self.args.fe1_in_size)
-            self.args.fe1_out_size = self.args.fe1[-1]
+        if self.G:
+            first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
+        else:
+            first_layer_node_size = self.args.node_feat_size
+
+        first_layer_node_size += self.args.clabels_first_layer
+
+        self.args.fe1_in_size = 2 * first_layer_node_size + anc
+        self.args.fe1.insert(0, self.args.fe1_in_size)
+        self.args.fe1_out_size = self.args.fe1[-1]
+        fe_iter = nn.ModuleList()
+        if self.args.batch_norm: bne = nn.ModuleList()
+        for j in range(len(self.args.fe1) - 1):
+            linear = nn.Linear(self.args.fe1[j], self.args.fe1[j + 1])
+            fe_iter.append(linear)
+            if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe1[j + 1]))
+
+        self.fe.append(fe_iter)
+        if self.args.batch_norm: self.bne.append(bne)
+
+        self.args.fn1.insert(0, self.args.fe1_out_size + first_layer_node_size)
+        self.args.fn1.append(self.args.hidden_node_size)
+
+        # node network
+        fn_iter = nn.ModuleList()
+        if self.args.batch_norm: bnn = nn.ModuleList()
+        for j in range(len(self.args.fn1) - 1):
+            linear = nn.Linear(self.args.fn1[j], self.args.fn1[j + 1])
+            fn_iter.append(linear)
+            if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn1[j + 1]))
+
+        self.fn.append(fn_iter)
+        if self.args.batch_norm: self.bnn.append(bnn)
+
+        # if self.D or self.args.latent_node_size:
+        #     self.args.fe1_in_size = 2 * self.args.latent_node_size if self.G else 2 * self.args.node_feat_size
+        #     self.args.fe1_in_size += anc
+        #     self.args.fe1.insert(0, self.args.fe1_in_size)
+        #     self.args.fe1_out_size = self.args.fe1[-1]
+        #     fe_iter = nn.ModuleList()
+        #     if self.args.batch_norm: bne = nn.ModuleList()
+        #     for j in range(len(self.args.fe1) - 1):
+        #         linear = nn.Linear(self.args.fe1[j], self.args.fe1[j + 1])
+        #         fe_iter.append(linear)
+        #         if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe1[j + 1]))
+        #
+        #     self.fe.append(fe_iter)
+        #     if self.args.batch_norm: self.bne.append(bne)
+        #
+        #     node_size = self.args.latent_node_size if self.G else self.args.node_feat_size
+        #     self.args.fn1.insert(0, self.args.fe1_out_size + node_size)
+        #     self.args.fn1.append(self.args.hidden_node_size)
+        #
+        #     # node network
+        #     fn_iter = nn.ModuleList()
+        #     if self.args.batch_norm: bnn = nn.ModuleList()
+        #     for j in range(len(self.args.fn1) - 1):
+        #         linear = nn.Linear(self.args.fn1[j], self.args.fn1[j + 1])
+        #         fn_iter.append(linear)
+        #         if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn1[j + 1]))
+        #
+        #     self.fn.append(fn_iter)
+        #     if self.args.batch_norm: self.bnn.append(bnn)
+        # else:
+        #     self.args.fe1_in_size = self.args.fe_in_size
+        #     self.args.fe1_out_size = self.args.fe_out_size
+
+        for i in range(self.args.mp_iters - 1):
+            # edge network
             fe_iter = nn.ModuleList()
             if self.args.batch_norm: bne = nn.ModuleList()
-            for j in range(len(self.args.fe1) - 1):
-                linear = nn.Linear(self.args.fe1[j], self.args.fe1[j + 1])
+            for j in range(len(self.args.fe) - 1):
+                linear = nn.Linear(self.args.fe[j], self.args.fe[j + 1])
                 fe_iter.append(linear)
-                if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe1[j + 1]))
+                if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[j + 1]))
 
             self.fe.append(fe_iter)
             if self.args.batch_norm: self.bne.append(bne)
 
-            node_size = self.args.latent_node_size if self.G else self.args.node_feat_size
-            self.args.fn1.insert(0, self.args.fe1_out_size + node_size)
-            self.args.fn1.append(self.args.hidden_node_size)
-
             # node network
             fn_iter = nn.ModuleList()
             if self.args.batch_norm: bnn = nn.ModuleList()
-            for j in range(len(self.args.fn1) - 1):
-                linear = nn.Linear(self.args.fn1[j], self.args.fn1[j + 1])
+            for j in range(len(self.args.fn) - 1):
+                linear = nn.Linear(self.args.fn[j], self.args.fn[j + 1])
                 fn_iter.append(linear)
-                if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn1[j + 1]))
+                if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[j + 1]))
 
             self.fn.append(fn_iter)
             if self.args.batch_norm: self.bnn.append(bnn)
-        else:
-            self.args.fe1_in_size = self.args.fe_in_size
-            self.args.fe1_out_size = self.args.fe_out_size
-
-        for i in range(self.args.mp_iters):
-            # edge network
-            if not (self.D or self.args.latent_node_size) or i:
-                fe_iter = nn.ModuleList()
-                if self.args.batch_norm: bne = nn.ModuleList()
-                for j in range(len(self.args.fe) - 1):
-                    linear = nn.Linear(self.args.fe[j], self.args.fe[j + 1])
-                    fe_iter.append(linear)
-                    if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe[j + 1]))
-
-                self.fe.append(fe_iter)
-                if self.args.batch_norm: self.bne.append(bne)
-
-                # node network
-                fn_iter = nn.ModuleList()
-                if self.args.batch_norm: bnn = nn.ModuleList()
-                for j in range(len(self.args.fn) - 1):
-                    linear = nn.Linear(self.args.fn[j], self.args.fn[j + 1])
-                    fn_iter.append(linear)
-                    if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn[j + 1]))
-
-                self.fn.append(fn_iter)
-                if self.args.batch_norm: self.bnn.append(bnn)
 
         if(self.args.dea):
             self.fnd = nn.ModuleList()
@@ -145,7 +180,7 @@ class Graph_GAN(nn.Module):
             print("fnd: ")
             print(self.fnd)
 
-    def forward(self, x):
+    def forward(self, x, clabels=None):
         batch_size = x.shape[0]
 
         for i in range(self.args.mp_iters):

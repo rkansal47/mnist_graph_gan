@@ -62,6 +62,10 @@ def parse_args():
     parser.add_argument("--hidden-node-size", type=int, default=32, help="hidden vector size of each node (incl node feature size)")
     parser.add_argument("--latent-node-size", type=int, default=0, help="latent vector size of each node - 0 means same as hidden node size")
 
+    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and detach")
+    utils.add_bool_arg(parser, "clabels-fl", "use conditional labels in first layer", default=True)
+    utils.add_bool_arg(parser, "clabels-hl", "use conditional labels in hidden layers", default=True)
+
     parser.add_argument("--fn", type=int, nargs='*', default=[256, 256], help="hidden fn layers e.g. 256 256")
     parser.add_argument("--fe1g", type=int, nargs='*', default=0, help="hidden and output gen fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe1d", type=int, nargs='*', default=0, help="hidden and output disc fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
@@ -177,6 +181,14 @@ def parse_args():
         print("can't be on nautilus and lxplus both - exiting")
         sys.exit()
 
+    if(args.latent_node_size and args.latent_node_size < 3):
+        print("latent node size can't be less than 2 - exiting")
+        sys.exit()
+
+    if(args.clabels > 2):
+        print("clabels can't be greater than 2 - exiting")
+        sys.exit()
+
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/jets"
         args.save_zero = True
@@ -191,9 +203,8 @@ def parse_args():
     if not args.mp_iters_gen: args.mp_iters_gen = args.mp_iters
     if not args.mp_iters_disc: args.mp_iters_disc = args.mp_iters
 
-    if(args.latent_node_size and args.latent_node_size < 3):
-        print("latent node size can't be less than 2 - exiting")
-        sys.exit()
+    args.clabels_first_layer = args.clabels if args.clabels_fl else 0
+    args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
     return args
 
