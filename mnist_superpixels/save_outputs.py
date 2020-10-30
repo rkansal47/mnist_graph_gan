@@ -78,7 +78,7 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     g_only = "_g_only_" + str(k) + "_" + str(j) if j > -1 else ""
     name = args.name + "/" + str(epoch) + g_only
 
-    plt.savefig(args.figs_path + name + ".png")
+    plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
     plt.close()
 
     plt.figure()
@@ -100,7 +100,7 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig(args.losses_path + name + ".png")
+    plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     plt.close()
 
     if args.fid:
@@ -113,7 +113,7 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
         plt.xlabel('Epoch')
         plt.ylabel('Log10FID')
         # plt.legend()
-        plt.savefig(args.losses_path + name + "_fid.png")
+        plt.savefig(args.losses_path + name + "_fid.pdf", bbox_inches='tight')
         plt.close()
 
     if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])
@@ -125,9 +125,9 @@ def save_sample_outputs(args, D, G, dist, name, epoch, losses, k=-1, j=-1):
 
     try:
         if(j == -1):
-            remove(args.losses_path + args.name + "/" + str(epoch - 5) + ".png")
-            remove(args.losses_path + args.name + "/" + str(epoch - 5) + "_fid.png")
-        else: remove(args.losses_path + args.name + "/" + str(epoch) + "_g_only_" + str(k) + "_" + str(j - 5) + ".png")
+            remove(args.losses_path + args.name + "/" + str(epoch - 5) + ".pdf")
+            remove(args.losses_path + args.name + "/" + str(epoch - 5) + "_fid.pdf")
+        else: remove(args.losses_path + args.name + "/" + str(epoch) + "_g_only_" + str(k) + "_" + str(j - 5) + ".pdf")
     except:
         print("couldn't remove loss file")
 

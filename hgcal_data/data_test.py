@@ -2,6 +2,10 @@ import uproot
 import numpy as np
 
 
+x = np.array([3., 6.])
+
+
+
 file = uproot.open("HGCAL/tuple_100Of250_n100.root")
 
 file['Delphes;1'].keys()

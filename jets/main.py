@@ -54,13 +54,17 @@ def parse_args():
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
-    parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polar")
+    parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polarrelabspt")
 
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
     parser.add_argument("--hidden-node-size", type=int, default=32, help="hidden vector size of each node (incl node feature size)")
     parser.add_argument("--latent-node-size", type=int, default=0, help="latent vector size of each node - 0 means same as hidden node size")
+
+    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and detach")
+    utils.add_bool_arg(parser, "clabels-fl", "use conditional labels in first layer", default=True)
+    utils.add_bool_arg(parser, "clabels-hl", "use conditional labels in hidden layers", default=True)
 
     parser.add_argument("--fn", type=int, nargs='*', default=[256, 256], help="hidden fn layers e.g. 256 256")
     parser.add_argument("--fe1g", type=int, nargs='*', default=0, help="hidden and output gen fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
@@ -74,7 +78,9 @@ def parse_args():
 
     utils.add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     utils.add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
-    utils.add_bool_arg(parser, "scalar-diffs", "use scalar diff (as opposed to vector)", default=True)
+    # utils.add_bool_arg(parser, "scalar-diffs", "use scalar diff (as opposed to vector)", default=True)
+    utils.add_bool_arg(parser, "deltar", "use delta r as an edge feature", default=True)
+    utils.add_bool_arg(parser, "deltacoords", "use delta coords as edge features", default=False)
 
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
 
@@ -92,7 +98,7 @@ def parse_args():
     parser.add_argument("--lr-gen", type=float, default=1e-5, help="learning rate generator")
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
-    parser.add_argument("--batch-size", type=int, default=10, help="batch size")
+    parser.add_argument("--batch-size", type=int, default=128, help="batch size")
 
     parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
     parser.add_argument("--num-gen", type=int, default=1, help="number of generator updates for each critic update (num-critic must be 1 for this to apply)")
@@ -133,6 +139,11 @@ def parse_args():
     parser.add_argument("--fid-batch-size", type=int, default=32, help="batch size when generating samples for fid eval")
     parser.add_argument("--gpu-batch", type=int, default=50, help="")
 
+    utils.add_bool_arg(parser, "w1", "calc w1", default=True)
+    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
+
+    parser.add_argument("--jet-features", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
+
     args = parser.parse_args()
 
     if(args.aug_t or args.aug_f or args.aug_r90 or args.aug_s):
@@ -140,9 +151,15 @@ def parse_args():
     else:
         args.augment = False
 
-    if not(args.coords == 'cartesian' or args.coords == 'polarrel' or args.coords == 'polar'):
+    if not(args.coords == 'cartesian' or args.coords == 'polarrel' or args.coords == 'polarrelabspt'):
         print("invalid coordinate system - exiting")
         sys.exit()
+
+    if not args.coords == 'polarrelabspt':
+        print("Can't have jet level features for this coordinate system")
+        args.jf = False
+    elif len(args.jet_features):
+        args.jf = True
 
     if(not(args.loss == 'w' or args.loss == 'og' or args.loss == 'ls' or args.loss == 'hinge')):
         print("invalid loss - exiting")
@@ -164,6 +181,14 @@ def parse_args():
         print("can't be on nautilus and lxplus both - exiting")
         sys.exit()
 
+    if(args.latent_node_size and args.latent_node_size < 3):
+        print("latent node size can't be less than 2 - exiting")
+        sys.exit()
+
+    if(args.clabels > 2):
+        print("clabels can't be greater than 2 - exiting")
+        sys.exit()
+
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/jets"
         args.save_zero = True
@@ -178,9 +203,8 @@ def parse_args():
     if not args.mp_iters_gen: args.mp_iters_gen = args.mp_iters
     if not args.mp_iters_disc: args.mp_iters_disc = args.mp_iters
 
-    if(args.latent_node_size and args.latent_node_size < 3):
-        print("latent node size can't be less than 2 - exiting")
-        sys.exit()
+    args.clabels_first_layer = args.clabels if args.clabels_fl else 0
+    args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
     return args
 
@@ -327,16 +351,46 @@ def main(args):
         if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
         if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
 
-        try:
-            losses['jsd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsd.txt").tolist()[:args.start_epoch]
-        except:
-            losses['jsd'] = []
+        if args.w1:
+            for k in range(len(args.w1_num_samples)):
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt')
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
+
+            if args.jf:
+                for k in range(len(args.w1_num_samples)):
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt')
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt')
+                    if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0)
+                    if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0)
+        # try:
+        #     losses['jsdm'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdm.txt").tolist()[:args.start_epoch]
+        #     losses['jsdstd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdstd.txt").tolist()[:args.start_epoch]
+        #
+        #     if losses['jsdm'].ndim == 1: losses['jsdm'].expand_dims(losses['jsdm'], axis=0)
+        #     if losses['jsdstd'].ndim == 1: losses['jsdstd'].expand_dims(losses['jsdstd'], axis=0)
+        # except:
+        #     losses['jsdm'] = []
+        #     losses['jsdstd'] = []
     else:
         losses['D'] = []
         losses['Dr'] = []
         losses['Df'] = []
         losses['G'] = []
-        losses['jsd'] = []
+        # losses['jsdm'] = []
+        # losses['jsdstd'] = []
+
+        if args.w1:
+            for k in range(len(args.w1_num_samples)):
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = []
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = []
+
+            if args.jf:
+                for k in range(len(args.w1_num_samples)):
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = []
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = []
+
         if args.fid: losses['fid'] = []
         if(args.gp): losses['gp'] = []
 
@@ -389,7 +443,14 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        if(args.save_zero): save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, 0, losses)
+        # if(args.w1): evaluation.calc_w1(args, X, G, normal_dist, losses)
+        if(args.start_epoch == 0 and args.save_zero):
+            # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
+            # print("JSD = " + str(mean) + " ± " + str(std))
+            # losses['jsdm'].append(mean)
+            # losses['jsdstd'].append(std)
+            save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, 0, losses)
+
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
             Dr_loss = 0
@@ -440,11 +501,16 @@ def main(args):
             if((i + 1) % 5 == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
+                if args.w1: evaluation.calc_w1(args, X, G, normal_dist, losses)
 
             if(args.fid and (i + 1) % 1 == 0):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
+                # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
+                # print("JSD = " + str(mean) + " ± " + str(std))
+                # losses['jsdm'].append(mean)
+                # losses['jsdstd'].append(std)
                 save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, i + 1, losses)
 
     train()

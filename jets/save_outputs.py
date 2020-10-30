@@ -3,71 +3,69 @@ import torch
 import matplotlib.pyplot as plt
 import utils
 from os import remove
-from scipy.spatial.distance import jensenshannon
+import mplhep as hep
+from skhep.math.vectors import LorentzVector
 
 plt.switch_backend('agg')
 
 
 def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     print("drawing figs")
-    fig = plt.figure(figsize=(10, 10))
-    if(args.fid): plt.suptitle("FID: " + str(losses['fid'][-1]))
-
+    plt.rcParams.update({'font.size': 16})
+    plt.style.use(hep.style.CMS)
+    # if(args.fid): plt.suptitle("FID: " + str(losses['fid'][-1]))
     # noise = torch.load(args.noise_path + args.noise_file_name).to(args.device)
 
+    G.eval()
     gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
     for i in range(int(args.num_samples / args.batch_size)):
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
     gen_out = gen_out[:args.num_samples]
 
-    labels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)'] if args.coords == 'cartesian' else ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
-    # if args.coords
-
-    fig = plt.figure(figsize=(20, 5))
-
-    if(args.coords == 'cartesian'):
+    if args.coords == 'cartesian':
+        labels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
         bin = np.arange(-500, 500, 10)
         bins = [bin, bin, bin]
+    elif args.coords == 'polarrel':
+        labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
+        bins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 0.5, 0.005)]
+    elif args.coords == 'polarrelabspt':
+        labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
+        bins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 400, 4)]
+
+    labelsj = ['mass (GeV)', '$p_T (GeV)']
+
+    fig = plt.figure(figsize=(22, 8))
+
+    if args.coords == 'cartesian':
+        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy() * args.maxp
+        gen_out = gen_out * args.maxp
     else:
-        bins = [np.arange(-1, 1, 0.02), np.arange(-0.5, 0.5, 0.01), np.arange(0, 1, 0.01)]
+        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy() * args.maxepp
+        gen_out *= args.maxepp
 
-    js = []
+    print(Xplot.shape)
+    print(gen_out.shape)
 
-    fig.suptitle("Particle Feature Distributions")
+    print(Xplot[0][:10])
+    print(gen_out[0][:10])
 
     for i in range(3):
         fig.add_subplot(1, 3, i + 1)
-
-        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy()
-
-        gen_hist = np.histogram(gen_out, bins=bins[i], density=True)[0]
-        X_hist = np.histogram(Xplot, bins=bins[i], density=True)[0]
-
-        js.append(jensenshannon(gen_hist, X_hist))
-
-        if args.coords == 'cartesian':
-            Xplot = Xplot * args.maxp
-            gen_out = gen_out * args.maxp
-        else:
-            for j in range(3):
-                Xplot[:, :, j] *= args.maxepp[j]
-                gen_out[:, :, j] *= args.maxepp[j]
-
-        _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='real', color='red')
-        _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='generated', color='blue')
-        plt.xlabel('particle ' + labels[i])
+        plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+        _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='Real', color='red')
+        _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='Generated', color='blue')
+        plt.xlabel('Particle ' + labels[i])
         plt.ylabel('Number of Particles')
-        plt.title('JSD = ' + str(round(js[-1], 3)))
-        plt.legend(loc=1, prop={'size': 7})
-
-    losses['jsd'].append(js)
+        # plt.title('JSD = ' + str(round(losses['jsdm'][-1][i], 3)) + ' ± ' + str(round(losses['jsdstd'][-1][i], 3)))
+        plt.legend(loc=1, prop={'size': 18})
 
     name = args.name + "/" + str(epoch)
 
-    plt.savefig(args.figs_path + name + ".pdf")
+    plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
     plt.close()
 
-    plt.figure(figsize=(20, 5))
+    plt.figure()
 
     if(args.loss == "og" or args.loss == "ls"):
         plt.plot(losses['Dr'], label='Discriminitive real loss')
@@ -86,8 +84,61 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig(args.losses_path + name + ".pdf")
+    plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     plt.close()
+
+    if args.jf:
+        real_masses = []
+        real_pts = []
+
+        gen_masses = []
+        gen_pts = []
+
+        for i in range(args.num_samples):
+            jetv = LorentzVector()
+
+            for part in Xplot[i]:
+                vec = LorentzVector()
+                vec.setptetaphim(part[2], part[0], part[1], 0)
+                jetv += vec
+
+            real_masses.append(jetv.mass)
+            real_pts.append(jetv.pt)
+
+        for i in range(args.num_samples):
+            jetv = LorentzVector()
+
+            for part in gen_out[i]:
+                vec = LorentzVector()
+                vec.setptetaphim(part[2], part[0], part[1], 0)
+                jetv += vec
+
+            gen_masses.append(jetv.mass)
+            gen_pts.append(jetv.pt)
+
+        mass_bins = np.arange(0, 400, 4)
+        pt_bins = np.arange(0, 3000, 30)
+
+        fig = plt.figure(figsize=(16, 8))
+
+        fig.add_subplot(1, 2, 1)
+        plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+        _ = plt.hist(real_masses, bins=mass_bins, histtype='step', label='real', color='red')
+        _ = plt.hist(gen_masses, bins=mass_bins, histtype='step', label='real', color='blue')
+        plt.xlabel('Jet Mass (GeV)')
+        plt.ylabel('Jets')
+        plt.legend(loc=1, prop={'size': 18})
+
+        fig.add_subplot(1, 2, 2)
+        plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+        _ = plt.hist(real_pts, bins=pt_bins, histtype='step', label='real', color='red')
+        _ = plt.hist(gen_pts, bins=pt_bins, histtype='step', label='real', color='blue')
+        plt.xlabel('Jet $p_T$ (GeV)')
+        plt.ylabel('Jets')
+        plt.legend(loc=1, prop={'size': 18})
+
+        plt.savefig(args.figs_path + name + "_mass_pt.pdf", bbox_inches='tight')
+        plt.close()
 
     if args.fid:
         fid_5 = losses['fid'][::5]
@@ -99,36 +150,76 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses):
         plt.xlabel('Epoch')
         plt.ylabel('Log10FID')
         # plt.legend()
-        plt.savefig(args.losses_path + name + "_fid.pdf")
+        plt.savefig(args.losses_path + name + "_fid.pdf", bbox_inches='tight')
         plt.close()
 
-    x = np.arange(len(losses['jsd']), step=args.save_epochs)
+    x = np.arange(epoch + 1, step=args.save_epochs)
 
-    fig = plt.figure()
+    plt.rcParams.update({'font.size': 12})
+    fig = plt.figure(figsize=(22, 5))
 
-    # print(losses['jsd'])
+    # for i in range(3):
+    #     fig.add_subplot(1, 3, i + 1)
+    #     plt.plot(x, np.log10(np.array(losses['jsdm'])[:, i]))
+    #     # plt.ylim((0, 5))
+    #     plt.xlabel('Epoch')
+    #     plt.ylabel('Particle ' + labels[i] + ' LogJSD')
+    # # plt.legend()
+    # plt.savefig(args.losses_path + name + "_jsd.pdf", bbox_inches='tight')
+    # plt.close()
 
-    for i in range(3):
-        fig.add_subplot(1, 3, i + 1)
-        plt.plot(x, np.log10(np.array(losses['jsd'])[:, i]))
-        # plt.ylim((0, 5))
-        plt.xlabel('Epoch')
-        plt.ylabel('Particle ' + labels[i] + ' LogJSD')
-    # plt.legend()
-    plt.savefig(args.losses_path + name + "_jsd.pdf")
-    plt.close()
+    # if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])
+    # np.savetxt(args.losses_path + args.name + "/" + "D.txt", losses['D'])
+    # np.savetxt(args.losses_path + args.name + "/" + "G.txt", losses['G'])
+    # np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", losses['Dr'])
+    # np.savetxt(args.losses_path + args.name + "/" + "Df.txt", losses['Df'])
+    # np.savetxt(args.losses_path + args.name + "/" + "jsdm.txt", np.array(losses['jsdm']))
+    # np.savetxt(args.losses_path + args.name + "/" + "jsdstd.txt", np.array(losses['jsdstd']))
+    # if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
 
-    if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])
-    np.savetxt(args.losses_path + args.name + "/" + "D.txt", losses['D'])
-    np.savetxt(args.losses_path + args.name + "/" + "G.txt", losses['G'])
-    np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", losses['Dr'])
-    np.savetxt(args.losses_path + args.name + "/" + "Df.txt", losses['Df'])
-    np.savetxt(args.losses_path + args.name + "/" + "jsd.txt", np.array(losses['jsd']))
-    if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
+    if args.w1 and epoch >= 5:
+        x = np.arange(5, epoch + 1, 5)
+
+        plt.rcParams.update({'font.size': 12})
+        colors = ['blue', 'green', 'orange']
+
+        fig = plt.figure(figsize=(30, 7))
+
+        for i in range(3):
+            fig.add_subplot(1, 3, i + 1)
+            for k in range(len(args.w1_num_samples)):
+                plt.plot(x, np.log10(np.array(losses['w1_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
+                # plt.fill_between(x, np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] - np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] + np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), color=colors[k], alpha=0.2)
+                # plt.plot(x, np.ones(len(x)) * np.log10(realw1m[k][i]), '--', label=str(args.num_samples[k]) + ' Real W1', color=colors[k])
+                # plt.fill_between(x, np.log10(np.ones(len(x)) * (realw1m[k][i] - realw1std[k][i])), np.log10(np.ones(len(x)) * (realw1m[k][i] + realw1std[k][i])), color=colors[k], alpha=0.2)
+            plt.legend(loc=2, prop={'size': 11})
+            plt.xlabel('Epoch')
+            plt.ylabel('Particle ' + labels[i] + ' LogW1')
+
+        plt.savefig(args.losses_path + name + "_w1.pdf", bbox_inches='tight')
+        plt.show()
+
+        if args.jf:
+            fig = plt.figure(figsize=(20, 7))
+
+            for i in range(len(args.jet_features)):
+                fig.add_subplot(1, len(args.jet_features), i + 1)
+                for k in range(len(args.w1_num_samples)):
+                    plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
+                plt.legend(loc=2, prop={'size': 11})
+                plt.xlabel('Epoch')
+                plt.ylabel('Particle ' + labelsj[i] + ' LogW1')
+
+            plt.savefig(args.losses_path + name + "_w1j.pdf", bbox_inches='tight')
+            plt.show()
+
+    for key in losses:
+        np.savetxt(args.losses_path + args.name + "/" + key + '.txt', losses[key])
 
     try:
         remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
-        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
+        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1.pdf")
+        # remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
     except:
         print("couldn't remove loss file")
 
