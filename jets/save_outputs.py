@@ -37,11 +37,14 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
 
     fig = plt.figure(figsize=(22, 8))
 
+    # print(X)
+    # print(X.shape)
+
     if args.coords == 'cartesian':
-        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy() * args.maxp
+        Xplot = X.cpu().detach().numpy() * args.maxp
         gen_out = gen_out * args.maxp
     else:
-        Xplot = X[:args.num_samples, :, :].cpu().detach().numpy() * args.maxepp
+        Xplot = X.cpu().detach().numpy() * args.maxepp
         gen_out *= args.maxepp
 
     print(Xplot.shape)
