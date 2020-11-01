@@ -3,6 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 import utils
 from jets_dataset import JetsDataset
+from torch.utils.data import DataLoader
 from torch.distributions.normal import Normal
 import mplhep as hep
 from skhep.math.vectors import LorentzVector
@@ -17,8 +18,8 @@ plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 7
-epoch = 790
+model = 21
+epoch = 5
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -37,14 +38,22 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = {'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32}
+args = {'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 1}
 X = JetsDataset(utils.objectview(args))
 
+labels = X[:][1]
+# X_loaded = DataLoader(X, shuffle=True, batch_size=32, pin_memory=True)
+X = X[:][0]
 N = len(X)
 
 rng = np.random.default_rng()
 
-num_samples = 100000
+num_samples = 10000
+
+gen_out = utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
+for i in range(int(num_samples / batch_size)):
+    gen_out = np.concatenate((gen_out, utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size, labels=labels[128 * (i + 1):128 * (i + 2)]).cpu().detach().numpy()), 0)
+gen_out = gen_out[:num_samples]
 
 # gen_out = utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()
 # for i in range(int(num_samples / batch_size)):
@@ -69,7 +78,7 @@ print(gen_out.shape)
 print(Xplot[0][:10])
 print(gen_out[0][:10])
 
-num_samples = 100000
+# num_samples = 100000
 
 real_masses = []
 real_pt = []
@@ -139,6 +148,8 @@ castings = [int, float, int]
 idx = int(epoch / 5 - 1)
 
 bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
+
+plt.hist(gen_out[:, :, i].reshape(-1), bins=100, histtype='step', label='Generated', color='blue')
 
 fig = plt.figure(figsize=(30, 8))
 
