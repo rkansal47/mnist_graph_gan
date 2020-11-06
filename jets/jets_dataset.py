@@ -22,6 +22,7 @@ class JetsDataset(Dataset):
             print(args.maxepp)
             for i in range(3):
                 dataset[:, :, i] /= args.maxepp[i]
+            dataset *= 0.8
             self.X = dataset
 
         print("Dataset loaded")

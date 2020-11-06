@@ -59,6 +59,8 @@ def parse_args():
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
     parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polarrelabspt")
 
+    parser.add_argument("--norm", type=float, default=1, help="normalizing max value of features to this value")
+
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
     parser.add_argument("--node-feat-size", type=int, default=3, help="node feature size")
@@ -91,6 +93,9 @@ def parse_args():
     utils.add_bool_arg(parser, "fcg", "use a fully connected graph", default=True)
 
     parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
+
+    utils.add_bool_arg(parser, "gtanh", "use tanh for g output", default=True)
+    utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
 
     # optimization
 

@@ -219,7 +219,7 @@ class Graph_GAN(nn.Module):
         if(self.G):
             if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):
                 x = torch.cat((x[:, :, :2], torch.relu(x[:, :, 2].unsqueeze(-1))), axis=2)
-            return x
+            return torch.tanh(x) if self.args.gtanh else x
         else:
             if(self.args.dea):
                 x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
@@ -229,8 +229,7 @@ class Graph_GAN(nn.Module):
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
-
-                x = torch.mean(x[:, :, :1], 1) if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.mean(torch.sigmoid(x[:, :, :1]), 1)
+                x = torch.mean(x[:, :, :1], 1) if (self.args.loss == 'w' or self.args.loss == 'hinge' or not self.args.dearlysigmoid) else torch.mean(torch.sigmoid(x[:, :, :1]), 1)
 
             if self.args.debug: print(x)
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)

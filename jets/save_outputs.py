@@ -41,11 +41,12 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     # print(X.shape)
 
     if args.coords == 'cartesian':
-        Xplot = X.cpu().detach().numpy() * args.maxp
-        gen_out = gen_out * args.maxp
+        Xplot = X.cpu().detach().numpy() * args.maxp / args.norm
+        gen_out = gen_out * args.maxp / args.norm
     else:
-        Xplot = X.cpu().detach().numpy() * args.maxepp
+        Xplot = X.cpu().detach().numpy() * args.maxepp / args.norm
         gen_out *= args.maxepp
+        gen_out /= args.norm
 
     print(Xplot.shape)
     print(gen_out.shape)
