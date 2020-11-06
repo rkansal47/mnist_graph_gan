@@ -204,7 +204,7 @@ class Graph_GAN(nn.Module):
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
 
-            if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, 1)), axis=1)
+            if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, labels.size(0))), axis=1)
 
             for j in range(len(self.fn[i]) - 1):
                 x = F.leaky_relu(self.fn[i][j](x), negative_slope=self.args.leaky_relu_alpha)
@@ -217,7 +217,8 @@ class Graph_GAN(nn.Module):
         # print(x)
 
         if(self.G):
-            x = torch.tanh(x[:, :, :self.args.node_feat_size])
+            if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):
+                x = torch.cat((x[:, :, :2], torch.relu(x[:, :, 2].unsqueeze(-1))), axis=2)
             return x
         else:
             if(self.args.dea):
