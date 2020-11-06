@@ -177,7 +177,7 @@ class Graph_GAN(nn.Module):
             print("fnd: ")
             print(self.fnd)
 
-    def forward(self, x, labels=None):
+    def forward(self, x, labels=None, deb=False):
         batch_size = x.shape[0]
 
         for i in range(self.args.mp_iters):
@@ -214,7 +214,7 @@ class Graph_GAN(nn.Module):
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
-        # print(x[:10, :10])
+        if deb: print(x[:10, :10])
 
         if(self.G):
             if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):

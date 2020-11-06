@@ -404,6 +404,7 @@ def main(args):
         D_optimizer.zero_grad()
 
         run_batch_size = data.shape[0]
+        deb = run_batch_size != args.batch_size
 
         if gen_data is None:
             gen_data = utils.gen(args, G, normal_dist, run_batch_size, labels=labels)
@@ -413,13 +414,13 @@ def main(args):
             data = augment.augment(args, data, p)
             gen_data = augment.augment(args, gen_data, p)
 
-        D_real_output = D(data.clone(), labels)
+        D_real_output = D(data.clone(), labels, deb)
 
         if args.debug or run_batch_size != args.batch_size:
             print("D real output: ")
             print(D_real_output[:10])
 
-        D_fake_output = D(gen_data, labels)
+        D_fake_output = D(gen_data, labels, deb)
 
         if args.debug or run_batch_size != args.batch_size:
             print("D fake output: ")
