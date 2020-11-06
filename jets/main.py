@@ -27,6 +27,7 @@ def parse_args():
     dir_path = dirname(realpath(__file__))
 
     parser = argparse.ArgumentParser()
+
     # meta
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
@@ -50,6 +51,8 @@ def parse_args():
     parser.add_argument("--save-epochs", type=int, default=5, help="save outputs per how many epochs")
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
+
+    parser.add_argument("--jets", type=str, default="g", help="jet type - options are g or t")
 
     # architecture
 
@@ -153,6 +156,10 @@ def parse_args():
 
     if not(args.coords == 'cartesian' or args.coords == 'polarrel' or args.coords == 'polarrelabspt'):
         print("invalid coordinate system - exiting")
+        sys.exit()
+
+    if not(args.jets == 'g' or args.jets == 't'):
+        print("invalid jet type - exiting")
         sys.exit()
 
     if not args.coords == 'polarrelabspt':
@@ -403,13 +410,13 @@ def main(args):
 
         D_real_output = D(data.clone(), labels)
 
-        if args.debug:
+        if args.debug or run_batch_size != args.batch_size:
             print("D real output: ")
             print(D_real_output[:10])
 
         D_fake_output = D(gen_data, labels)
 
-        if args.debug:
+        if args.debug or run_batch_size != args.batch_size:
             print("D fake output: ")
             print(D_fake_output[:10])
 
@@ -433,7 +440,7 @@ def main(args):
             gen_data = augment.augment(args, gen_data, p)
 
         D_fake_output = D(gen_data, labels)
-        
+
         if args.debug:
             print("D fake output: ")
             print(D_fake_output[:10])

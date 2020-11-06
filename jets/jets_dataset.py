@@ -4,8 +4,8 @@ from torch.utils.data import Dataset
 
 class JetsDataset(Dataset):
     def __init__(self, args):
-        dataset = torch.load(args.dataset_path + 'all_g_jets_' + str(args.num_hits) + 'p_' + args.coords + '.pt').float()
-        self.jet_features = torch.load(args.dataset_path + 'all_g_jets_' + str(args.num_hits) + 'p_jetptetamass.pt').float()[:, :args.clabels]
+        dataset = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_' + str(args.num_hits) + 'p_' + args.coords + '.pt').float()
+        self.jet_features = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_' + str(args.num_hits) + 'p_jetptetamass.pt').float()[:, :args.clabels]
 
         if args.coords == 'cartesian':
             args.maxp = float(torch.max(torch.abs(dataset)))
