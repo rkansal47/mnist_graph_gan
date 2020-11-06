@@ -25,12 +25,18 @@ class objectview(object):
         self.__dict__ = d
 
 
-def gen(args, G, dist=None, num_samples=0, noise=None):
+def gen(args, G, dist=None, num_samples=0, noise=None, labels=None, X_loaded=None):
     if(noise is None):
         noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
     else: num_samples = noise.size(0)
 
-    gen_data = G(noise)
+    if args.clabels and labels is None:
+        labels = next(iter(X_loaded))[1].to(args.device)
+        while(labels.size(0) < num_samples):
+            labels = torch.cat((labels, next(iter(X_loaded))[1]), axis=0)
+        labels = labels[:num_samples]
+
+    gen_data = G(noise, labels)
 
     return gen_data
 
@@ -117,13 +123,13 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
     return (D_loss, {'Dr': D_real_loss.item(), 'Df': D_fake_loss.item(), 'gp': gpitem, 'D': D_real_loss.item() + D_fake_loss.item()})
 
 
-def calc_G_loss(args, fake_outputs, Y_real):
+def calc_G_loss(args, fake_outputs, Y_real, run_batch_size):
     if args.debug: print(fake_outputs[:10])
 
     if(args.loss == 'og'):
-        G_loss = bce(fake_outputs, Y_real)
+        G_loss = bce(fake_outputs, Y_real[:run_batch_size])
     elif(args.loss == 'ls'):
-        G_loss = mse(fake_outputs, Y_real)
+        G_loss = mse(fake_outputs, Y_real[:run_batch_size])
     elif(args.loss == 'w' or args.loss == 'hinge'):
         G_loss = -fake_outputs.mean()
 

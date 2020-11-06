@@ -173,7 +173,7 @@ def calc_jsd(args, X, G, dist):
 
 
 # make sure to deepcopy G passing in
-def calc_w1(args, X, G, dist, losses):
+def calc_w1(args, X, G, dist, losses, X_loaded=None):
     print("evaluating 1-WD")
     num_batches = np.array(100000 / np.array(args.w1_num_samples), dtype=int)
     # num_batches = [5, 5, 5]
@@ -186,9 +186,9 @@ def calc_w1(args, X, G, dist, losses):
         w1s = []
         if args.jf: w1js = []
         for j in tqdm(range(num_batches[k])):
-            gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
+            gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
             for i in range(int(args.w1_num_samples[k] / args.batch_size)):
-                gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
+                gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
             gen_out = gen_out[:args.w1_num_samples[k]]
 
             sample = X[rng.choice(N, size=args.w1_num_samples[k])].cpu().detach().numpy()

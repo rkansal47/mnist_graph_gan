@@ -353,33 +353,22 @@ def main(args):
 
         if args.w1:
             for k in range(len(args.w1_num_samples)):
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt')
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
 
             if args.jf:
                 for k in range(len(args.w1_num_samples)):
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt')
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt')
-                    if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0)
-                    if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0)
-        # try:
-        #     losses['jsdm'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdm.txt").tolist()[:args.start_epoch]
-        #     losses['jsdstd'] = np.loadtxt(args.losses_path + args.name + "/" + "jsdstd.txt").tolist()[:args.start_epoch]
-        #
-        #     if losses['jsdm'].ndim == 1: losses['jsdm'].expand_dims(losses['jsdm'], axis=0)
-        #     if losses['jsdstd'].ndim == 1: losses['jsdstd'].expand_dims(losses['jsdstd'], axis=0)
-        # except:
-        #     losses['jsdm'] = []
-        #     losses['jsdstd'] = []
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
+                    if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
+                    if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0).tolist()[:args.start_epoch]
     else:
         losses['D'] = []
         losses['Dr'] = []
         losses['Df'] = []
         losses['G'] = []
-        # losses['jsdm'] = []
-        # losses['jsdstd'] = []
 
         if args.w1:
             for k in range(len(args.w1_num_samples)):
@@ -397,7 +386,7 @@ def main(args):
     Y_real = torch.ones(args.batch_size, 1).to(args.device)
     Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
 
-    def train_D(data, gen_data=None):
+    def train_D(data, labels=None, gen_data=None):
         if args.debug: print("dtrain")
         D.train()
         D_optimizer.zero_grad()
@@ -405,15 +394,24 @@ def main(args):
         run_batch_size = data.shape[0]
 
         if gen_data is None:
-            gen_data = utils.gen(args, G, normal_dist, run_batch_size)
+            gen_data = utils.gen(args, G, normal_dist, run_batch_size, labels=labels)
 
         if args.augment:
             p = args.aug_prob if not args.adaptive_prob else losses['p'][-1]
             data = augment.augment(args, data, p)
             gen_data = augment.augment(args, gen_data, p)
 
-        D_real_output = D(data.clone())
-        D_fake_output = D(gen_data)
+        D_real_output = D(data.clone(), labels)
+
+        if args.debug:
+            print("D real output: ")
+            print(D_real_output[:10])
+
+        D_fake_output = D(gen_data, labels)
+
+        if args.debug:
+            print("D fake output: ")
+            print(D_fake_output[:10])
 
         D_loss, D_loss_items = utils.calc_D_loss(args, D, data, gen_data, D_real_output, D_fake_output, run_batch_size, Y_real, Y_fake)
         D_loss.backward()
@@ -421,20 +419,26 @@ def main(args):
         D_optimizer.step()
         return D_loss_items
 
-    def train_G(data):
+    def train_G(data, labels=None):
         if args.debug: print("gtrain")
         G.train()
         G_optimizer.zero_grad()
 
-        gen_data = utils.gen(args, G, normal_dist, args.batch_size)
+        run_batch_size = labels.shape[0] if labels is not None else args.batch_size
+
+        gen_data = utils.gen(args, G, normal_dist, run_batch_size, labels=labels)
 
         if args.augment:
             p = args.aug_prob if not args.adaptive_prob else losses['p'][-1]
             gen_data = augment.augment(args, gen_data, p)
 
-        D_fake_output = D(gen_data)
+        D_fake_output = D(gen_data, labels)
+        
+        if args.debug:
+            print("D fake output: ")
+            print(D_fake_output[:10])
 
-        G_loss = utils.calc_G_loss(args, D_fake_output, Y_real)
+        G_loss = utils.calc_G_loss(args, D_fake_output, Y_real, run_batch_size)
 
         G_loss.backward()
         G_optimizer.step()
@@ -449,7 +453,7 @@ def main(args):
             # print("JSD = " + str(mean) + " ± " + str(std))
             # losses['jsdm'].append(mean)
             # losses['jsdstd'].append(std)
-            save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, 0, losses)
+            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded)
 
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
@@ -460,26 +464,32 @@ def main(args):
             gp_loss = 0
             lenX = len(X_loaded)
             for batch_ndx, data in tqdm(enumerate(X_loaded), total=lenX):
-                data = data.to(args.device)
+                if args.clabels:
+                    labels = data[1].to(args.device)
+                else: labels = None
+
+                data = data[0].to(args.device)
+
+                # write as just one if statement each for g and d
 
                 if(args.num_critic > 1):
-                    D_loss_items = train_D(data)
+                    D_loss_items = train_D(data, labels=labels)
                     D_loss += D_loss_items['D']
                     Dr_loss += D_loss_items['Dr']
                     Df_loss += D_loss_items['Df']
                     if(args.gp): gp_loss += D_loss_items['gp']
 
                     if((batch_ndx - 1) % args.num_critic == 0):
-                        G_loss += train_G(data)
+                        G_loss += train_G(data, labels=labels)
                 else:
                     if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                        D_loss_items = train_D(data)
+                        D_loss_items = train_D(data, labels=labels)
                         D_loss += D_loss_items['D']
                         Dr_loss += D_loss_items['Dr']
                         Df_loss += D_loss_items['Df']
                         if(args.gp): gp_loss += D_loss_items['gp']
 
-                    G_loss += train_G(data)
+                    G_loss += train_G(data, labels=labels)
 
                 if args.bottleneck:
                     if(batch_ndx == 10):
@@ -501,7 +511,7 @@ def main(args):
             if((i + 1) % 5 == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
-                if args.w1: evaluation.calc_w1(args, X, G, normal_dist, losses)
+                if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
 
             if(args.fid and (i + 1) % 1 == 0):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
@@ -511,7 +521,7 @@ def main(args):
                 # print("JSD = " + str(mean) + " ± " + str(std))
                 # losses['jsdm'].append(mean)
                 # losses['jsdstd'].append(std)
-                save_outputs.save_sample_outputs(args, D, G, X, normal_dist, args.name, i + 1, losses)
+                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, i + 1, losses, X_loaded=X_loaded)
 
     train()
 
