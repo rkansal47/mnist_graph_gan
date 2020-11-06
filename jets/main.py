@@ -402,7 +402,16 @@ def main(args):
             gen_data = augment.augment(args, gen_data, p)
 
         D_real_output = D(data.clone(), labels)
+
+        if args.debug:
+            print("D real output: ")
+            print(D_real_output[:10])
+
         D_fake_output = D(gen_data, labels)
+
+        if args.debug:
+            print("D fake output: ")
+            print(D_fake_output[:10])
 
         D_loss, D_loss_items = utils.calc_D_loss(args, D, data, gen_data, D_real_output, D_fake_output, run_batch_size, Y_real, Y_fake)
         D_loss.backward()
@@ -424,6 +433,10 @@ def main(args):
             gen_data = augment.augment(args, gen_data, p)
 
         D_fake_output = D(gen_data, labels)
+        
+        if args.debug:
+            print("D fake output: ")
+            print(D_fake_output[:10])
 
         G_loss = utils.calc_G_loss(args, D_fake_output, Y_real, run_batch_size)
 
@@ -456,6 +469,8 @@ def main(args):
                 else: labels = None
 
                 data = data[0].to(args.device)
+
+                # write as just one if statement each for g and d
 
                 if(args.num_critic > 1):
                     D_loss_items = train_D(data, labels=labels)
