@@ -45,11 +45,11 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         gen_out = gen_out * args.maxp / args.norm
     else:
         Xplot = X.cpu().detach().numpy()
-        Xplot /= args.norm
+        Xplot = Xplot / args.norm
         Xplot[:, :, 2] += 0.5
         Xplot *= args.maxepp
 
-        gen_out /= args.norm
+        gen_out = gen_out / args.norm
         gen_out[:, :, 2] += 0.5
         gen_out *= args.maxepp
 
