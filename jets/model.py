@@ -181,6 +181,7 @@ class Graph_GAN(nn.Module):
         batch_size = x.shape[0]
 
         for i in range(self.args.mp_iters):
+            # print(i)
             clabel_iter = self.args.clabels and ((i == 0 and self.args.clabels_first_layer) or (i and self.args.clabels_hidden_layers))
 
             node_size = x.size(2)
@@ -214,12 +215,12 @@ class Graph_GAN(nn.Module):
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
-        if deb: print(x[:10, :10])
+        if deb: print(x[:10, :, 0])
 
         if(self.G):
-            if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):
-                x = torch.cat((x[:, :, :2], torch.relu(x[:, :, 2].unsqueeze(-1))), axis=2)
-            return torch.tanh(x) if self.args.gtanh else x
+            # if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):
+            #     x = torch.cat((x[:, :, :2], torch.relu(x[:, :, 2].unsqueeze(-1))), axis=2)
+            return torch.tanh(x[:, :, :3]) if self.args.gtanh else x[:, :, :3]
         else:
             if(self.args.dea):
                 x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
@@ -238,6 +239,8 @@ class Graph_GAN(nn.Module):
         node_size = x.size(2)
         x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
         x2 = x.repeat(1, self.args.num_hits, 1)
+
+        # print(x.shape)
 
         if(self.args.pos_diffs):
             num_coords = 3 if self.args.coords == 'cartesian' else 2
