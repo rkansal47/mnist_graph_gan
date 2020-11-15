@@ -83,7 +83,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
 
         for part in gen_out[i]:
             vec = LorentzVector()
-            vec.setptetaphim(0, part[0], part[1], 0)
+            vec.setptetaphim(part[2], part[0], part[1], 0)
             jetv += vec
 
         gen_masses.append(jetv.mass)
