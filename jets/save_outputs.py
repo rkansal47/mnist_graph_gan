@@ -206,8 +206,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
 
     x = np.arange(epoch + 1, step=args.save_epochs)
 
-    plt.rcParams.update({'font.size': 12})
-    fig = plt.figure(figsize=(22, 5))
+    # plt.rcParams.update({'font.size': 12})
+    # fig = plt.figure(figsize=(22, 5))
 
     # for i in range(3):
     #     fig.add_subplot(1, 3, i + 1)
