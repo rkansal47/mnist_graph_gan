@@ -100,7 +100,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         # plt.title('JSD = ' + str(round(losses['jsdm'][-1][i], 3)) + ' ± ' + str(round(losses['jsdstd'][-1][i], 3)))
         plt.legend(loc=1, prop={'size': 18})
 
-    binsm = np.arange(0, 0.225, 0.00225)
+    binsm = np.arange(0, 0.225, 0.0045)
 
     fig.add_subplot(1, 4, 4)
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
