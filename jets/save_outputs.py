@@ -28,14 +28,15 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         bins = [bin, bin, bin]
     elif args.coords == 'polarrel':
         labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
-        bins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 0.5, 0.005)]
+        if args.jets == 'g':
+            bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
+        elif args.jets == 't':
+            bins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.2, 0.002)]
     elif args.coords == 'polarrelabspt':
         labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
         bins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 400, 4)]
 
     labelsj = ['mass (GeV)', '$p_T (GeV)']
-
-    fig = plt.figure(figsize=(22, 8))
 
     # print(X)
     # print(X.shape)
@@ -53,14 +54,44 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         gen_out[:, :, 2] += 0.5
         gen_out *= args.maxepp
 
+    for i in range(args.num_samples):
+        for j in range(args.num_hits):
+            if gen_out[i][j][2] < 0:
+                gen_out[i][j][2] = 0
+
     print(Xplot.shape)
     print(gen_out.shape)
 
     print(Xplot[0][:10])
     print(gen_out[0][:10])
 
+    real_masses = []
+    gen_masses = []
+
+    for i in range(args.num_samples):
+        jetv = LorentzVector()
+
+        for part in Xplot[i]:
+            vec = LorentzVector()
+            vec.setptetaphim(part[2], part[0], part[1], 0)
+            jetv += vec
+
+        real_masses.append(jetv.mass)
+
+    for i in range(args.num_samples):
+        jetv = LorentzVector()
+
+        for part in gen_out[i]:
+            vec = LorentzVector()
+            vec.setptetaphim(0, part[0], part[1], 0)
+            jetv += vec
+
+        gen_masses.append(jetv.mass)
+
+    fig = plt.figure(figsize=(30, 8))
+
     for i in range(3):
-        fig.add_subplot(1, 3, i + 1)
+        fig.add_subplot(1, 4, i + 1)
         plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
         _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='Real', color='red')
         _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='Generated', color='blue')
@@ -69,8 +100,19 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         # plt.title('JSD = ' + str(round(losses['jsdm'][-1][i], 3)) + ' ± ' + str(round(losses['jsdstd'][-1][i], 3)))
         plt.legend(loc=1, prop={'size': 18})
 
-    name = args.name + "/" + str(epoch)
+    binsm = np.arange(0, 0.225, 0.00225)
 
+    fig.add_subplot(1, 4, 4)
+    plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+    # plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
+    _ = plt.hist(real_masses, bins=binsm, histtype='step', label='Real', color='red')
+    _ = plt.hist(gen_masses, bins=binsm, histtype='step', label='Generated', color='blue')
+    plt.xlabel('Jet $m/p_{T}$')
+    plt.ylabel('Jets')
+    plt.legend(loc=1, prop={'size': 18})
+
+    name = args.name + "/" + str(epoch)
+    plt.tight_layout(2.0)
     plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
     plt.close()
 
