@@ -97,6 +97,8 @@ def parse_args():
     utils.add_bool_arg(parser, "gtanh", "use tanh for g output", default=True)
     utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
 
+    utils.add_bool_arg(parser, "mask", "use masking for zero-padded particles", default=False)
+
     # optimization
 
     parser.add_argument("--optimizer", type=str, default="rmsprop", help="optimizer - options are adam, rmsprop, adadelta or acgd")
@@ -223,6 +225,9 @@ def parse_args():
 
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
+
+    if args.mask:
+        args.node_feat_size += 1
 
     return args
 
