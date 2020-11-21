@@ -18,8 +18,8 @@ plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 7
-epoch = 790
+model = 42
+epoch = 600
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -38,8 +38,8 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = {'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 1}
-X = JetsDataset(utils.objectview(args))
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 1, 'jets': 'g', 'norm': 1})
+X = JetsDataset(args)
 
 labels = X[:][1]
 # X_loaded = DataLoader(X, shuffle=True, batch_size=32, pin_memory=True)
@@ -50,27 +50,31 @@ rng = np.random.default_rng()
 
 num_samples = 100000
 
-gen_out = utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
-for i in range(int(num_samples / batch_size)):
-    gen_out = np.concatenate((gen_out, utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size, labels=labels[128 * (i + 1):128 * (i + 2)]).cpu().detach().numpy()), 0)
-gen_out = gen_out[:num_samples]
+if args.clabels:
+    gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
+    for i in tqdm(range(int(num_samples / batch_size))):
+        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[128 * (i + 1):128 * (i + 2)]).cpu().detach().numpy()), 0)
+    gen_out = gen_out[:num_samples]
+else:
+    gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()
+    for i in tqdm(range(int(num_samples / batch_size))):
+        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
+    gen_out = gen_out[:num_samples]
 
-# gen_out = utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()
-# for i in range(int(num_samples / batch_size)):
-#     gen_out = np.concatenate((gen_out, utils.gen(utils.objectview(args), G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
-# gen_out = gen_out[:num_samples]
-
-# np.save(name + "_gen_out", gen_out)
-gen_out = np.load(name + "_gen_out.npy")
+np.save('./models/' + str(model) + '/' + name + "_gen_out", gen_out)
+gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
 
 # gen_out /= maxepp
-# fig.suptitle("Particle Feature Distributions")
 
-labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
+# maxepp = [1.4130558967590332, 0.520724892616272, 0.8537549376487732]
+Xplot = X[:num_samples, :, :].cpu().detach().numpy()
+Xplot = Xplot / args.norm
+Xplot[:, :, 2] += 0.5
+Xplot *= args.maxepp
 
-maxepp = [1.4130558967590332, 0.520724892616272, 0.8537549376487732]
-Xplot = X[:num_samples, :, :].cpu().detach().numpy() * maxepp
-gen_out *= maxepp
+gen_out = gen_out / args.norm
+gen_out[:, :, 2] += 0.5
+gen_out *= args.maxepp
 
 print(Xplot.shape)
 print(gen_out.shape)
@@ -80,18 +84,32 @@ print(gen_out[0][:10])
 
 len(gen_out[gen_out[:, :, 2] < 0])
 
-gen_out[gen_out[:, :, 2] < 0][:, 2]
+for i in range(num_samples):
+    for j in range(30):
+        if gen_out[i][j][2] < 0:
+            gen_out[i][j][2] = 0
 
+len(gen_out[gen_out[:, :, 2] < 0])
 # num_samples = 100000
+
+plt.hist(Xplot[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
+
+plt.hist(gen_out[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
+
+len(gen_out[gen_out[:, :, 2] < 0.0001])
+
+len(Xplot[Xplot[:, :, 2] < 0.00012])
+
+plt.hist(gen_out[gen_out[:, :, 2] < 0.0001][:, 0], bins[0], histtype='step', label='Real', color='red')
+
+
 
 real_masses = []
 real_pt = []
 gen_masses = []
 gen_pt = []
-# real_jets = []
-# gen_jets = []
 
-for i in range(num_samples):
+for i in tqdm(range(num_samples)):
     jetv = LorentzVector()
 
     for part in Xplot[i]:
@@ -101,14 +119,13 @@ for i in range(num_samples):
 
     real_masses.append(jetv.mass)
     real_pt.append(jetv.pt)
-    # real_jets.append([jetv.pt, jetv.eta, jetv.phi])
 
-for i in range(num_samples):
+for i in tqdm(range(num_samples)):
     jetv = LorentzVector()
 
     for part in gen_out[i]:
         vec = LorentzVector()
-        if part[2] >= 0:
+        if part[2] >= 0.0001:
             vec.setptetaphim(part[2], part[0], part[1], 0)
         else:
             vec.setptetaphim(0, part[0], part[1], 0)
@@ -116,13 +133,6 @@ for i in range(num_samples):
 
     gen_masses.append(jetv.mass)
     gen_pt.append(jetv.pt)
-    # gen_jets.append([jetv.pt, jetv.eta, jetv.phi])
-
-for i in range(num_samples):
-    for j in range(30):
-        if gen_out[i][j][2] < 0:
-            gen_out[i][j][2] = 0
-
 
 len(real_masses)
 len(gen_masses)
@@ -151,16 +161,18 @@ plt.ylabel('Jets')
 plt.legend(loc=1, prop={'size': 18})
 
 plt.tight_layout(2.0)
-plt.savefig(figpath + "_100000_jets_rel_mass_pt_fix.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_100000_jets_rel_mass_pt_cut.pdf", bbox_inches='tight')
 plt.show()
 
+plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
 sf = [3, 2, 3]
 rnd = [0, 1, 0]
 castings = [int, float, int]
 
-idx = int(epoch / 5 - 1)
-
-bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
+if args.jets == 'g':
+    bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
+elif args.jets == 't':
+    bins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.2, 0.002)]
 
 fig = plt.figure(figsize=(30, 8))
 
@@ -169,7 +181,7 @@ for i in range(3):
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
     _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='Real', color='red')
     _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='Generated', color='blue')
-    plt.xlabel('Particle ' + labels[i])
+    plt.xlabel('Particle ' + plabels[i])
     plt.ylabel('Particles')
     # plt.title('$W_1$ = (' + str(castings[i](round(w1m[idx][i] * int(10 ** sf[i]), rnd[i]))) + ' ± ' + str(castings[i](round(w1std[idx][i] * int(10 ** sf[i]), rnd[i]))) + ') $\\times 10^{-' + str(sf[i]) + '}$')
     # title = '$W_1$ = (' + str(castings[i](round(w1m[idx][i] * int(10 ** sf[i]), rnd[i]))) + ' ± ' + str(castings[i](round(w1std[idx][i] * int(10 ** sf[i]), rnd[i]))) + ') $\\times 10^{-' + str(sf[i]) + '}$'
@@ -188,14 +200,26 @@ plt.xlabel('Jet $m/p_{T}$')
 plt.ylabel('Jets')
 plt.legend(loc=1, prop={'size': 18})
 
-# name = args.name + "/" + str(epoch)
-
 plt.tight_layout(2.0)
-plt.savefig(figpath + "_fix.pdf", bbox_inches='tight')
+# plt.savefig(figpath + ".pdf", bbox_inches='tight')
 plt.show()
 
 
-gen_masses
+fig = plt.figure(figsize=(30, 10))
+
+for i in range(3):
+    fig.add_subplot(1, 3, i + 1)
+    plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+    _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='Real', color='red')
+    _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='Generated', color='blue')
+    plt.xlabel('Particle ' + plabels[i])
+    plt.ylabel('Particles')
+    lg = plt.legend(loc=1, prop={'size': 18})
+
+plt.tight_layout(2.0)
+plt.savefig(figpath + "_particle_level.pdf", bbox_inches='tight')
+plt.show()
+
 
 rng.choice(100000, size=10)
 
@@ -257,10 +281,14 @@ gen_out_efp.shape
 X_efp.shape
 
 fig = plt.figure(figsize=(20, 12))
-bins0 = np.arange(0, 0.0013, step=0.000013)
-bins1 = np.arange(0, 0.0004, step=0.000004)
 
-bins = [bins0, bins1, bins1, bins1, bins1]
+if args.jets == 'g':
+    bins0 = np.arange(0, 0.0013, step=0.000013)
+    bins1 = np.arange(0, 0.0004, step=0.000004)
+    bins = [bins0, bins1, bins1, bins1, bins1]
+elif args.jets == 't':
+    binranges = [0.0045, 0.0035, 0.004, 0.002, 0.003]
+    bins = [np.arange(0, binr, step=binr / 100) for binr in binranges]
 
 for i in range(5):
     fig.add_subplot(2, 3, i + 1)
@@ -270,37 +298,44 @@ for i in range(5):
     _ = plt.hist(gen_out_efp[:, i], bins[i], histtype='step', label='Generated', color='blue')
     plt.xlabel('EFP ' + str(i + 1), x = 0.7)
     plt.ylabel('Jets')
-    # plt.title('$W_1$ = (' + str(castings[i](round(w1m[idx][i] * int(10 ** sf[i]), rnd[i]))) + ' ± ' + str(castings[i](round(w1std[idx][i] * int(10 ** sf[i]), rnd[i]))) + ') $\\times 10^{-' + str(sf[i]) + '}$')
-    # title = '$W_1$ = (' + str(castings[i](round(w1m[idx][i] * int(10 ** sf[i]), rnd[i]))) + ' ± ' + str(castings[i](round(w1std[idx][i] * int(10 ** sf[i]), rnd[i]))) + ') $\\times 10^{-' + str(sf[i]) + '}$'
     lg = plt.legend(loc=1, prop={'size': 18})
-    # lg.set_title(title)
-    # lg.get_title().set_fontsize(13)
 
 plt.tight_layout(0.5)
-plt.savefig(figpath + "_100000_jets_efp_fix.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_100000_jets_efp.pdf", bbox_inches='tight')
 plt.show()
 
+fig = plt.figure(figsize=(20, 12))
+bins0 = np.arange(0, 0.0013, step=0.000013)
+bins1 = np.arange(0, 0.0004, step=0.000004)
+
+bins = [bins0, bins1, bins1, bins1, bins1]
+
+for i in range(5):
+    fig.add_subplot(2, 3, i + 2)
+    plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+    plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
+    _ = plt.hist(X_efp[:, i], bins[i], histtype='step', label='Real', color='red')
+    _ = plt.hist(gen_out_efp[:, i], bins[i], histtype='step', label='Generated', color='blue')
+    plt.xlabel('EFP ' + str(i + 1), x = 0.7)
+    plt.ylabel('Jets')
+    lg = plt.legend(loc=1, prop={'size': 18})
+
+fig.add_subplot(2, 3, 1)
+plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+_ = plt.hist(real_masses, bins=binsm, histtype='step', label='Real', color='red')
+_ = plt.hist(gen_masses, bins=binsm, histtype='step', label='Generated', color='blue')
+plt.xlabel('Jet $m/p_{T}$')
+plt.ylabel('Jets')
+plt.legend(loc=1, prop={'size': 18})
+
+plt.tight_layout(0.5)
+plt.savefig(figpath + "_100000_jets_efp_mass.pdf", bbox_inches='tight')
+plt.show()
 
 efpset2 = ef.EFPSet(('n==', 2), ('d==', 2), ('p==', 1), measure='hadr', beta=1, normed=None, coords='ptyphim')
 
 gen_out_efp2 = efpset2.batch_compute(gen_out_efp_format)
 X_efp2 = efpset2.batch_compute(X_efp_format)
-
-X_efp2.shape
-
-len(X_efp2[X_efp2 < 0])
-len(gen_out_efp2[gen_out_efp2 < 0])
-gen_out_efp2[gen_out_efp2 < 0]
-
-len(gen_masses)
-
-len(gen_out_efp2 < 0)
-
-np.where(gen_out_efp2 < 0)[0]
-
-np.array(gen_masses)[np.where(gen_out_efp2 < 0)[0]]
-
-gen_out[8794]
 
 
 fig = plt.figure(figsize=(40, 10))
@@ -341,7 +376,7 @@ _ = plt.hist(gen_masses, bins=binsm, histtype='step', label='Generated Mass', co
 # plt.xlabel('$\sqrt{EFP/2}$')
 plt.ylabel('Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
-plt.savefig(figpath + "_100000_jets_efp_mass_comp_fix.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_100000_jets_efp_mass_comp.pdf", bbox_inches='tight')
 plt.show()
 
 
@@ -353,8 +388,6 @@ plt.ylabel('Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
 plt.savefig(figpath + "_100000_jets_efp_mass.pdf", bbox_inches='tight')
 plt.show()
-
-
 
 real_efp_masses = np.sqrt(X_efp2[:, 0] / 2)
 gen_efp_masses = np.sqrt(gen_out_efp2[:, 0] / 2)
@@ -383,9 +416,8 @@ plt.plot(binsm[:-1], gen_mass_hist_diff, label='Generated', color='blue')
 plt.xlabel('Mass', x = 0.5)
 plt.ylabel('# Exact - # EFP Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
-plt.savefig(figpath + "_100000_jets_mass_diff_fix.pdf", bbox_inches='tight')
+plt.savefig(figpath + "_100000_jets_mass_diff.pdf", bbox_inches='tight')
 plt.show()
-
 
 
 num_pixels = 100
@@ -529,3 +561,80 @@ gen_mass_hist_diff = np.histogram(mass_diffs[:, 0], binsm)[0] - np.histogram(mas
 plt.plot(binsm[:-1], gen_mass_hist_diff)
 
 mass_diffs
+
+
+
+
+
+args.maxjf
+
+labels
+
+abs_labels = (labels[:num_samples] * args.maxjf[0]).detach().numpy()
+
+cregions = [(abs_labels < 1050).squeeze(), ((abs_labels >= 1050) * (abs_labels < 1200)).squeeze(), (abs_labels >= 1200).squeeze()]
+
+len(Xplot[cregions[0]])
+len(Xplot[cregions[1]])
+len(Xplot[cregions[2]])
+
+j = 0
+
+sf = [3, 2, 3]
+rnd = [0, 1, 0]
+castings = [int, float, int]
+
+idx = int(epoch / 5 - 1)
+
+bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
+binsm = np.arange(0, 0.225, 0.0045)
+
+fig, axs = plt.subplots(3, 4, figsize=(30, 20))
+
+for j in range(3):
+    for i in range(3):
+        axs[j, i].ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+        _ = axs[j, i].hist(Xplot[cregions[j]][:, :, i].reshape(-1), bins[i], histtype='step', label='Real', color='red')
+        _ = axs[j, i].hist(gen_out[cregions[j]][:, :, i].reshape(-1), bins[i], histtype='step', label='Generated', color='blue')
+        axs[j, i].set_xlabel('Particle ' + plabels[i])
+        axs[j, i].set_ylabel('Particles')
+        lg = axs[j, i].legend(loc=1, prop={'size': 18})
+
+    axs[j, 3].ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+    _ = axs[j, 3].hist(np.array(real_masses)[cregions[j]], bins=binsm, histtype='step', label='Real', color='red')
+    _ = axs[j, 3].hist(np.array(gen_masses)[cregions[j]], bins=binsm, histtype='step', label='Generated', color='blue')
+    axs[j, 3].set_xlabel('Jet $m/p_{T}$')
+    axs[j, 3].set_ylabel('Jets')
+    axs[j, 3].legend(loc=1, prop={'size': 18})
+
+plt.tight_layout(2.0)
+plt.savefig(figpath + "clabels.pdf", bbox_inches='tight')
+plt.show()
+
+
+plt.hist(abs_labels, histtype='step', bins=100)
+
+cregions[0]
+
+real_masses
+
+np.array(real_masses)[cregions[0]]
+
+
+
+real_mass_hist_diff = np.histogram(real_masses, binsm)[0] - np.histogram(real_efp_masses, binsm)[0]
+gen_mass_hist_diff = np.histogram(gen_masses, binsm)[0] - np.histogram(gen_efp_masses, binsm)[0]
+
+binsmd = np.arange(-7e-4, 7e-4, 7e-6)
+colours = ['red', 'blue', 'green']
+
+fig = plt.figure()
+plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+for i in range(3):
+    plt.plot(binsm[:-1], (np.histogram(np.array(real_masses)[cregions[i]], binsm)[0] - np.histogram(np.array(gen_masses)[cregions[i]], binsm)[0]) / np.histogram(np.array(real_masses)[cregions[i]], binsm)[0], label='Region ' + str(i), color=colours[i])
+plt.xlabel('Mass Difference (Real-Generated)/Real', x = 0.5)
+plt.ylabel('Jets')
+lg = plt.legend(loc=1, prop={'size': 18})
+plt.tight_layout(2.0)
+plt.savefig(figpath + "binned_mass_comp.pdf", bbox_inches='tight')
+plt.show()

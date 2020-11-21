@@ -27,6 +27,7 @@ def parse_args():
     dir_path = dirname(realpath(__file__))
 
     parser = argparse.ArgumentParser()
+
     # meta
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
@@ -51,10 +52,14 @@ def parse_args():
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
 
+    parser.add_argument("--jets", type=str, default="g", help="jet type - options are g or t")
+
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
     parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polarrelabspt")
+
+    parser.add_argument("--norm", type=float, default=1, help="normalizing max value of features to this value")
 
     parser.add_argument("--sd", type=float, default=0.2, help="standard deviation of noise")
 
@@ -89,6 +94,11 @@ def parse_args():
 
     parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
 
+    utils.add_bool_arg(parser, "gtanh", "use tanh for g output", default=True)
+    utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
+
+    utils.add_bool_arg(parser, "mask", "use masking for zero-padded particles", default=False)
+
     # optimization
 
     parser.add_argument("--optimizer", type=str, default="rmsprop", help="optimizer - options are adam, rmsprop, adadelta or acgd")
@@ -98,7 +108,7 @@ def parse_args():
     parser.add_argument("--lr-gen", type=float, default=1e-5, help="learning rate generator")
     parser.add_argument("--beta1", type=float, default=0.9, help="Adam optimizer beta1")
     parser.add_argument("--beta2", type=float, default=0.999, help="Adam optimizer beta2")
-    parser.add_argument("--batch-size", type=int, default=128, help="batch size")
+    parser.add_argument("--batch-size", type=int, default=0, help="batch size")
 
     parser.add_argument("--num-critic", type=int, default=1, help="number of critic updates for each generator update")
     parser.add_argument("--num-gen", type=int, default=1, help="number of generator updates for each critic update (num-critic must be 1 for this to apply)")
@@ -155,6 +165,10 @@ def parse_args():
         print("invalid coordinate system - exiting")
         sys.exit()
 
+    if not(args.jets == 'g' or args.jets == 't'):
+        print("invalid jet type - exiting")
+        sys.exit()
+
     if not args.coords == 'polarrelabspt':
         print("Can't have jet level features for this coordinate system")
         args.jf = False
@@ -200,11 +214,20 @@ def parse_args():
         args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/jets"
         args.save_zero = True
 
+    if(args.batch_size == 0):
+        if args.num_hits == 30:
+            args.batch_size = 128
+        elif args.num_hits == 100:
+            args.batch_size = 32
+
     if not args.mp_iters_gen: args.mp_iters_gen = args.mp_iters
     if not args.mp_iters_disc: args.mp_iters_disc = args.mp_iters
 
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
+
+    if args.mask:
+        args.node_feat_size += 1
 
     return args
 
@@ -353,10 +376,12 @@ def main(args):
 
         if args.w1:
             for k in range(len(args.w1_num_samples)):
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt')
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'std'], 0)
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:args.start_epoch]
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:args.start_epoch]
 
             if args.jf:
                 for k in range(len(args.w1_num_samples)):
@@ -392,6 +417,7 @@ def main(args):
         D_optimizer.zero_grad()
 
         run_batch_size = data.shape[0]
+        deb = run_batch_size != args.batch_size
 
         if gen_data is None:
             gen_data = utils.gen(args, G, normal_dist, run_batch_size, labels=labels)
@@ -401,15 +427,15 @@ def main(args):
             data = augment.augment(args, data, p)
             gen_data = augment.augment(args, gen_data, p)
 
-        D_real_output = D(data.clone(), labels)
+        D_real_output = D(data.clone(), labels, deb)
 
-        if args.debug:
+        if args.debug or run_batch_size != args.batch_size:
             print("D real output: ")
             print(D_real_output[:10])
 
-        D_fake_output = D(gen_data, labels)
+        D_fake_output = D(gen_data, labels, deb)
 
-        if args.debug:
+        if args.debug or run_batch_size != args.batch_size:
             print("D fake output: ")
             print(D_fake_output[:10])
 
@@ -433,7 +459,7 @@ def main(args):
             gen_data = augment.augment(args, gen_data, p)
 
         D_fake_output = D(gen_data, labels)
-        
+
         if args.debug:
             print("D fake output: ")
             print(D_fake_output[:10])

@@ -5,5 +5,8 @@
 !**/cout/
 !**/evaluation/
 !**/noise/
+!**/lagan/
+**/lagan/*
+!**/lagan/*.py
 **/*test*
 .DS_Store
