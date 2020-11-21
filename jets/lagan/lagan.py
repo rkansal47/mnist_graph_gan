@@ -35,7 +35,7 @@ def discriminator():
     # block 2: 'same' bordered 5x5 locally connected block with batchnorm and
     # 2x2 subsampling
     x = ZeroPadding2D((2, 2))(x)
-    x = LocallyConnected2D(8, 5, 2, padding='valid')(x)
+    x = LocallyConnected2D(8, 5, strides=2, padding='valid')(x)
     x = LeakyReLU()(x)
     x = BatchNormalization()(x)
     x = Dropout(0.2)(x)
@@ -50,7 +50,7 @@ def discriminator():
     # block 3: 'same' bordered 3x3 locally connected block with batchnorm and
     # 2x2 subsampling
     x = ZeroPadding2D((1, 1))(x)
-    x = LocallyConnected2D(8, 3, 2, padding='valid')(x)
+    x = LocallyConnected2D(8, 3, strides=2, padding='valid')(x)
     x = LeakyReLU()(x)
     x = BatchNormalization()(x)
     x = Dropout(0.2)(x)
