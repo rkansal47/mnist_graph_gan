@@ -7,15 +7,15 @@ from os.path import isfile, join
 import torch
 import numpy as np
 
-dir_path = '/graphganvol/datasets/jets/30p/train/'
+dir_path = '/graphganvol/datasets/jets/100p/train/'
 # dir_path = '/Users/raghav/Documents/Work/CERN/datasets/'
 
 rootfiles = [dir_path + f for f in listdir(dir_path) if isfile(join(dir_path, f))]
 print(rootfiles)
 print(len(rootfiles))
 
-pfbool = True  # particle features or jet features
-jet_type = 't'
+pfbool = False  # particle features or jet features
+jet_type = 'g'
 particle_features = ['etarel', 'phirel', 'ptrel']
 jet_features = ['pt', 'eta', 'mass']
 
@@ -53,5 +53,8 @@ for f in rootfiles:
     n += 1
     file.close()
 
-torch.save(torch.tensor(jets), './datasets/all_' + jet_type + '_jets_30p_polarrel.pt')
+if pfbool:
+    torch.save(torch.tensor(jets), './datasets/all_' + jet_type + '_jets_100p_polarrel.pt')
+else:
+    torch.save(torch.tensor(jets), './datasets/all_' + jet_type + '_jets_100p_jetptetamass.pt')
 
