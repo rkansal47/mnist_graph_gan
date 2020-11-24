@@ -211,8 +211,8 @@ if __name__ == '__main__':
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.9)
 
     # tensorflow ordering
-    X_train = np.expand_dims(X_train, axis=-1)
-    X_test = np.expand_dims(X_test, axis=-1)
+    # X_train = np.expand_dims(X_train, axis=-1)
+    # X_test = np.expand_dims(X_test, axis=-1)
 
     nb_train, nb_test = X_train.shape[0], X_test.shape[0]
 
