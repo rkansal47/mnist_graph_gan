@@ -73,8 +73,9 @@ def discriminator():
     # creates the kernel space for the minibatch discrimination
     K_x = Dense3D(nb_features, vspace_dim)(dnn_out)
 
-    minibatch_featurizer = Lambda(minibatch_discriminator,
-                                  output_shape=minibatch_output_shape)
+    minibatch_featurizer = Lambda(minibatch_discriminator, output_shape=minibatch_output_shape)
+
+    # print('test')
 
     # concat the minibatch features with the normal ones
     features = Concatenate(axis=-1)([minibatch_featurizer(K_x), dnn_out])

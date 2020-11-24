@@ -110,7 +110,7 @@ if __name__ == '__main__':
     discriminator = lagan_discriminator()
     discriminator.compile(
         optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1),
-        loss=['binary_crossentropy', 'binary_crossentropy']
+        loss='binary_crossentropy'
     )
 
     # build the generator
