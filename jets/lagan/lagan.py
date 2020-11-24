@@ -82,9 +82,9 @@ def discriminator():
     # fake output tracks binary fake / not-fake, and the auxiliary requires
     # reconstruction of latent features, in this case, labels
     fake = Dense(1, activation='sigmoid', name='generation')(features)
-    aux = Dense(1, activation='sigmoid', name='auxiliary')(features)
+    # aux = Dense(1, activation='sigmoid', name='auxiliary')(features)
 
-    return Model(image, [fake, aux])
+    return Model(image, fake)
 
 
 def generator(latent_size, return_intermediate=False):
@@ -117,13 +117,13 @@ def generator(latent_size, return_intermediate=False):
     # this is the z space commonly refered to in GAN papers
     latent = Input(shape=(latent_size, ))
 
-    # this will be our label
-    image_class = Input(shape=(1, ), dtype='int32')
-    emb = Flatten()(Embedding(2, latent_size, input_length=1, embeddings_initializer='glorot_normal')(image_class))
+    # # this will be our label
+    # image_class = Input(shape=(1, ), dtype='int32')
+    # emb = Flatten()(Embedding(2, latent_size, input_length=1, embeddings_initializer='glorot_normal')(image_class))
+    #
+    # # hadamard product between z-space and a class conditional embedding
+    # h = Multiply()([latent, emb])
 
-    # hadamard product between z-space and a class conditional embedding
-    h = Multiply()([latent, emb])
+    fake_image = loc(latent)
 
-    fake_image = loc(h)
-
-    return Model([latent, image_class], fake_image)
+    return Model(latent, fake_image)
