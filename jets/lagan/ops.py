@@ -21,7 +21,7 @@ def minibatch_discriminator(x):
 
 def minibatch_output_shape(input_shape):
     """ Computes output shape for a minibatch discrimination layer"""
-    shape = list(input_shape)
+    # shape = list(input_shape)
     assert len(shape) == 3  # only valid for 3D tensors
     return tuple(shape[:2])
 
