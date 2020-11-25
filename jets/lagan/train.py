@@ -143,53 +143,6 @@ if __name__ == '__main__':
 
     datafile = results.dataset
 
-    # if we don't have the dataset, go fetch it from Zenodo, or re-find in the
-    # Keras cache
-    # print('[INFO] Loading data')
-    # if (datafile is None) or (not os.path.isfile(datafile)):
-    #
-    #     from keras.utils.data_utils import get_file
-    #
-    #     print('[WARN] File not found or not specified. Downloading from '
-    #           'Zenodo. (Or, falling back to cache if present)')
-    #
-    #     # Info for downloading the dataset from Zenodo
-    #     MD5_HASH = 'f9b11c46b6a0ff928bec2eccf865ecf0'
-    #     DATAFILE = 'jet-images_Mass60-100_pT250-300_R1.25_Pix25.hdf5'
-    #     URL_TEMPLATE = 'https://zenodo.org/record/{record}/files/{filename}'
-    #
-    #     print('[INFO] MD5 verification: {}'.format(MD5_HASH))
-    #
-    #     datafile = get_file(
-    #         fname='lagan-jet-images.hdf5',
-    #         origin=URL_TEMPLATE.format(record=269622, filename=DATAFILE),
-    #         md5_hash=MD5_HASH
-    #     )
-    #
-    # You can pass in either HDF5 files or Numpy binary files - we default to
-    # HDF5, but can fallback to numpy
-    # try:
-    #     d = HDF5File(datafile, 'r')
-    #
-    #     X, y = d['image'][:], d['signal'][:]
-    #
-    #     ix = list(range(X.shape[0]))
-    #     np.random.shuffle(ix)
-    #     ix = ix[:results.nb_points]
-    #
-    #     X, y = X[ix], y[ix]
-    #
-    # except IOError:
-    #     print('[WARN] Failure to read as HDF5, falling back to numpy')
-    #
-    #     d = np.load(datafile, mmap_mode='r')
-    #     ix = list(range(d.shape[0]))
-    #     np.random.shuffle(ix)
-    #     ix = ix[:results.nb_points]
-    #     d = np.array(d[ix])
-    #
-    #     X, y = d['image'], d['signal']
-
     X = np.load('gims.npy')
     # Xt = np.load('tims.npy')
     # X = np.concatenate((Xg, Xt), axis=0)

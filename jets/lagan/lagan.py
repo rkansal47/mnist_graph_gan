@@ -58,31 +58,31 @@ def discriminator():
     x = AveragePooling2D((2, 2))(x)
     h = Flatten()(x)
 
-    dnn = Model(image, h)
+    dnn = Model(image, h)  # output
 
     image = Input(shape=(25, 25, 1))
 
     dnn_out = dnn(image)
 
-    # nb of features to obtain
-    nb_features = 20
-
-    # dim of kernel space
-    vspace_dim = 10
-
-    # creates the kernel space for the minibatch discrimination
-    K_x = Dense3D(nb_features, vspace_dim)(dnn_out)
-
-    minibatch_featurizer = Lambda(minibatch_discriminator, output_shape=minibatch_output_shape)
-
-    # print('test')
-
-    # concat the minibatch features with the normal ones
-    features = Concatenate(axis=-1)([minibatch_featurizer(K_x), dnn_out])
+    # # nb of features to obtain
+    # nb_features = 20
+    #
+    # # dim of kernel space
+    # vspace_dim = 10
+    #
+    # # creates the kernel space for the minibatch discrimination
+    # K_x = Dense3D(nb_features, vspace_dim)(dnn_out)
+    #
+    # minibatch_featurizer = Lambda(minibatch_discriminator, output_shape=minibatch_output_shape)
+    #
+    # # print('test')
+    #
+    # # concat the minibatch features with the normal ones
+    # features = Concatenate(axis=-1)([minibatch_featurizer(K_x), dnn_out])
 
     # fake output tracks binary fake / not-fake, and the auxiliary requires
     # reconstruction of latent features, in this case, labels
-    fake = Dense(1, activation='sigmoid', name='generation')(features)
+    fake = Dense(1, activation='sigmoid', name='generation')(dnn_out)
     # aux = Dense(1, activation='sigmoid', name='auxiliary')(features)
 
     return Model(image, fake)
