@@ -217,6 +217,8 @@ if __name__ == '__main__':
             #     image_batch, [bit_flip(np.ones(batch_size)), label_batch]
             # )
 
+            discriminator.trainable = True
+
             real_batch_loss = discriminator.train_on_batch(
                 image_batch, bit_flip(np.ones(batch_size))
             )
@@ -235,6 +237,8 @@ if __name__ == '__main__':
             )
 
             epoch_disc_loss.append((real_batch_loss + fake_batch_loss) / 2)
+
+            discriminator.trainable = False
 
             # we want to train the genrator to trick the discriminator
             # For the generator, we want all the {fake, real} labels to say
