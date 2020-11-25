@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
             epoch_gen_loss.append((gen_losses[0] + gen_losses[1]) / 2)
 
-            # if index == 3:
+            # if index == 1:
             #     break
 
         print('\nTesting for epoch {}:'.format(epoch + 1))
@@ -303,6 +303,9 @@ if __name__ == '__main__':
 
         test_history['generator'].append(generator_test_loss)
         test_history['discriminator'].append(discriminator_test_loss)
+
+        np.savetxt('g_loss.txt', train_history['generator'])
+        np.savetxt('d_loss.txt', train_history['discriminator'])
 
         # print('{0:<22s} | {1:4s} | {2:15s} | {3:5s}'.format(
         #     'component', *discriminator.metrics_names))
