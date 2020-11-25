@@ -260,6 +260,9 @@ if __name__ == '__main__':
 
             epoch_gen_loss.append((gen_losses[0] + gen_losses[1]) / 2)
 
+            # if index == 3:
+            #     break
+
         print('\nTesting for epoch {}:'.format(epoch + 1))
 
         # generate a new batch of noise
@@ -301,19 +304,19 @@ if __name__ == '__main__':
         test_history['generator'].append(generator_test_loss)
         test_history['discriminator'].append(discriminator_test_loss)
 
-        print('{0:<22s} | {1:4s} | {2:15s} | {3:5s}'.format(
-            'component', *discriminator.metrics_names))
-        print('-' * 65)
-
-        ROW_FMT = '{0:<22s} | {1:<4.2f} | {2:<15.2f} | {3:<5.2f}'
-        print(ROW_FMT.format('generator (train)',
-                             *train_history['generator'][-1]))
-        print(ROW_FMT.format('generator (test)',
-                             *test_history['generator'][-1]))
-        print(ROW_FMT.format('discriminator (train)',
-                             *train_history['discriminator'][-1]))
-        print(ROW_FMT.format('discriminator (test)',
-                             *test_history['discriminator'][-1]))
+        # print('{0:<22s} | {1:4s} | {2:15s} | {3:5s}'.format(
+        #     'component', *discriminator.metrics_names))
+        # print('-' * 65)
+        #
+        # ROW_FMT = '{0:<22s} | {1:<4.2f} | {2:<15.2f} | {3:<5.2f}'
+        # print(ROW_FMT.format('generator (train)',
+        #                      *train_history['generator'][-1]))
+        # print(ROW_FMT.format('generator (test)',
+        #                      *test_history['generator'][-1]))
+        # print(ROW_FMT.format('discriminator (train)',
+        #                      *train_history['discriminator'][-1]))
+        # print(ROW_FMT.format('discriminator (test)',
+        #                      *test_history['discriminator'][-1]))
 
         # save weights every epoch
         generator.save_weights('{0}{1:03d}.hdf5'.format(results.g_pfx, epoch),
