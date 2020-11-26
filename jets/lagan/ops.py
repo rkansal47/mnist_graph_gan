@@ -13,14 +13,9 @@ from keras import initializers, regularizers, constraints, activations
 
 def minibatch_discriminator(x):
     """ Computes minibatch discrimination features from input tensor x"""
-    print('mbd')
-    print(x.shape)
     diffs = K.expand_dims(x, 3) - K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
-    print(diffs.shape)
     l1_norm = K.sum(K.abs(diffs), axis=2)
-    print(l1_norm.shape)
     ret = K.sum(K.exp(-l1_norm), axis=2)
-    print(ret.shape)
     return ret
 
 
@@ -28,7 +23,7 @@ def minibatch_output_shape(input_shape):
     """ Computes output shape for a minibatch discrimination layer"""
     shape = list(input_shape)
     # assert len(shape) == 3  # only valid for 3D tensors
-    return tuple(shape[:2])
+    return shape[0], 20
 
 
 class Dense3D(Layer):
