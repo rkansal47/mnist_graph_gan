@@ -63,8 +63,8 @@ class Dense3D(Layer):
     def build(self, input_shape):
         assert len(input_shape) == 2
         input_dim = input_shape[1]
-        print("input dim")
-        print(input_dim)
+        # print("input dim")
+        # print(input_dim)
         self.input_spec = [InputSpec(dtype=K.floatx(),
                                      shape=(None, input_dim))]
 
