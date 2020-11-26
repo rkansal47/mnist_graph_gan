@@ -13,10 +13,15 @@ from keras import initializers, regularizers, constraints, activations
 
 def minibatch_discriminator(x):
     """ Computes minibatch discrimination features from input tensor x"""
-    diffs = K.expand_dims(x, 3) - \
-        K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
+    print('mbd')
+    print(x.shape)
+    diffs = K.expand_dims(x, 3) - K.expand_dims(K.permute_dimensions(x, [1, 2, 0]), 0)
+    print(diffs.shape)
     l1_norm = K.sum(K.abs(diffs), axis=2)
-    return K.sum(K.exp(-l1_norm), axis=2)
+    print(l1_norm.shape)
+    ret = K.sum(K.exp(-l1_norm), axis=2)
+    print(ret.shape)
+    return ret
 
 
 def minibatch_output_shape(input_shape):
