@@ -29,7 +29,10 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     elif args.coords == 'polarrel':
         labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
         if args.jets == 'g':
-            bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
+            if args.num_hits == 100:
+                bins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
+            else:
+                bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
         elif args.jets == 't':
             bins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.2, 0.002)]
     elif args.coords == 'polarrelabspt':
@@ -72,9 +75,10 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         jetv = LorentzVector()
 
         for part in Xplot[i]:
-            vec = LorentzVector()
-            vec.setptetaphim(part[2], part[0], part[1], 0)
-            jetv += vec
+            if not args.mask or part[3] > 0:
+                vec = LorentzVector()
+                vec.setptetaphim(part[2], part[0], part[1], 0)
+                jetv += vec
 
         real_masses.append(jetv.mass)
 
@@ -82,19 +86,27 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         jetv = LorentzVector()
 
         for part in gen_out[i]:
-            vec = LorentzVector()
-            vec.setptetaphim(part[2], part[0], part[1], 0)
-            jetv += vec
+            if not args.mask or part[3] > 0:
+                vec = LorentzVector()
+                vec.setptetaphim(part[2], part[0], part[1], 0)
+                jetv += vec
 
         gen_masses.append(jetv.mass)
+
+    if args.mask:
+        Xp = Xplot[Xplot[:, :, args.node_feat_size - 1] > 0]
+        gp = gen_out[gen_out[:, :, args.node_feat_size - 1] > 0]
+    else:
+        Xp = Xplot.reshape(-1, args.node_feat_size)
+        gp = gen_out.reshape(-1, args.node_feat_size)
 
     fig = plt.figure(figsize=(30, 8))
 
     for i in range(3):
         fig.add_subplot(1, 4, i + 1)
         plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-        _ = plt.hist(Xplot[:, :, i].reshape(-1), bins[i], histtype='step', label='Real', color='red')
-        _ = plt.hist(gen_out[:, :, i].reshape(-1), bins[i], histtype='step', label='Generated', color='blue')
+        _ = plt.hist(Xp[:, i], bins[i], histtype='step', label='Real', color='red')
+        _ = plt.hist(gp[:, i], bins[i], histtype='step', label='Generated', color='blue')
         plt.xlabel('Particle ' + labels[i])
         plt.ylabel('Number of Particles')
         # plt.title('JSD = ' + str(round(losses['jsdm'][-1][i], 3)) + ' ± ' + str(round(losses['jsdstd'][-1][i], 3)))

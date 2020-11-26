@@ -20,6 +20,9 @@ class JetsDataset(Dataset):
                 self.X = dataset[cutoff:]
         elif args.coords == 'polarrel' or args.coords == 'polarrelabspt':
             args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
+            if args.mask:
+                args.maxepp.append(1.0)
+                
             print(args.maxepp)
             for i in range(3):
                 dataset[:, :, i] /= args.maxepp[i]

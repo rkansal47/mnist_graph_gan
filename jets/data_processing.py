@@ -33,10 +33,22 @@ dataset_masked = torch.cat((dataset.float(), mask.unsqueeze(2)), dim=2)
 
 torch.save(dataset_masked, './datasets/all_g_jets_100p_polarrel_mask.pt')
 
+dataset_masked = torch.load('datasets/all_g_jets_100p_polarrel_mask.pt').detach().numpy()
+mask = dataset_masked[:, :, 3] > 0
+mask.shape
+dataset_masked[mask].shape
+
+bins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
+_ = plt.hist(dataset_masked[mask][:, 2], bins=bins[2], histtype='step')
+
+dataset = dataset.detach().numpy()
+_ = plt.hist(dataset[:, :, 0].reshape(-1), bins=bins[0], histtype='step')
+
 
 datasett = torch.load('datasets/all_t_jets_30p_polarrel.pt')
 X = datasett.detach().numpy()
 X_efp_format = np.concatenate((np.expand_dims(X[:, :, 2], 2), X[:, :, :2], np.zeros((len(X), 30, 1))), axis=2)
+
 
 Xims = []
 for i in tqdm(range(len(X))):
