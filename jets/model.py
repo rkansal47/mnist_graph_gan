@@ -182,6 +182,8 @@ class Graph_GAN(nn.Module):
 
     def forward(self, x, labels=None, deb=False):
         batch_size = x.shape[0]
+        if self.args.mask_weights and self.D:
+            mask = x[:, :, self.args.node_feat_size - 1:self.args.node_feat_size] + 0.5
 
         for i in range(self.args.mp_iters):
             # print(i)
@@ -233,7 +235,11 @@ class Graph_GAN(nn.Module):
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
-                x = torch.mean(x[:, :, :1], 1) if (self.args.loss == 'w' or self.args.loss == 'hinge' or not self.args.dearlysigmoid) else torch.mean(torch.sigmoid(x[:, :, :1]), 1)
+                if self.args.mask_weights: x = x[:, :, :1] * mask
+                else: x = x[:, :, :1]
+
+                x = torch.sum(x, 1) if (self.args.loss == 'w' or self.args.loss == 'hinge' or not self.args.dearlysigmoid) else torch.sum(torch.sigmoid(x), 1)
+                x = x / torch.sum(mask, 1) if self.args.mask_weights else x / self.args.num_hits
 
             # if self.args.debug: print(x[0, :10, 0])
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)

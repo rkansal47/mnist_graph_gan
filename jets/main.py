@@ -98,6 +98,7 @@ def parse_args():
     utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
 
     utils.add_bool_arg(parser, "mask", "use masking for zero-padded particles", default=False)
+    utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
 
     # optimization
 
@@ -228,6 +229,8 @@ def parse_args():
 
     if args.mask:
         args.node_feat_size += 1
+    else:
+        args.mask_weights = False
 
     return args
 

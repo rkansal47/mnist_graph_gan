@@ -102,8 +102,6 @@ len(Xplot[Xplot[:, :, 2] < 0.00012])
 
 plt.hist(gen_out[gen_out[:, :, 2] < 0.0001][:, 0], bins[0], histtype='step', label='Real', color='red')
 
-
-
 real_masses = []
 real_pt = []
 gen_masses = []
