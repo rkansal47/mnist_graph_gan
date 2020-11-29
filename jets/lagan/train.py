@@ -38,8 +38,7 @@ def get_parser():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('--name', '-n', action='store', type=str,
-                        default='test', help='name',
-                        choices=['lagan', 'fcn', 'hybrid', 'dcgan'])
+                        default='test', help='name')
     parser.add_argument('--model', '-m', action='store', type=str,
                         default='lagan', help='Model architecture to use.',
                         choices=['lagan', 'fcn', 'hybrid', 'dcgan'])
