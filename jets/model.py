@@ -32,6 +32,9 @@ class Graph_GAN(nn.Module):
             if self.args.deltar:
                 anc += 1
 
+        if self.args.mask:
+            anc += 1
+
         anc += int(self.args.int_diffs)
         self.args.fe_in_size = 2 * self.args.hidden_node_size + anc + self.args.clabels_hidden_layers
         self.args.fe_out_size = self.args.fe[-1]
@@ -179,6 +182,8 @@ class Graph_GAN(nn.Module):
 
     def forward(self, x, labels=None, deb=False):
         batch_size = x.shape[0]
+        if self.args.mask_weights and self.D:
+            mask = x[:, :, self.args.node_feat_size - 1:self.args.node_feat_size] + 0.5
 
         for i in range(self.args.mp_iters):
             # print(i)
@@ -215,12 +220,12 @@ class Graph_GAN(nn.Module):
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
-        if deb: print(x[:10, :, 0])
+        # if deb: print(x[:10, :, 0])
 
         if(self.G):
             # if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):
             #     x = torch.cat((x[:, :, :2], torch.relu(x[:, :, 2].unsqueeze(-1))), axis=2)
-            return torch.tanh(x[:, :, :3]) if self.args.gtanh else x[:, :, :3]
+            return torch.tanh(x[:, :, :self.args.node_feat_size]) if self.args.gtanh else x[:, :, :self.args.node_feat_size]
         else:
             if(self.args.dea):
                 x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
@@ -230,9 +235,13 @@ class Graph_GAN(nn.Module):
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
-                x = torch.mean(x[:, :, :1], 1) if (self.args.loss == 'w' or self.args.loss == 'hinge' or not self.args.dearlysigmoid) else torch.mean(torch.sigmoid(x[:, :, :1]), 1)
+                if self.args.mask_weights: x = x[:, :, :1] * mask
+                else: x = x[:, :, :1]
 
-            if self.args.debug: print(x)
+                x = torch.sum(x, 1) if (self.args.loss == 'w' or self.args.loss == 'hinge' or not self.args.dearlysigmoid) else torch.sum(torch.sigmoid(x), 1)
+                x = x / torch.sum(mask, 1) if self.args.mask_weights else x / self.args.num_hits
+
+            # if self.args.debug: print(x[0, :10, 0])
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
 
     def getA(self, x, batch_size, fe_in_size):
@@ -248,11 +257,16 @@ class Graph_GAN(nn.Module):
             dists = torch.norm(diffs + 1e-12, dim=2).unsqueeze(2)
 
             if self.args.deltar and self.args.deltacoords:
-                A = torch.cat((x1, x2, diffs, dists), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+                A = torch.cat((x1, x2, diffs, dists), 2)
             elif self.args.deltar:
-                A = torch.cat((x1, x2, dists), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+                A = torch.cat((x1, x2, dists), 2)
             elif self.args.deltacoords:
-                A = torch.cat((x1, x2, diffs), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+                A = torch.cat((x1, x2, diffs), 2)
+
+            if(self.args.mask):
+                A = torch.cat((A, x2[:, :, 3].unsqueeze(2)), 2)
+
+            A = A.view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
         else:
             A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
 

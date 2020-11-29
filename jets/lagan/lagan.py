@@ -112,7 +112,7 @@ def generator(latent_size, return_intermediate=False):
         LocallyConnected2D(6, 3, kernel_initializer='he_uniform'),
         LeakyReLU(),
         LocallyConnected2D(1, 2, use_bias=False, kernel_initializer='glorot_normal'),
-        Activation('relu')
+        Activation('sigmoid')
     ])
 
     # this is the z space commonly refered to in GAN papers
