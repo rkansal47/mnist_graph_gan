@@ -37,6 +37,9 @@ def get_parser():
         'Sensible defaults come from [arXiv/1511.06434]',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument('--name', '-n', action='store', type=str,
+                        default='test', help='name',
+                        choices=['lagan', 'fcn', 'hybrid', 'dcgan'])
     parser.add_argument('--model', '-m', action='store', type=str,
                         default='lagan', help='Model architecture to use.',
                         choices=['lagan', 'fcn', 'hybrid', 'dcgan'])
@@ -48,7 +51,10 @@ def get_parser():
                         help='size of random N(0, 1) latent space to sample')
 
     # Adam parameters suggested in [arXiv/1511.06434]
-    parser.add_argument('--adam-lr', action='store', type=float, default=0.0002,
+    parser.add_argument('--gen-lr', action='store', type=float, default=0.0002,
+                        help='Adam learning rate')
+
+    parser.add_argument('--disc-lr', action='store', type=float, default=0.0002,
                         help='Adam learning rate')
 
     parser.add_argument('--adam-beta', action='store', type=float, default=0.5,
@@ -102,14 +108,14 @@ if __name__ == '__main__':
 
     # nb_classes = 2
 
-    adam_lr = results.adam_lr
+    # adam_lr = results.adam_lr
     adam_beta_1 = results.adam_beta
 
     # build the discriminator
     print('[INFO] Building discriminator')
     discriminator = lagan_discriminator()
     discriminator.compile(
-        optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1),
+        optimizer=Adam(lr=results.disc_lr, beta_1=adam_beta_1),
         loss='binary_crossentropy'
     )
 
@@ -117,7 +123,7 @@ if __name__ == '__main__':
     print('[INFO] Building generator')
     generator = lagan_generator(latent_size)
     generator.compile(
-        optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1),
+        optimizer=Adam(lr=results.gen_lr, beta_1=adam_beta_1),
         loss='binary_crossentropy'
     )
 
@@ -137,7 +143,7 @@ if __name__ == '__main__':
     )
 
     combined.compile(
-        optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1),
+        optimizer=Adam(lr=results.gen_lr, beta_1=adam_beta_1),
         loss='binary_crossentropy'
     )
 
@@ -265,33 +271,33 @@ if __name__ == '__main__':
 
         print('\nTesting for epoch {}:'.format(epoch + 1))
 
-        # generate a new batch of noise
-        noise = np.random.normal(0, 1, (nb_test, latent_size))
-
-        # sample some labels from p_c and generate images from them
-        # sampled_labels = np.random.randint(0, nb_classes, nb_test)
-        generated_images = generator.predict(
-            noise, verbose=False)
-
-        X = np.concatenate((X_test, generated_images))
-        y = np.array([1] * nb_test + [0] * nb_test)
-        # aux_y = np.concatenate((y_test, sampled_labels), axis=0)
-
-        # see if the discriminator can figure itself out...
-        discriminator_test_loss = discriminator.evaluate(
-            X, y, verbose=False, batch_size=batch_size)
+        # # generate a new batch of noise
+        # noise = np.random.normal(0, 1, (nb_test, latent_size))
+        #
+        # # sample some labels from p_c and generate images from them
+        # # sampled_labels = np.random.randint(0, nb_classes, nb_test)
+        # generated_images = generator.predict(
+        #     noise, verbose=False)
+        #
+        # X = np.concatenate((X_test, generated_images))
+        # y = np.array([1] * nb_test + [0] * nb_test)
+        # # aux_y = np.concatenate((y_test, sampled_labels), axis=0)
+        #
+        # # see if the discriminator can figure itself out...
+        # discriminator_test_loss = discriminator.evaluate(
+        #     X, y, verbose=False, batch_size=batch_size)
 
         discriminator_train_loss = np.mean(np.array(epoch_disc_loss), axis=0)
 
         # make new noise
-        noise = np.random.normal(0, 1, (2 * nb_test, latent_size))
-        # sampled_labels = np.random.randint(0, nb_classes, 2 * nb_test)
-
-        trick = np.ones(2 * nb_test)
-
-        generator_test_loss = combined.evaluate(
-            noise,
-            trick, verbose=False, batch_size=batch_size)
+        # noise = np.random.normal(0, 1, (2 * nb_test, latent_size))
+        # # sampled_labels = np.random.randint(0, nb_classes, 2 * nb_test)
+        #
+        # trick = np.ones(2 * nb_test)
+        #
+        # generator_test_loss = combined.evaluate(
+        #     noise,
+        #     trick, verbose=False, batch_size=batch_size)
 
         generator_train_loss = np.mean(np.array(epoch_gen_loss), axis=0)
 
@@ -301,11 +307,11 @@ if __name__ == '__main__':
         train_history['generator'].append(generator_train_loss)
         train_history['discriminator'].append(discriminator_train_loss)
 
-        test_history['generator'].append(generator_test_loss)
-        test_history['discriminator'].append(discriminator_test_loss)
+        # test_history['generator'].append(generator_test_loss)
+        # test_history['discriminator'].append(discriminator_test_loss)
 
-        np.savetxt('g_loss.txt', train_history['generator'])
-        np.savetxt('d_loss.txt', train_history['discriminator'])
+        np.savetxt(results.name + '_g_loss.txt', train_history['generator'])
+        np.savetxt(results.name + '_d_loss.txt', train_history['discriminator'])
 
         # print('{0:<22s} | {1:4s} | {2:15s} | {3:5s}'.format(
         #     'component', *discriminator.metrics_names))
@@ -322,7 +328,9 @@ if __name__ == '__main__':
         #                      *test_history['discriminator'][-1]))
 
         # save weights every epoch
-        generator.save_weights('{0}{1:03d}.hdf5'.format(results.g_pfx, epoch),
-                               overwrite=True)
-        discriminator.save_weights('{0}{1:03d}.hdf5'.format(results.d_pfx, epoch),
+
+        if (epoch + 1) % 5 == 0:
+            generator.save_weights('{name}_{0}{1:03d}.hdf5'.format(results.g_pfx, epoch, name=results.name),
                                    overwrite=True)
+            discriminator.save_weights('{name}_{0}{1:03d}.hdf5'.format(results.d_pfx, epoch, name=results.name),
+                                       overwrite=True)
