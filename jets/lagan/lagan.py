@@ -30,7 +30,7 @@ def discriminator():
     # *NO* batchnorm (recommendation from [arXiv/1511.06434])
     x = Conv2D(32, 5, padding='same')(image)
     x = LeakyReLU()(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.5)(x)
 
     # block 2: 'same' bordered 5x5 locally connected block with batchnorm and
     # 2x2 subsampling
@@ -38,14 +38,14 @@ def discriminator():
     x = LocallyConnected2D(8, 5, strides=2, padding='valid')(x)
     x = LeakyReLU()(x)
     x = BatchNormalization()(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.5)(x)
 
     # block 2: 'same' bordered 5x5 locally connected block with batchnorm
     x = ZeroPadding2D((2, 2))(x)
     x = LocallyConnected2D(8, 5, padding='valid')(x)
     x = LeakyReLU()(x)
     x = BatchNormalization()(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.5)(x)
 
     # block 3: 'same' bordered 3x3 locally connected block with batchnorm and
     # 2x2 subsampling
@@ -53,7 +53,7 @@ def discriminator():
     x = LocallyConnected2D(8, 3, strides=2, padding='valid')(x)
     x = LeakyReLU()(x)
     x = BatchNormalization()(x)
-    x = Dropout(0.2)(x)
+    x = Dropout(0.5)(x)
 
     x = AveragePooling2D((2, 2))(x)
     h = Flatten()(x)
