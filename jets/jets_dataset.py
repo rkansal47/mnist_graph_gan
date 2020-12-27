@@ -4,9 +4,9 @@ from torch.utils.data import Dataset
 
 class JetsDataset(Dataset):
     def __init__(self, args):
-        mask = '_mask' if args.mask else ''
-        dataset = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_' + str(args.num_hits) + 'p_' + args.coords + mask + '.pt').float()
-        jet_features = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_' + str(args.num_hits) + 'p_jetptetamass.pt').float()[:, :args.clabels]
+        mask = '_mask' if args.mask or args.mask_manual else ''
+        dataset = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_100p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
+        jet_features = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_100p_jetptetamass.pt').float()[:, :args.clabels]
 
         if args.coords == 'cartesian':
             args.maxp = float(torch.max(torch.abs(dataset)))
@@ -22,15 +22,17 @@ class JetsDataset(Dataset):
             args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
             if args.mask:
                 args.maxepp.append(1.0)
-                
+
             print(args.maxepp)
             for i in range(3):
                 dataset[:, :, i] /= args.maxepp[i]
 
-            dataset[:, :, 2] -= 0.5
+            dataset[:, :, 2] -= 0.5     # pT is normalized between -0.5 and 0.5 so the peak pT lies in linear region of tanh
             # dataset[:, :, 2] *= 2
             dataset *= args.norm
             self.X = dataset
+            args.pt_cutoff = torch.unique(self.X[:, :, 2], sorted=True)[1]  # smallest particle pT after 0
+            print("cutoff: " + str(args.pt_cutoff))
 
         if args.clabels == 1:
             args.maxjf = [torch.max(torch.abs(jet_features))]

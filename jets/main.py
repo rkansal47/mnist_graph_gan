@@ -31,6 +31,8 @@ def parse_args():
     # meta
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
+    parser.add_argument("--dataset", type=str, default="jets", help="dataset to use", choices=['jets', 'sparse-mnist', 'superpixels'])
+
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.85, help="ratio of train/test split")
 
@@ -52,12 +54,12 @@ def parse_args():
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
 
-    parser.add_argument("--jets", type=str, default="g", help="jet type - options are g or t")
+    parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't'])
 
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
-    parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polarrelabspt")
+    parser.add_argument("--coords", type=str, default="polarrel", help="cartesian, polarrel or polarrelabspt", choices=['cartesian, polarrel, polarrelabspt'])
 
     parser.add_argument("--norm", type=float, default=1, help="normalizing max value of features to this value")
 
@@ -67,7 +69,7 @@ def parse_args():
     parser.add_argument("--hidden-node-size", type=int, default=32, help="hidden vector size of each node (incl node feature size)")
     parser.add_argument("--latent-node-size", type=int, default=0, help="latent vector size of each node - 0 means same as hidden node size")
 
-    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and detach")
+    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and detach", choices=[0, 1, 2])
     utils.add_bool_arg(parser, "clabels-fl", "use conditional labels in first layer", default=True)
     utils.add_bool_arg(parser, "clabels-hl", "use conditional labels in hidden layers", default=True)
 
@@ -99,11 +101,12 @@ def parse_args():
 
     utils.add_bool_arg(parser, "mask", "use masking for zero-padded particles", default=False)
     utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
+    utils.add_bool_arg(parser, "mask-manual", "manually mask generated nodes with pT less than cutoff", default=False)
 
     # optimization
 
     parser.add_argument("--optimizer", type=str, default="rmsprop", help="optimizer - options are adam, rmsprop, adadelta or acgd")
-    parser.add_argument("--loss", type=str, default="ls", help="loss to use - options are og, ls, w, hinge")
+    parser.add_argument("--loss", type=str, default="ls", help="loss to use - options are og, ls, w, hinge", choices=['og', 'ls', 'w', 'hinge'])
 
     parser.add_argument("--lr-disc", type=float, default=3e-5, help="learning rate discriminator")
     parser.add_argument("--lr-gen", type=float, default=1e-5, help="learning rate generator")
@@ -162,30 +165,18 @@ def parse_args():
     else:
         args.augment = False
 
-    if not(args.coords == 'cartesian' or args.coords == 'polarrel' or args.coords == 'polarrelabspt'):
-        print("invalid coordinate system - exiting")
-        sys.exit()
-
-    if not(args.jets == 'g' or args.jets == 't'):
-        print("invalid jet type - exiting")
-        sys.exit()
-
     if not args.coords == 'polarrelabspt':
         print("Can't have jet level features for this coordinate system")
         args.jf = False
     elif len(args.jet_features):
         args.jf = True
 
-    if(not(args.loss == 'w' or args.loss == 'og' or args.loss == 'ls' or args.loss == 'hinge')):
-        print("invalid loss - exiting")
-        sys.exit()
-
     if(args.int_diffs):
         print("int_diffs not supported yet - exiting")
         sys.exit()
 
-    if(args.augment):
-        print("augmentation not implemented yet - exiting")
+    if(args.dataset == 'jets' and args.augment):
+        print("augmentation not implemented for jets yet - exiting")
         sys.exit()
 
     if(args.optimizer == 'acgd' and (args.num_critic != 1 or args.num_gen != 1)):
@@ -198,10 +189,6 @@ def parse_args():
 
     if(args.latent_node_size and args.latent_node_size < 3):
         print("latent node size can't be less than 2 - exiting")
-        sys.exit()
-
-    if(args.clabels > 2):
-        print("clabels can't be greater than 2 - exiting")
         sys.exit()
 
     if(args.n):
@@ -420,7 +407,6 @@ def main(args):
         D_optimizer.zero_grad()
 
         run_batch_size = data.shape[0]
-        deb = run_batch_size != args.batch_size
 
         if gen_data is None:
             gen_data = utils.gen(args, G, normal_dist, run_batch_size, labels=labels)
@@ -430,13 +416,13 @@ def main(args):
             data = augment.augment(args, data, p)
             gen_data = augment.augment(args, gen_data, p)
 
-        D_real_output = D(data.clone(), labels, deb)
+        D_real_output = D(data.clone(), labels)
 
         if args.debug or run_batch_size != args.batch_size:
             print("D real output: ")
             print(D_real_output[:10])
 
-        D_fake_output = D(gen_data, labels, deb)
+        D_fake_output = D(gen_data, labels)
 
         if args.debug or run_batch_size != args.batch_size:
             print("D fake output: ")
