@@ -212,7 +212,7 @@ class Graph_GAN(nn.Module):
                     if self.args.debug:
                         print("post mask")
                         print(x[:2, :10, 0])
-                    x = torch.sum(x, 1) / torch.sum(mask, 1)
+                    x = torch.sum(x, 1) / (torch.sum(mask, 1) + 1e-12)
                 else:
                     x = torch.mean(x, 1)
 
