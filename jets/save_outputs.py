@@ -116,7 +116,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
 
         gen_masses.append(jetv.mass)
 
-        fig = plt.figure(figsize=(30, 8))
+    fig = plt.figure(figsize=(30, 8))
 
     for i in range(3):
         fig.add_subplot(1, 4, i + 1)

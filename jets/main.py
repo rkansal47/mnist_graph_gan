@@ -97,11 +97,12 @@ def parse_args():
     parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
 
     utils.add_bool_arg(parser, "gtanh", "use tanh for g output", default=True)
-    utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
+    # utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
 
     utils.add_bool_arg(parser, "mask", "use masking for zero-padded particles", default=False)
     utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
     utils.add_bool_arg(parser, "mask-manual", "manually mask generated nodes with pT less than cutoff", default=False)
+    parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
     # optimization
 
@@ -401,12 +402,18 @@ def main(args):
     Y_real = torch.ones(args.batch_size, 1).to(args.device)
     Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
 
-    def train_D(data, labels=None, gen_data=None):
+    def train_D(data, labels=None, gen_data=None, epoch=0):
         if args.debug: print("dtrain")
         D.train()
         D_optimizer.zero_grad()
 
         run_batch_size = data.shape[0]
+
+        D_real_output = D(data.clone(), labels, epoch=epoch)
+
+        if args.debug or run_batch_size != args.batch_size:
+            print("D real output: ")
+            print(D_real_output[:10])
 
         if gen_data is None:
             gen_data = utils.gen(args, G, normal_dist, run_batch_size, labels=labels)
@@ -416,13 +423,11 @@ def main(args):
             data = augment.augment(args, data, p)
             gen_data = augment.augment(args, gen_data, p)
 
-        D_real_output = D(data.clone(), labels)
-
         if args.debug or run_batch_size != args.batch_size:
-            print("D real output: ")
-            print(D_real_output[:10])
+            print("gen output: ")
+            print(gen_data[:2, :10, :])
 
-        D_fake_output = D(gen_data, labels)
+        D_fake_output = D(gen_data, labels, epoch=epoch)
 
         if args.debug or run_batch_size != args.batch_size:
             print("D fake output: ")
@@ -434,7 +439,7 @@ def main(args):
         D_optimizer.step()
         return D_loss_items
 
-    def train_G(data, labels=None):
+    def train_G(data, labels=None, epoch=0):
         if args.debug: print("gtrain")
         G.train()
         G_optimizer.zero_grad()
@@ -447,7 +452,7 @@ def main(args):
             p = args.aug_prob if not args.adaptive_prob else losses['p'][-1]
             gen_data = augment.augment(args, gen_data, p)
 
-        D_fake_output = D(gen_data, labels)
+        D_fake_output = D(gen_data, labels, epoch=epoch)
 
         if args.debug:
             print("D fake output: ")
@@ -464,10 +469,6 @@ def main(args):
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
         # if(args.w1): evaluation.calc_w1(args, X, G, normal_dist, losses)
         if(args.start_epoch == 0 and args.save_zero):
-            # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
-            # print("JSD = " + str(mean) + " ± " + str(std))
-            # losses['jsdm'].append(mean)
-            # losses['jsdstd'].append(std)
             save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded)
 
         for i in range(args.start_epoch, args.num_epochs):
@@ -485,26 +486,34 @@ def main(args):
 
                 data = data[0].to(args.device)
 
-                # write as just one if statement each for g and d
-
-                if(args.num_critic > 1):
-                    D_loss_items = train_D(data, labels=labels)
+                if args.num_critic > 1 or (batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
+                    D_loss_items = train_D(data, labels=labels, epoch=i)
                     D_loss += D_loss_items['D']
                     Dr_loss += D_loss_items['Dr']
                     Df_loss += D_loss_items['Df']
                     if(args.gp): gp_loss += D_loss_items['gp']
 
-                    if((batch_ndx - 1) % args.num_critic == 0):
-                        G_loss += train_G(data, labels=labels)
-                else:
-                    if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                        D_loss_items = train_D(data, labels=labels)
-                        D_loss += D_loss_items['D']
-                        Dr_loss += D_loss_items['Dr']
-                        Df_loss += D_loss_items['Df']
-                        if(args.gp): gp_loss += D_loss_items['gp']
-
-                    G_loss += train_G(data, labels=labels)
+                if args.num_critic == 1 or (batch_ndx - 1) % args.num_critic == 0:
+                    G_loss += train_G(data, labels=labels, epoch=i)
+                #
+                # if(args.num_critic > 1):
+                #     D_loss_items = train_D(data, labels=labels)
+                #     D_loss += D_loss_items['D']
+                #     Dr_loss += D_loss_items['Dr']
+                #     Df_loss += D_loss_items['Df']
+                #     if(args.gp): gp_loss += D_loss_items['gp']
+                #
+                #     if((batch_ndx - 1) % args.num_critic == 0):
+                #         G_loss += train_G(data, labels=labels)
+                # else:
+                #     if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
+                #         D_loss_items = train_D(data, labels=labels)
+                #         D_loss += D_loss_items['D']
+                #         Dr_loss += D_loss_items['Dr']
+                #         Df_loss += D_loss_items['Df']
+                #         if(args.gp): gp_loss += D_loss_items['gp']
+                #
+                #     G_loss += train_G(data, labels=labels)
 
                 if args.bottleneck:
                     if(batch_ndx == 10):
