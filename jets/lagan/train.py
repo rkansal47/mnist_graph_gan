@@ -149,6 +149,8 @@ if __name__ == '__main__':
     datafile = results.dataset
 
     X = np.load('gims.npy')
+    X /= 2
+
     # Xt = np.load('tims.npy')
     # X = np.concatenate((Xg, Xt), axis=0)
     # y = np.concatenate((np.ones(len(Xg)), np.zeros(len(Xt))))

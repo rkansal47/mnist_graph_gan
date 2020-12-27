@@ -20,6 +20,16 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
     parser.set_defaults(**{varname: default})
 
 
+def mask_manual(args, gen_data):
+    # print("Before Mask: ")
+    # print(gen_data[0])
+    mask = (gen_data[:, :, 2] > args.pt_cutoff).unsqueeze(2).float() - 0.5
+    gen_data = torch.cat((gen_data, mask), dim=2)
+    # print("After Mask: ")
+    # print(gen_data[0])
+    return gen_data
+
+
 class objectview(object):
     def __init__(self, d):
         self.__dict__ = d
@@ -37,6 +47,7 @@ def gen(args, G, dist=None, num_samples=0, noise=None, labels=None, X_loaded=Non
         labels = labels[:num_samples]
 
     gen_data = G(noise, labels)
+    if args.mask_manual: gen_data = mask_manual(args, gen_data)
 
     return gen_data
 

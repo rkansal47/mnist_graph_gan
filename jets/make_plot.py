@@ -25,8 +25,15 @@ figpath = "figs/" + str(model) + '/' + name
 
 
 G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
-# w1m = np.loadtxt('./losses/7/w1_100m.txt')
-# w1std = np.loadtxt('./losses/7/w1_100std.txt')
+w1m = np.loadtxt('./losses/7/w1_100m.txt')
+
+len(w1m)
+w1std = np.loadtxt('./losses/7/w1_100std.txt')
+w1m[int(795/5)]
+w1std[int(795/5)]
+
+plt.plot(w1m[:, 0])
+
 #
 # realw1m = [0.00584264, 0.00556786, 0.0014096]
 # realw1std = [0.00214083, 0.00204827, 0.00051136]
@@ -38,7 +45,7 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': False})
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 100, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': False})
 X = JetsDataset(args)
 
 labels = X[:][1]
@@ -92,7 +99,11 @@ for i in range(num_samples):
 len(gen_out[gen_out[:, :, 2] < 0])
 # num_samples = 100000
 
+plt.hist(Xplot[:, :, 2].reshape(-1), np.arange())
+
 plt.hist(Xplot[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
+
+# pT < 9e-5 means 0
 
 plt.hist(gen_out[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
 

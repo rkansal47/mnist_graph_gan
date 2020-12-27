@@ -22,6 +22,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
     gen_out = gen_out[:args.num_samples]
 
+    # print(gen_out.shape)
+
     if args.coords == 'cartesian':
         labels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
         bin = np.arange(-500, 500, 10)
@@ -48,19 +50,38 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         Xplot = X.cpu().detach().numpy() * args.maxp / args.norm
         gen_out = gen_out * args.maxp / args.norm
     else:
-        Xplot = X.cpu().detach().numpy()
+        if args.mask_manual:
+            mask_real = (X.cpu().detach().numpy()[:, :, 3] + 0.5).astype(bool)
+            mask_gen = (gen_out[:, :, 3] + 0.5).astype(bool)
+
+        Xplot = X.cpu().detach().numpy()[:, :, :3]
         Xplot = Xplot / args.norm
         Xplot[:, :, 2] += 0.5
         Xplot *= args.maxepp
 
-        gen_out = gen_out / args.norm
+        gen_out = gen_out[:, :, :3] / args.norm
         gen_out[:, :, 2] += 0.5
         gen_out *= args.maxepp
 
-    for i in range(args.num_samples):
-        for j in range(args.num_hits):
-            if gen_out[i][j][2] < 0:
-                gen_out[i][j][2] = 0
+    if args.mask_manual:
+        print(mask_real)
+        print(mask_real.shape)
+        parts_real = Xplot[mask_real]
+        parts_gen = gen_out[mask_gen]
+    else:
+        # print(gen_out)
+        # print(gen_out.shape)
+        for i in range(args.num_samples):
+            for j in range(args.num_hits):
+                if gen_out[i][j][2] < 0:
+                    gen_out[i][j][2] = 0
+
+        if args.mask:
+            parts_real = Xplot[Xplot[:, :, args.node_feat_size - 1] > 0]
+            parts_gen = gen_out[gen_out[:, :, args.node_feat_size - 1] > 0]
+        else:
+            parts_real = Xplot.reshape(-1, args.node_feat_size)
+            parts_gen = gen_out.reshape(-1, args.node_feat_size)
 
     print(Xplot.shape)
     print(gen_out.shape)
@@ -74,8 +95,9 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     for i in range(args.num_samples):
         jetv = LorentzVector()
 
-        for part in Xplot[i]:
-            if not args.mask or part[3] > 0:
+        for j in range(args.num_hits):
+            part = Xplot[i][j]
+            if (not args.mask or part[3] > 0) and (not args.mask_manual or mask_real[i][j]):
                 vec = LorentzVector()
                 vec.setptetaphim(part[2], part[0], part[1], 0)
                 jetv += vec
@@ -85,28 +107,22 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     for i in range(args.num_samples):
         jetv = LorentzVector()
 
-        for part in gen_out[i]:
-            if not args.mask or part[3] > 0:
+        for j in range(args.num_hits):
+            part = gen_out[i][j]
+            if (not args.mask or part[3] > 0) and (not args.mask_manual or mask_gen[i][j]):
                 vec = LorentzVector()
                 vec.setptetaphim(part[2], part[0], part[1], 0)
                 jetv += vec
 
         gen_masses.append(jetv.mass)
 
-    if args.mask:
-        Xp = Xplot[Xplot[:, :, args.node_feat_size - 1] > 0]
-        gp = gen_out[gen_out[:, :, args.node_feat_size - 1] > 0]
-    else:
-        Xp = Xplot.reshape(-1, args.node_feat_size)
-        gp = gen_out.reshape(-1, args.node_feat_size)
-
-    fig = plt.figure(figsize=(30, 8))
+        fig = plt.figure(figsize=(30, 8))
 
     for i in range(3):
         fig.add_subplot(1, 4, i + 1)
         plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-        _ = plt.hist(Xp[:, i], bins[i], histtype='step', label='Real', color='red')
-        _ = plt.hist(gp[:, i], bins[i], histtype='step', label='Generated', color='blue')
+        _ = plt.hist(parts_real[:, i], bins[i], histtype='step', label='Real', color='red')
+        _ = plt.hist(parts_gen[:, i], bins[i], histtype='step', label='Generated', color='blue')
         plt.xlabel('Particle ' + labels[i])
         plt.ylabel('Number of Particles')
         # plt.title('JSD = ' + str(round(losses['jsdm'][-1][i], 3)) + ' ± ' + str(round(losses['jsdstd'][-1][i], 3)))
@@ -140,7 +156,6 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         plt.plot(losses['Dr'], label='Discriminitive real loss')
         plt.plot(losses['Df'], label='Discriminitive fake loss')
         plt.plot(losses['G'], label='Generative loss')
-        # plt.plot(losses['D'], label='Disciriminative total loss')
 
     if(args.gp): plt.plot(losses['gp'], label='Gradient penalty')
 

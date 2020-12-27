@@ -88,39 +88,6 @@ class Graph_GAN(nn.Module):
         self.fn.append(fn_iter)
         if self.args.batch_norm: self.bnn.append(bnn)
 
-        # if self.D or self.args.latent_node_size:
-        #     self.args.fe1_in_size = 2 * self.args.latent_node_size if self.G else 2 * self.args.node_feat_size
-        #     self.args.fe1_in_size += anc
-        #     self.args.fe1.insert(0, self.args.fe1_in_size)
-        #     self.args.fe1_out_size = self.args.fe1[-1]
-        #     fe_iter = nn.ModuleList()
-        #     if self.args.batch_norm: bne = nn.ModuleList()
-        #     for j in range(len(self.args.fe1) - 1):
-        #         linear = nn.Linear(self.args.fe1[j], self.args.fe1[j + 1])
-        #         fe_iter.append(linear)
-        #         if self.args.batch_norm: bne.append(nn.BatchNorm1d(self.args.fe1[j + 1]))
-        #
-        #     self.fe.append(fe_iter)
-        #     if self.args.batch_norm: self.bne.append(bne)
-        #
-        #     node_size = self.args.latent_node_size if self.G else self.args.node_feat_size
-        #     self.args.fn1.insert(0, self.args.fe1_out_size + node_size)
-        #     self.args.fn1.append(self.args.hidden_node_size)
-        #
-        #     # node network
-        #     fn_iter = nn.ModuleList()
-        #     if self.args.batch_norm: bnn = nn.ModuleList()
-        #     for j in range(len(self.args.fn1) - 1):
-        #         linear = nn.Linear(self.args.fn1[j], self.args.fn1[j + 1])
-        #         fn_iter.append(linear)
-        #         if self.args.batch_norm: bnn.append(nn.BatchNorm1d(self.args.fn1[j + 1]))
-        #
-        #     self.fn.append(fn_iter)
-        #     if self.args.batch_norm: self.bnn.append(bnn)
-        # else:
-        #     self.args.fe1_in_size = self.args.fe_in_size
-        #     self.args.fe1_out_size = self.args.fe_out_size
-
         for i in range(self.args.mp_iters - 1):
             # edge network
             fe_iter = nn.ModuleList()
@@ -180,10 +147,11 @@ class Graph_GAN(nn.Module):
             print("fnd: ")
             print(self.fnd)
 
-    def forward(self, x, labels=None, deb=False):
+    def forward(self, x, labels=None):
         batch_size = x.shape[0]
-        if self.args.mask_weights and self.D:
-            mask = x[:, :, self.args.node_feat_size - 1:self.args.node_feat_size] + 0.5
+        if (self.args.mask_weights or self.args.mask_manual) and self.D:
+            mask = x[:, :, 3:4] + 0.5
+            if self.args.mask_manual: x = x[:, :, :3]
 
         for i in range(self.args.mp_iters):
             # print(i)
@@ -207,6 +175,7 @@ class Graph_GAN(nn.Module):
 
             # message aggregation into new features
             A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
+            if self.args.mask_manual and self.D: A = A * mask.unsqueeze(1)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
 
@@ -219,8 +188,6 @@ class Graph_GAN(nn.Module):
 
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
-
-        # if deb: print(x[:10, :, 0])
 
         if(self.G):
             # if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):
@@ -235,7 +202,7 @@ class Graph_GAN(nn.Module):
                     x = self.dropout(x)
                 x = self.dropout(self.fnd[-1](x))
             else:
-                if self.args.mask_weights: x = x[:, :, :1] * mask
+                if self.args.mask_weights or self.args.mask_manual: x = x[:, :, :1] * mask
                 else: x = x[:, :, :1]
 
                 x = torch.sum(x, 1) if (self.args.loss == 'w' or self.args.loss == 'hinge' or not self.args.dearlysigmoid) else torch.sum(torch.sigmoid(x), 1)
