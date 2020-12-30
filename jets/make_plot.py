@@ -45,7 +45,7 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 100, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': False})
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 't', 'norm': 1, 'mask': False})
 X = JetsDataset(args)
 
 labels = X[:][1]
@@ -103,7 +103,11 @@ plt.hist(Xplot[:, :, 2].reshape(-1), np.arange())
 
 plt.hist(Xplot[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
 
-# pT < 9e-5 means 0
+np.unique(Xplot[:, :, 2])
+
+# pT < 9e-5 means 0 for g100
+# pT < 1.3e-4 for g30; 10^4 zero-padded
+# ggp
 
 plt.hist(gen_out[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
 

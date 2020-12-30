@@ -102,6 +102,7 @@ def parse_args():
     utils.add_bool_arg(parser, "mask", "use masking for zero-padded particles", default=False)
     utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
     utils.add_bool_arg(parser, "mask-manual", "manually mask generated nodes with pT less than cutoff", default=False)
+    utils.add_bool_arg(parser, "mask-exp", "exponentially decaying mask (instead of binary)", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
     # optimization
@@ -495,7 +496,7 @@ def main(args):
 
                 if args.num_critic == 1 or (batch_ndx - 1) % args.num_critic == 0:
                     G_loss += train_G(data, labels=labels, epoch=i)
-                #
+
                 # if(args.num_critic > 1):
                 #     D_loss_items = train_D(data, labels=labels)
                 #     D_loss += D_loss_items['D']

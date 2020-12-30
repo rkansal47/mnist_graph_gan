@@ -19,6 +19,8 @@ for t in jet_types:
 for t in jet_types:
     torch.save(datasets[t], './datasets/all_' + t + '_jets_100p_polarrel_mask.pt')
 
+torch.load('./datasets/all_g_jets_100p_polarrel_mask.pt')[:]
+
 for t in jet_types:
     print("{} {} jets total, ave {:.1f} non-zero padded particles per jet".format(len(datasets[t]), t, torch.sum(masks[t]) / len(datasets[t])))
 
@@ -79,7 +81,7 @@ plt.savefig("figs/all_t30_0pcomp.pdf", bbox_inches='tight')
 plt.show()
 
 
-bins = [np.linspace(-0.3, 0.3, 201), np.linspace(-0.3, 0.3, 201), np.linspace(0, 0.2, 101)]
+bins = [np.linspace(-0.3, 0.3, 101), np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.2, 101)]
 fig = plt.figure(figsize=(22, 8))
 
 for i in range(3):
@@ -111,6 +113,7 @@ dataset30
 
 len(dataset30)
 
+np.array([1.0, 0.0]).astype(bool)
 
 mask30 = torch.gt(torch.norm(dataset30, dim=2), 0).float()
 torch.sum(mask30)
