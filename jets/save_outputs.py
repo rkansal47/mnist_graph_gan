@@ -51,8 +51,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         gen_out = gen_out * args.maxp / args.norm
     else:
         if args.mask_manual:
-            mask_real = (X.cpu().detach().numpy()[:, :, 3] + 0.5).astype(bool)
-            mask_gen = (gen_out[:, :, 3] + 0.5).astype(bool)
+            mask_real = (X.cpu().detach().numpy()[:, :, 3] + 0.5) >= 1
+            mask_gen = (gen_out[:, :, 3] + 0.5) >= 1
 
         Xplot = X.cpu().detach().numpy()[:, :, :3]
         Xplot = Xplot / args.norm

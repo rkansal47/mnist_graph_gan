@@ -21,8 +21,8 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
 
 
 def mask_manual(args, gen_data):
-    print("Before Mask: ")
-    print(gen_data[0])
+    # print("Before Mask: ")
+    # print(gen_data[0])
     if args.mask_exp:
         pts = gen_data[:, :, 2].unsqueeze(2)
         upper = (pts > args.pt_cutoff).float()
@@ -33,8 +33,8 @@ def mask_manual(args, gen_data):
         mask = (gen_data[:, :, 2] > args.pt_cutoff).unsqueeze(2).float() - 0.5
 
     gen_data = torch.cat((gen_data, mask), dim=2)
-    print("After Mask: ")
-    print(gen_data[0])
+    # print("After Mask: ")
+    # print(gen_data[0])
     return gen_data
 
 
