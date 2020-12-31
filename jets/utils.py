@@ -24,7 +24,7 @@ def mask_manual(args, gen_data):
     # print("Before Mask: ")
     # print(gen_data[0])
     if args.mask_real_only:
-        mask = torch.ones(gen_data.size(0), gen_data.size(1), 1)
+        mask = torch.ones(gen_data.size(0), gen_data.size(1), 1) - 0.5
     elif args.mask_exp:
         pts = gen_data[:, :, 2].unsqueeze(2)
         upper = (pts > args.pt_cutoff).float()
