@@ -103,6 +103,7 @@ def parse_args():
     utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
     utils.add_bool_arg(parser, "mask-manual", "manually mask generated nodes with pT less than cutoff", default=False)
     utils.add_bool_arg(parser, "mask-exp", "exponentially decaying mask (instead of binary)", default=False)
+    utils.add_bool_arg(parser, "mask-real-only", "only use masking for real jets", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
     # optimization

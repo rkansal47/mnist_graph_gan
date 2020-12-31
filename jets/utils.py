@@ -23,7 +23,9 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
 def mask_manual(args, gen_data):
     # print("Before Mask: ")
     # print(gen_data[0])
-    if args.mask_exp:
+    if args.mask_real_only:
+        mask = torch.ones(gen_data.size(0), gen_data.size(1), 1)
+    elif args.mask_exp:
         pts = gen_data[:, :, 2].unsqueeze(2)
         upper = (pts > args.pt_cutoff).float()
         lower = 1 - upper
