@@ -27,7 +27,7 @@ def mask_manual(args, gen_data):
         pts = gen_data[:, :, 2].unsqueeze(2)
         upper = (pts > args.pt_cutoff).float()
         lower = 1 - upper
-        exp = torch.exp((pts - args.pt_cutoff) / args.pt_cutoff)
+        exp = torch.exp((pts - args.pt_cutoff) / abs(args.pt_cutoff))
         mask = upper + lower * exp - 0.5
     else:
         mask = (gen_data[:, :, 2] > args.pt_cutoff).unsqueeze(2).float() - 0.5
