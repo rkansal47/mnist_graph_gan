@@ -56,6 +56,8 @@ def parse_args():
 
     parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't'])
 
+    utils.add_bool_arg(parser, "real-only", "use jets with ony real particles", default=False)
+
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
@@ -162,6 +164,10 @@ def parse_args():
     parser.add_argument("--jet-features", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
 
     args = parser.parse_args()
+
+    if args.real_only and (not args.jets == 't' or not args.num_hits == 30):
+        print("real only arg works only with 30p jets - exiting")
+        sys.exit()
 
     if(args.aug_t or args.aug_f or args.aug_r90 or args.aug_s):
         args.augment = True

@@ -34,9 +34,9 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
             if args.num_hits == 100:
                 bins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
             else:
-                bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
+                bins = [np.linspace(-0.3, 0.3, 100), np.linspace(-0.3, 0.3, 100), np.linspace(0, 0.2, 100)]
         elif args.jets == 't':
-            bins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.2, 0.002)]
+            bins = [np.linspace(-0.5, 0.5, 100), np.linspace(-0.5, 0.5, 100), np.linspace(0, 0.2, 100)]
     elif args.coords == 'polarrelabspt':
         labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
         bins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 400, 4)]

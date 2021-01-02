@@ -5,8 +5,12 @@ from torch.utils.data import Dataset
 class JetsDataset(Dataset):
     def __init__(self, args):
         mask = '_mask' if args.mask or args.mask_manual else ''
-        dataset = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_100p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
-        jet_features = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_100p_jetptetamass.pt').float()[:, :args.clabels]
+        if args.real_only:
+            dataset = torch.load(args.dataset_path + 'all_t_jets_30p_polarrel_30only.pt')
+        else:
+            dataset = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_150p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
+
+        jet_features = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_150p_jetptetamass.pt').float()[:, :args.clabels]
 
         if args.coords == 'cartesian':
             args.maxp = float(torch.max(torch.abs(dataset)))
