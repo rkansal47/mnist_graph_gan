@@ -58,6 +58,8 @@ def parse_args():
 
     utils.add_bool_arg(parser, "real-only", "use jets with ony real particles", default=False)
 
+    utils.add_bool_arg(parser, "multi-gpu", "use multiple gpus if possible", default=True)
+
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")
@@ -212,10 +214,16 @@ def parse_args():
         args.save_zero = True
 
     if(args.batch_size == 0):
-        if args.num_hits == 30:
-            args.batch_size = 128
-        elif args.num_hits == 100:
-            args.batch_size = 32
+        if args.multi_gpu and torch.cuda.device_count() > 1:
+            if args.num_hits == 30:
+                args.batch_size = 128
+            elif args.num_hits == 100:
+                args.batch_size = 32
+        else:
+            if args.num_hits == 30:
+                args.batch_size = 128
+            elif args.num_hits == 100:
+                args.batch_size = 32
 
     if not args.mp_iters_gen: args.mp_iters_gen = args.mp_iters
     if not args.mp_iters_disc: args.mp_iters_disc = args.mp_iters
@@ -324,7 +332,7 @@ def main(args):
         G = Graph_GAN(gen=True, args=deepcopy(args))
         D = Graph_GAN(gen=False, args=deepcopy(args))
 
-    if torch.cuda.device_count() > 1:
+    if args.multi_gpu and torch.cuda.device_count() > 1:
         print("Using", torch.cuda.device_count(), "GPUs")
         G = torch.nn.DataParallel(G)
         D = torch.nn.DataParallel(D)
