@@ -50,6 +50,7 @@ def parse_args():
     utils.add_bool_arg(parser, "lx", "run on lxplus", default=False)
 
     utils.add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
+    utils.add_bool_arg(parser, "no-save-zero-or", "override --n save-zero default", default=False)
     parser.add_argument("--save-epochs", type=int, default=5, help="save outputs per how many epochs")
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
@@ -204,7 +205,7 @@ def parse_args():
 
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/jets"
-        args.save_zero = True
+        if not args.no_save_zero_or: args.save_zero = True
 
     if(args.bottleneck):
         args.save_zero = False
