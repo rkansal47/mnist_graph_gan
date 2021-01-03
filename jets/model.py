@@ -149,9 +149,12 @@ class Graph_GAN(nn.Module):
 
     def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
-        mask_bool = (self.args.mask_weights or self.args.mask_manual) and self.D and epoch >= self.args.mask_epoch
-        if mask_bool: mask = x[:, :, 3:4] + 0.5
-        if self.args.mask_manual and self.D: x = x[:, :, :3]
+        try:
+            mask_bool = (self.args.mask_weights or self.args.mask_manual) and self.D and epoch >= self.args.mask_epoch
+            if mask_bool: mask = x[:, :, 3:4] + 0.5
+            if self.args.mask_manual and self.D: x = x[:, :, :3]
+        except AttributeError:
+            mask_bool = False
 
         for i in range(self.args.mp_iters):
             # print(i)
@@ -175,7 +178,7 @@ class Graph_GAN(nn.Module):
 
             # message aggregation into new features
             A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
-            if self.args.mask_manual and mask_bool: A = A * mask.unsqueeze(1)
+            if mask_bool and self.args.mask_manual: A = A * mask.unsqueeze(1)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
 
@@ -237,8 +240,11 @@ class Graph_GAN(nn.Module):
             elif self.args.deltacoords:
                 A = torch.cat((x1, x2, diffs), 2)
 
-            if(self.args.mask):
-                A = torch.cat((A, x2[:, :, 3].unsqueeze(2)), 2)
+            try:
+                if(self.args.mask):
+                    A = torch.cat((A, x2[:, :, 3].unsqueeze(2)), 2)
+            except AttributeError:
+                do_nothing = 0
 
             A = A.view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
         else:

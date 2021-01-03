@@ -321,8 +321,16 @@ def main(args):
         G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt", map_location=args.device)
         D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt", map_location=args.device)
     else:
-        G = Graph_GAN(gen=True, args=deepcopy(args)).to(args.device)
-        D = Graph_GAN(gen=False, args=deepcopy(args)).to(args.device)
+        G = Graph_GAN(gen=True, args=deepcopy(args))
+        D = Graph_GAN(gen=False, args=deepcopy(args))
+
+    if torch.cuda.device_count() > 1:
+        print("Using", torch.cuda.device_count(), "GPUs")
+        G = torch.nn.DataParallel(G)
+        D = torch.nn.DataParallel(D)
+
+    G = G.to(args.device)
+    D = D.to(args.device)
 
     print("Models loaded")
 

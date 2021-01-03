@@ -18,23 +18,31 @@ plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 7
-epoch = 790
+model = 39
+epoch = 3630
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
-
-G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
-w1m = np.loadtxt('./losses/7/w1_100m.txt')
+w1m = np.loadtxt('./losses/39/w1_10000m.txt')
 
 len(w1m)
 w1std = np.loadtxt('./losses/7/w1_100std.txt')
 w1m[int(795/5)]
 w1std[int(795/5)]
 
-plt.plot(w1m[:, 0])
+w1m
+(np.argsort(w1m[:, 0])[:20] * 5, np.sort(w1m[:, 0])[:20])
 
-#
+(np.argsort(w1m[:, 1])[:20] * 5, np.sort(w1m[:, 1])[:20])
+
+np.argsort(w1m[:, 2])[:20] * 5
+
+
+np.argsort(np.linalg.norm(w1m[:, :2], axis=1))[:20] * 5
+
+
+np.argsort(np.linalg.norm(w1m[:, :3], axis=1))[:20] * 5
+
 # realw1m = [0.00584264, 0.00556786, 0.0014096]
 # realw1std = [0.00214083, 0.00204827, 0.00051136]
 
@@ -45,7 +53,7 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 't', 'norm': 1, 'mask': False})
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 't', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': False})
 X = JetsDataset(args)
 
 labels = X[:][1]
@@ -56,6 +64,8 @@ N = len(X)
 rng = np.random.default_rng()
 
 num_samples = 100000
+
+G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
 
 if args.clabels:
     gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
@@ -68,8 +78,10 @@ else:
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
     gen_out = gen_out[:num_samples]
 
-# np.save('./models/' + str(model) + '/' + name + "_gen_out", gen_out)
-gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
+model
+name
+np.save('./models/' + str(model) + '/' + name + "_gen_out", gen_out)
+# gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
 
 # gen_out /= maxepp
 
@@ -97,25 +109,25 @@ for i in range(num_samples):
             gen_out[i][j][2] = 0
 
 len(gen_out[gen_out[:, :, 2] < 0])
-# num_samples = 100000
-
-plt.hist(Xplot[:, :, 2].reshape(-1), np.arange())
-
-plt.hist(Xplot[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
-
-np.unique(Xplot[:, :, 2])
-
-# pT < 9e-5 means 0 for g100
-# pT < 1.3e-4 for g30; 10^4 zero-padded
-# ggp
-
-plt.hist(gen_out[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
-
-len(gen_out[gen_out[:, :, 2] < 0.0001])
-
-len(Xplot[Xplot[:, :, 2] < 0.00012])
-
-plt.hist(gen_out[gen_out[:, :, 2] < 0.0001][:, 0], bins[0], histtype='step', label='Real', color='red')
+# # num_samples = 100000
+#
+# plt.hist(Xplot[:, :, 2].reshape(-1), np.arange())
+#
+# plt.hist(Xplot[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
+#
+# np.unique(Xplot[:, :, 2])
+#
+# # pT < 9e-5 means 0 for g100
+# # pT < 1.3e-4 for g30; 10^4 zero-padded
+# # ggp
+#
+# plt.hist(gen_out[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
+#
+# len(gen_out[gen_out[:, :, 2] < 0.0001])
+#
+# len(Xplot[Xplot[:, :, 2] < 0.00012])
+#
+# plt.hist(gen_out[gen_out[:, :, 2] < 0.0001][:, 0], bins[0], histtype='step', label='Real', color='red')
 
 real_masses = []
 real_pt = []
@@ -138,7 +150,7 @@ for i in tqdm(range(num_samples)):
 
     for part in gen_out[i]:
         vec = LorentzVector()
-        if part[2] >= 0.0001:
+        if part[2] >= 0:
             vec.setptetaphim(part[2], part[0], part[1], 0)
         else:
             vec.setptetaphim(0, part[0], part[1], 0)
@@ -178,9 +190,9 @@ plt.savefig(figpath + "_100000_jets_rel_mass_pt_cut.pdf", bbox_inches='tight')
 plt.show()
 
 plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
-sf = [3, 2, 3]
-rnd = [0, 1, 0]
-castings = [int, float, int]
+# sf = [3, 2, 3]
+# rnd = [0, 1, 0]
+# castings = [int, float, int]
 
 if args.jets == 'g':
     bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
@@ -318,10 +330,6 @@ plt.savefig(figpath + "_100000_jets_efp.pdf", bbox_inches='tight')
 plt.show()
 
 fig = plt.figure(figsize=(20, 12))
-bins0 = np.arange(0, 0.0013, step=0.000013)
-bins1 = np.arange(0, 0.0004, step=0.000004)
-
-bins = [bins0, bins1, bins1, bins1, bins1]
 
 for i in range(5):
     fig.add_subplot(2, 3, i + 2)
