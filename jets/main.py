@@ -208,6 +208,9 @@ def parse_args():
         print("multi gpu not implemented for non-mse loss")
         args.multi_gpu = False
 
+    if torch.cuda.device_count() <= 1:
+        args.multi_gpu = False
+
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/jets"
         if not args.no_save_zero_or: args.save_zero = True
@@ -220,7 +223,7 @@ def parse_args():
         args.save_zero = True
 
     if(args.batch_size == 0):
-        if args.multi_gpu and torch.cuda.device_count() > 1:
+        if args.multi_gpu:
             if args.num_hits == 30:
                 args.batch_size = 128
             elif args.num_hits == 100:
@@ -338,12 +341,12 @@ def main(args):
         G = Graph_GAN(gen=True, args=deepcopy(args))
         D = Graph_GAN(gen=False, args=deepcopy(args))
 
-    if args.multi_gpu and torch.cuda.device_count() > 1:
+    if args.multi_gpu:
         print("Using", torch.cuda.device_count(), "GPUs")
-        # G = torch.nn.DataParallel(G)
-        # D = torch.nn.DataParallel(D)
-        G = DataParallelModel(G)
-        D = DataParallelModel(D)
+        G = torch.nn.DataParallel(G)
+        D = torch.nn.DataParallel(D)
+        # G = DataParallelModel(G)
+        # D = DataParallelModel(D)
 
     G = G.to(args.device)
     D = D.to(args.device)
@@ -392,8 +395,8 @@ def main(args):
     Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
 
     mse = torch.nn.MSELoss()
-    if args.multi_gpu and torch.cuda.device_count() > 1:
-        mse = DataParallelCriterion(mse)
+    # if args.multi_gpu:
+    #     mse = DataParallelCriterion(mse)
 
     def train_D(data, labels=None, gen_data=None, epoch=0):
         if args.debug: print("dtrain")
