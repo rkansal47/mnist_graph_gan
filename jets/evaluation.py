@@ -25,6 +25,53 @@ from skhep.math.vectors import LorentzVector
 cutoff = 0.32178
 
 
+def init_losses(args):
+    losses = {}
+
+    if(args.load_model):
+        losses['D'] = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
+        losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
+        losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
+        losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
+        if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
+        if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
+
+        if args.w1:
+            for k in range(len(args.w1_num_samples)):
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt')
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
+                if losses['w1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'std'], 0)
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:args.start_epoch]
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:args.start_epoch]
+
+            if args.jf:
+                for k in range(len(args.w1_num_samples)):
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
+                    if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
+                    if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0).tolist()[:args.start_epoch]
+    else:
+        losses['D'] = []
+        losses['Dr'] = []
+        losses['Df'] = []
+        losses['G'] = []
+
+        if args.w1:
+            for k in range(len(args.w1_num_samples)):
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = []
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = []
+
+            if args.jf:
+                for k in range(len(args.w1_num_samples)):
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = []
+                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = []
+
+        if args.fid: losses['fid'] = []
+        if(args.gp): losses['gp'] = []
+
+    return losses
+
 def normalized_cut_2d(edge_index, pos):
     row, col = edge_index
     edge_attr = torch.norm(pos[row] - pos[col], p=2, dim=1)

@@ -96,10 +96,10 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
 
 
 bce = torch.nn.BCELoss()
-mse = torch.nn.MSELoss()
+# mse = torch.nn.MSELoss()
 
 
-def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_size, Y_real, Y_fake):
+def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_size, Y_real, Y_fake, mse):
     if args.debug:
         print("real outputs")
         print(real_outputs[:10])
@@ -144,7 +144,7 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
     return (D_loss, {'Dr': D_real_loss.item(), 'Df': D_fake_loss.item(), 'gp': gpitem, 'D': D_real_loss.item() + D_fake_loss.item()})
 
 
-def calc_G_loss(args, fake_outputs, Y_real, run_batch_size):
+def calc_G_loss(args, fake_outputs, Y_real, run_batch_size, mse):
     if args.debug: print(fake_outputs[:10])
 
     if(args.loss == 'og'):

@@ -19,6 +19,7 @@ from copy import deepcopy
 
 import numpy as np
 
+from parallel import DataParallelModel, DataParallelCriterion
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -203,6 +204,10 @@ def parse_args():
         print("latent node size can't be less than 2 - exiting")
         sys.exit()
 
+    if args.multi_gpu and args.loss != 'ls':
+        print("multi gpu not implemented for non-mse loss")
+        args.multi_gpu = False
+
     if(args.n):
         args.dir_path = "/graphganvol/mnist_graph_gan/jets"
         if not args.no_save_zero_or: args.save_zero = True
@@ -335,8 +340,10 @@ def main(args):
 
     if args.multi_gpu and torch.cuda.device_count() > 1:
         print("Using", torch.cuda.device_count(), "GPUs")
-        G = torch.nn.DataParallel(G)
-        D = torch.nn.DataParallel(D)
+        # G = torch.nn.DataParallel(G)
+        # D = torch.nn.DataParallel(D)
+        G = DataParallelModel(G)
+        D = DataParallelModel(D)
 
     G = G.to(args.device)
     D = D.to(args.device)
@@ -370,6 +377,7 @@ def main(args):
     if args.fid: C, mu2, sigma2 = evaluation.load(args, X_loaded)
 
     normal_dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
+    losses = evaluation.init_losses(args)
 
     # lns = args.latent_node_size if args.latent_node_size else args.hidden_node_size
     #
@@ -380,52 +388,12 @@ def main(args):
     # if args.noise_file_name not in noise_file_names:
     #     torch.save(normal_dist.sample((args.num_samples, args.num_hits, lns)), args.noise_path + args.noise_file_name)
 
-    losses = {}
-
-    if(args.load_model):
-        losses['D'] = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
-        losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
-        losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
-        losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
-        if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
-        if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
-
-        if args.w1:
-            for k in range(len(args.w1_num_samples)):
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt')
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'std'], 0)
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:args.start_epoch]
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:args.start_epoch]
-
-            if args.jf:
-                for k in range(len(args.w1_num_samples)):
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
-                    if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
-                    if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0).tolist()[:args.start_epoch]
-    else:
-        losses['D'] = []
-        losses['Dr'] = []
-        losses['Df'] = []
-        losses['G'] = []
-
-        if args.w1:
-            for k in range(len(args.w1_num_samples)):
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = []
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = []
-
-            if args.jf:
-                for k in range(len(args.w1_num_samples)):
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = []
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = []
-
-        if args.fid: losses['fid'] = []
-        if(args.gp): losses['gp'] = []
-
     Y_real = torch.ones(args.batch_size, 1).to(args.device)
     Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
+
+    mse = torch.nn.MSELoss()
+    if args.multi_gpu and torch.cuda.device_count() > 1:
+        mse = DataParallelCriterion(mse)
 
     def train_D(data, labels=None, gen_data=None, epoch=0):
         if args.debug: print("dtrain")
@@ -458,7 +426,7 @@ def main(args):
             print("D fake output: ")
             print(D_fake_output[:10])
 
-        D_loss, D_loss_items = utils.calc_D_loss(args, D, data, gen_data, D_real_output, D_fake_output, run_batch_size, Y_real, Y_fake)
+        D_loss, D_loss_items = utils.calc_D_loss(args, D, data, gen_data, D_real_output, D_fake_output, run_batch_size, Y_real, Y_fake, mse)
         D_loss.backward()
 
         D_optimizer.step()
@@ -483,7 +451,7 @@ def main(args):
             print("D fake output: ")
             print(D_fake_output[:10])
 
-        G_loss = utils.calc_G_loss(args, D_fake_output, Y_real, run_batch_size)
+        G_loss = utils.calc_G_loss(args, D_fake_output, Y_real, run_batch_size, mse)
 
         G_loss.backward()
         G_optimizer.step()
