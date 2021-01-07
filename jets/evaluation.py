@@ -264,9 +264,10 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
                     jetv = LorentzVector()
 
                     for part in gen_out[i]:
-                        vec = LorentzVector()
-                        vec.setptetaphim(part[2], part[0], part[1], 0)
-                        jetv += vec
+                        if part[2] >= 0:
+                            vec = LorentzVector()
+                            vec.setptetaphim(part[2], part[0], part[1], 0)
+                            jetv += vec
 
                     genj.append([jetv.mass, jetv.pt])
 

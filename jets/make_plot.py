@@ -18,28 +18,33 @@ plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 39
-epoch = 3630
+model = 82
+epoch = 1000
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
-w1m = np.loadtxt('./losses/39/w1_10000m.txt')
-
-len(w1m)
-w1std = np.loadtxt('./losses/7/w1_100std.txt')
-w1m[int(795/5)]
-w1std[int(795/5)]
+w1m = np.loadtxt('./losses/82/w1_10000m.txt')
 
 w1m
 (np.argsort(w1m[:, 0])[:20] * 5, np.sort(w1m[:, 0])[:20])
 
 (np.argsort(w1m[:, 1])[:20] * 5, np.sort(w1m[:, 1])[:20])
 
+np.where(np.argsort(w1m[:, 0]) == np.argsort(w1m[:, 1]))
+
 np.argsort(w1m[:, 2])[:20] * 5
 
-
-np.argsort(np.linalg.norm(w1m[:, :2], axis=1))[:20] * 5
-
+s1 = "["
+s2 = "["
+j = 1
+for i in np.argsort(w1m[:, 1])[:20]:
+    s1 += str(np.where(np.argsort(w1m[:, 0]) == i)[0][0] + 1) + ", "
+    s2 += str(np.where(np.argsort(w1m[:, 0]) == i)[0][0] + 1 + j) + ", "
+    j += 1
+s1 = s1[:-2] + "]"
+s2 = s2[:-2] + "]"
+print(s1)
+print(s2)
 
 np.argsort(np.linalg.norm(w1m[:, :3], axis=1))[:20] * 5
 
@@ -53,7 +58,7 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 't', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': False})
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 't', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': True})
 X = JetsDataset(args)
 
 labels = X[:][1]
@@ -353,6 +358,50 @@ plt.tight_layout(pad=0.5)
 plt.savefig(figpath + "_100000_jets_efp_mass.pdf", bbox_inches='tight')
 plt.show()
 
+
+num_pixels = 100
+Njets = 100000
+img_width = 0.8
+
+average_real_jet_image = np.zeros((num_pixels, num_pixels, 1))
+for i in range(Njets):
+    average_real_jet_image += ut.pixelate(X_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
+average_real_jet_image /= Njets
+
+average_gen_jet_image = np.zeros((num_pixels, num_pixels, 1))
+for i in range(Njets):
+    average_gen_jet_image += ut.pixelate(gen_out_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
+average_gen_jet_image /= Njets
+
+plt.rcParams.update({'font.size': 12})
+fig = plt.figure(figsize=(20, 10))
+fig.add_subplot(1, 2, 1)
+plt.imshow(average_real_jet_image[:, :, 0], origin='lower', cmap = 'binary', norm=LogNorm(vmin=1e-7))
+plt.colorbar()
+plt.title("Average of Real Jets", fontsize=25)
+plt.xlabel('$i\phi$')
+plt.ylabel('$i\eta$')
+
+fig.add_subplot(1, 2, 2)
+plt.imshow(average_gen_jet_image[:, :, 0], origin='lower', cmap='binary', norm=LogNorm(vmin=1e-7))
+plt.colorbar()
+plt.title("Average of Generated Jets", fontsize=25)
+plt.xlabel('$i\phi$')
+plt.ylabel('$i\eta$')
+
+plt.savefig(figpath + '_jets_ave.pdf', dpi=250, bbox_inches='tight')
+plt.show()
+plt.rcParams.update({'font.size': 16})
+
+
+
+
+
+
+
+
+
+
 efpset2 = ef.EFPSet(('n==', 2), ('d==', 2), ('p==', 1), measure='hadr', beta=1, normed=None, coords='ptyphim')
 
 gen_out_efp2 = efpset2.batch_compute(gen_out_efp_format)
@@ -439,42 +488,6 @@ plt.ylabel('# Exact - # EFP Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
 plt.savefig(figpath + "_100000_jets_mass_diff.pdf", bbox_inches='tight')
 plt.show()
-
-
-num_pixels = 100
-Njets = 100000
-img_width = 0.8
-
-average_real_jet_image = np.zeros((num_pixels, num_pixels, 1))
-for i in range(Njets):
-    average_real_jet_image += ut.pixelate(X_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
-average_real_jet_image /= Njets
-
-average_gen_jet_image = np.zeros((num_pixels, num_pixels, 1))
-for i in range(Njets):
-    average_gen_jet_image += ut.pixelate(gen_out_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
-average_gen_jet_image /= Njets
-
-plt.rcParams.update({'font.size': 12})
-fig = plt.figure(figsize=(20, 10))
-fig.add_subplot(1, 2, 1)
-plt.imshow(average_real_jet_image[:, :, 0], origin='lower', cmap = 'binary', norm=LogNorm(vmin=1e-7))
-plt.colorbar()
-plt.title("Average of Real Jets", fontsize=25)
-plt.xlabel('$i\phi$')
-plt.ylabel('$i\eta$')
-
-fig.add_subplot(1, 2, 2)
-plt.imshow(average_gen_jet_image[:, :, 0], origin='lower', cmap='binary', norm=LogNorm(vmin=1e-7))
-plt.colorbar()
-plt.title("Average of Generated Jets", fontsize=25)
-plt.xlabel('$i\phi$')
-plt.ylabel('$i\eta$')
-
-plt.savefig(figpath + '_jets_ave.pdf', dpi=250, bbox_inches='tight')
-plt.show()
-plt.rcParams.update({'font.size': 16})
-
 
 Nangle = 1000
 

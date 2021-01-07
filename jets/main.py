@@ -83,7 +83,7 @@ def parse_args():
     parser.add_argument("--fe1g", type=int, nargs='*', default=0, help="hidden and output gen fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe1d", type=int, nargs='*', default=0, help="hidden and output disc fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe", type=int, nargs='+', default=[96, 160, 192], help="hidden and output fe layers e.g. 64 128")
-    parser.add_argument("--fnd", type=int, nargs='*', default=[256, 128], help="hidden disc output layers e.g. 256 128")
+    parser.add_argument("--fnd", type=int, nargs='*', default=[128, 64], help="hidden disc output layers e.g. 128 128")
     parser.add_argument("--mp-iters-gen", type=int, default=0, help="number of message passing iterations in the generator")
     parser.add_argument("--mp-iters-disc", type=int, default=0, help="number of message passing iterations in the discriminator (if applicable)")
     parser.add_argument("--mp-iters", type=int, default=2, help="number of message passing iterations in gen and disc both - will be overwritten by gen or disc specific args if given")
@@ -165,7 +165,7 @@ def parse_args():
     utils.add_bool_arg(parser, "w1", "calc w1", default=True)
     parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
 
-    parser.add_argument("--jet-features", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
+    parser.add_argument("--jf", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
 
     args = parser.parse_args()
 
@@ -178,11 +178,11 @@ def parse_args():
     else:
         args.augment = False
 
-    if not args.coords == 'polarrelabspt':
-        print("Can't have jet level features for this coordinate system")
-        args.jf = False
-    elif len(args.jet_features):
-        args.jf = True
+    # if not args.coords == 'polarrelabspt':
+    #     print("Can't have jet level features for this coordinate system")
+    #     args.jf = False
+    # elif len(args.jet_features):
+    #     args.jf = True
 
     if(args.int_diffs):
         print("int_diffs not supported yet - exiting")

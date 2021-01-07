@@ -164,59 +164,59 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     plt.legend()
     plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     plt.close()
-
-    if args.jf:
-        real_masses = []
-        real_pts = []
-
-        gen_masses = []
-        gen_pts = []
-
-        for i in range(args.num_samples):
-            jetv = LorentzVector()
-
-            for part in Xplot[i]:
-                vec = LorentzVector()
-                vec.setptetaphim(part[2], part[0], part[1], 0)
-                jetv += vec
-
-            real_masses.append(jetv.mass)
-            real_pts.append(jetv.pt)
-
-        for i in range(args.num_samples):
-            jetv = LorentzVector()
-
-            for part in gen_out[i]:
-                vec = LorentzVector()
-                vec.setptetaphim(part[2], part[0], part[1], 0)
-                jetv += vec
-
-            gen_masses.append(jetv.mass)
-            gen_pts.append(jetv.pt)
-
-        mass_bins = np.arange(0, 400, 4)
-        pt_bins = np.arange(0, 3000, 30)
-
-        fig = plt.figure(figsize=(16, 8))
-
-        fig.add_subplot(1, 2, 1)
-        plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-        _ = plt.hist(real_masses, bins=mass_bins, histtype='step', label='real', color='red')
-        _ = plt.hist(gen_masses, bins=mass_bins, histtype='step', label='real', color='blue')
-        plt.xlabel('Jet Mass (GeV)')
-        plt.ylabel('Jets')
-        plt.legend(loc=1, prop={'size': 18})
-
-        fig.add_subplot(1, 2, 2)
-        plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-        _ = plt.hist(real_pts, bins=pt_bins, histtype='step', label='real', color='red')
-        _ = plt.hist(gen_pts, bins=pt_bins, histtype='step', label='real', color='blue')
-        plt.xlabel('Jet $p_T$ (GeV)')
-        plt.ylabel('Jets')
-        plt.legend(loc=1, prop={'size': 18})
-
-        plt.savefig(args.figs_path + name + "_mass_pt.pdf", bbox_inches='tight')
-        plt.close()
+    #
+    # if args.jf:
+    #     real_masses = []
+    #     real_pts = []
+    #
+    #     gen_masses = []
+    #     gen_pts = []
+    #
+    #     for i in range(args.num_samples):
+    #         jetv = LorentzVector()
+    #
+    #         for part in Xplot[i]:
+    #             vec = LorentzVector()
+    #             vec.setptetaphim(part[2], part[0], part[1], 0)
+    #             jetv += vec
+    #
+    #         real_masses.append(jetv.mass)
+    #         real_pts.append(jetv.pt)
+    #
+    #     for i in range(args.num_samples):
+    #         jetv = LorentzVector()
+    #
+    #         for part in gen_out[i]:
+    #             vec = LorentzVector()
+    #             vec.setptetaphim(part[2], part[0], part[1], 0)
+    #             jetv += vec
+    #
+    #         gen_masses.append(jetv.mass)
+    #         gen_pts.append(jetv.pt)
+    #
+    #     mass_bins = np.arange(0, 400, 4)
+    #     pt_bins = np.arange(0, 3000, 30)
+    #
+    #     fig = plt.figure(figsize=(16, 8))
+    #
+    #     fig.add_subplot(1, 2, 1)
+    #     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+    #     _ = plt.hist(real_masses, bins=mass_bins, histtype='step', label='real', color='red')
+    #     _ = plt.hist(gen_masses, bins=mass_bins, histtype='step', label='real', color='blue')
+    #     plt.xlabel('Jet Mass (GeV)')
+    #     plt.ylabel('Jets')
+    #     plt.legend(loc=1, prop={'size': 18})
+    #
+    #     fig.add_subplot(1, 2, 2)
+    #     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+    #     _ = plt.hist(real_pts, bins=pt_bins, histtype='step', label='real', color='red')
+    #     _ = plt.hist(gen_pts, bins=pt_bins, histtype='step', label='real', color='blue')
+    #     plt.xlabel('Jet $p_T$ (GeV)')
+    #     plt.ylabel('Jets')
+    #     plt.legend(loc=1, prop={'size': 18})
+    #
+    #     plt.savefig(args.figs_path + name + "_mass_pt.pdf", bbox_inches='tight')
+    #     plt.close()
 
     if args.fid:
         fid_5 = losses['fid'][::5]
