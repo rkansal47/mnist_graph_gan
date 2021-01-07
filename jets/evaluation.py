@@ -272,8 +272,8 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
                     genj.append([jetv.mass, jetv.pt])
 
                 w1j = []
-                for i in range(len(args.jet_features)):
-                    w1j.append(wasserstein_distance(np.array(realj)[:, i], np.array(genj)[:, i]))
+                w1j.append(wasserstein_distance(np.array(realj)[:, 0], np.array(genj)[:, 0]))
+                w1j.append(wasserstein_distance(np.array(realj)[:, 1], np.array(genj)[:, 1]))
 
                 w1js.append(w1j)
 

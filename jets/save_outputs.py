@@ -41,7 +41,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         labels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
         bins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 400, 4)]
 
-    labelsj = ['mass (GeV)', '$p_T (GeV)']
+    labelsj = ['Relative Mass', 'Relative $p_T']
 
     # print(X)
     # print(X.shape)
@@ -164,7 +164,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     plt.legend()
     plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     plt.close()
-    #
+    
     # if args.jf:
     #     real_masses = []
     #     real_pts = []
@@ -246,15 +246,6 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     # plt.savefig(args.losses_path + name + "_jsd.pdf", bbox_inches='tight')
     # plt.close()
 
-    # if(args.gp): np.savetxt(args.losses_path + args.name + "/" + "gp.txt", losses['gp'])
-    # np.savetxt(args.losses_path + args.name + "/" + "D.txt", losses['D'])
-    # np.savetxt(args.losses_path + args.name + "/" + "G.txt", losses['G'])
-    # np.savetxt(args.losses_path + args.name + "/" + "Dr.txt", losses['Dr'])
-    # np.savetxt(args.losses_path + args.name + "/" + "Df.txt", losses['Df'])
-    # np.savetxt(args.losses_path + args.name + "/" + "jsdm.txt", np.array(losses['jsdm']))
-    # np.savetxt(args.losses_path + args.name + "/" + "jsdstd.txt", np.array(losses['jsdstd']))
-    # if args.fid: np.savetxt(args.losses_path + args.name + "/" + "fid.txt", losses['fid'])
-
     if args.w1 and epoch >= 5:
         x = np.arange(5, epoch + 1, 5)
 
@@ -280,8 +271,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         if args.jf:
             fig = plt.figure(figsize=(20, 7))
 
-            for i in range(len(args.jet_features)):
-                fig.add_subplot(1, len(args.jet_features), i + 1)
+            for i in range(2):
+                fig.add_subplot(1, 2, i + 1)
                 for k in range(len(args.w1_num_samples)):
                     plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
                 plt.legend(loc=2, prop={'size': 11})
