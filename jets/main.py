@@ -60,7 +60,7 @@ def parse_args():
 
     utils.add_bool_arg(parser, "real-only", "use jets with ony real particles", default=False)
 
-    utils.add_bool_arg(parser, "multi-gpu", "use multiple gpus if possible", default=True)
+    utils.add_bool_arg(parser, "multi-gpu", "use multiple gpus if possible", default=False)
 
     # architecture
 
