@@ -169,6 +169,13 @@ class Graph_GAN(nn.Module):
             # message passing
             A = self.getA(x, batch_size, fe_in_size)
 
+            if (A != A).any():
+                print("Nan values in A")
+                print("x: ")
+                print(x)
+                print("A: ")
+                print(A)
+
             if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits ** 2, 1)), axis=1)
 
             for j in range(len(self.fe[i])):
@@ -176,11 +183,25 @@ class Graph_GAN(nn.Module):
                 if(self.args.batch_norm): A = self.bne[i][j](A)  # try before activation
                 A = self.dropout(A)
 
+            if (A != A).any():
+                print("Nan values in A after message passing")
+                print("x: ")
+                print(x)
+                print("A: ")
+                print(A)
+
             # message aggregation into new features
             A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
             if mask_bool and self.args.mask_manual: A = A * mask.unsqueeze(1)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
+
+            if (x != x).any():
+                print("Nan values in x after message passing")
+                print("x: ")
+                print(x)
+                print("A: ")
+                print(A)
 
             if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, 1)), axis=1)
 
@@ -191,6 +212,13 @@ class Graph_GAN(nn.Module):
 
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
+
+            if (x != x).any():
+                print("Nan values in x after fn")
+                print("x: ")
+                print(x)
+                print("A: ")
+                print(A)
 
         if(self.G):
             # if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):

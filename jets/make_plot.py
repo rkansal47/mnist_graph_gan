@@ -19,7 +19,7 @@ plt.style.use(hep.style.CMS)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = 82
-epoch = 1000
+epoch = 1615
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -167,7 +167,7 @@ for i in tqdm(range(num_samples)):
 len(real_masses)
 len(gen_masses)
 
-binsm = np.arange(0, 0.3, 0.003)
+binsm = np.linspace(0, 0.225, 191)
 binspt = np.arange(0.5, 1.2, 0.007)
 
 fig = plt.figure(figsize=(16, 8))

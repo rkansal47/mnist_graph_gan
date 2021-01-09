@@ -69,8 +69,6 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         parts_real = Xplot[mask_real]
         parts_gen = gen_out[mask_gen]
     else:
-        # print(gen_out)
-        # print(gen_out.shape)
         for i in range(args.num_samples):
             for j in range(args.num_hits):
                 if gen_out[i][j][2] < 0:
@@ -164,7 +162,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     plt.legend()
     plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     plt.close()
-    
+
     # if args.jf:
     #     real_masses = []
     #     real_pts = []
