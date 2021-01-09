@@ -286,6 +286,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     try:
         remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
         remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1.pdf")
+        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1j.pdf")
         # remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
     except:
         print("couldn't remove loss file")
