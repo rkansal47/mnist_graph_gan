@@ -245,7 +245,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
     # plt.close()
 
     if args.w1 and epoch >= 5:
-        x = np.arange(5, epoch + 1, 5)
+        x = np.arange(5, epoch + 1, 5)[-len(losses['w1_' + str(args.w1_num_samples[0]) + 'm']):]
 
         plt.rcParams.update({'font.size': 12})
         colors = ['blue', 'green', 'orange']
@@ -267,6 +267,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         plt.close()
 
         if args.jf:
+            x = np.arange(5, epoch + 1, 5)[-len(losses['w1j_' + str(args.w1_num_samples[0]) + 'm']):]
             fig = plt.figure(figsize=(20, 7))
 
             for i in range(2):
