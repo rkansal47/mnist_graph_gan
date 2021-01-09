@@ -19,7 +19,7 @@ plt.style.use(hep.style.CMS)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = 82
-epoch = 1615
+epoch = 2065
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
