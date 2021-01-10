@@ -83,6 +83,7 @@ G = Graph_GAN(True, args)
 
 G.load_state_dict(Gl.state_dict())
 
+G.eval()
 if args.clabels:
     gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
     for i in tqdm(range(int(num_samples / batch_size))):

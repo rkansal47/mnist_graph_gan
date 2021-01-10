@@ -6,6 +6,8 @@ from torch.autograd import grad as torch_grad
 import numpy as np
 from scipy import linalg
 
+from skhep.math.vectors import LorentzVector
+
 
 def add_bool_arg(parser, name, help, default=False, no_name=None):
     varname = '_'.join(name.split('-'))  # change hyphens to underscores
@@ -222,3 +224,44 @@ def rand_mix(args, X1, X2, p):
     mix[rand < p] = 1
 
     return X1 * (1 - mix) + X2 * mix
+
+
+def jet_features(jets, mask_bool=False, mask=None):
+    if mask is None: mask_bool = False
+    jf = []
+    for i in range(len(jets)):
+        jetv = LorentzVector()
+
+        for j in range(len(jets[0])):
+            part = jets[i][j]
+            if (not mask_bool or mask[i][j]):
+                vec = LorentzVector()
+                vec.setptetaphim(part[2], part[0], part[1], 0)
+                jetv += vec
+
+        jf.append([jetv.mass, jetv.pt])
+    return np.array(jf)
+
+
+def unnorm_data(args, jets, real=True, rem_zero=True):
+    if args.mask:
+        if real: mask = (jets[:, :, 3] + 0.5) >= 1
+        else: mask = (jets[:, :, 3] + 0.5) >= 0.5
+    else:
+        mask = None
+
+    if args.coords == 'cartesian':
+        jets = jets * args.maxp / args.norm
+    else:
+        jets = jets[:, :, :3]
+        jets = jets / args.norm
+        jets[:, :, 2] += 0.5
+        jets *= args.maxepp
+
+    if not real and rem_zero:
+        for i in range(len(jets)):
+            for j in range(args.num_hits):
+                if jets[i][j][2] < 0:
+                    jets[i][j][2] = 0
+
+    return jets, mask

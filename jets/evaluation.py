@@ -20,8 +20,6 @@ from os import path
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import wasserstein_distance
 
-from skhep.math.vectors import LorentzVector
-
 cutoff = 0.32178
 
 
@@ -82,6 +80,7 @@ def init_losses(args):
         if(args.gp): losses['gp'] = []
 
     return losses
+
 
 def normalized_cut_2d(edge_index, pos):
     row, col = edge_index
@@ -233,92 +232,50 @@ def calc_jsd(args, X, G, dist):
 # make sure to deepcopy G passing in
 def calc_w1(args, X, G, dist, losses, X_loaded=None):
     print("evaluating 1-WD")
-    num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
-    # num_batches = [5, 5, 5]
-    G.eval()
 
-    N = len(X)
+    G.eval()
+    gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
+    for i in range(int(args.w1_tot_samples / args.batch_size)):
+        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+    gen_out = gen_out[:args.w1_tot_samples]
+
+    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
+    gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
+
+    if args.jf:
+        realjf = utils.jet_features(X_rn, mask=mask_real)
+        genjf = utils.jet_features(gen_out, mask=mask_gen)
+
+    num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
     for k in range(len(args.w1_num_samples)):
         print("Num Samples: " + str(args.w1_num_samples[k]))
         w1s = []
         if args.jf: w1js = []
         for j in tqdm(range(num_batches[k])):
-            gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
-            for i in range(int(args.w1_num_samples[k] / args.batch_size)):
-                gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
-            gen_out = gen_out[:args.w1_num_samples[k]]
+            G_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
+            X_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
 
-            sample = X[rng.choice(N, size=args.w1_num_samples[k])]
-
-            if args.coords == 'cartesian':
-                Xplot = sample.cpu().detach().numpy() * args.maxp / args.norm
-                gen_out = gen_out * args.maxp / args.norm
-            else:
-                if args.mask:
-                    mask_real = (sample.cpu().detach().numpy()[:, :, 3] + 0.5) >= 1
-                    mask_gen = (gen_out[:, :, 3] + 0.5) >= 0.5
-
-                Xplot = sample.cpu().detach().numpy()[:, :, :3]
-                Xplot = Xplot / args.norm
-                Xplot[:, :, 2] += 0.5
-                Xplot *= args.maxepp
-
-                gen_out = gen_out[:, :, :3] / args.norm
-                gen_out[:, :, 2] += 0.5
-                gen_out *= args.maxepp
-
-            for i in range(len(gen_out)):
-                for j in range(args.num_hits):
-                    if gen_out[i][j][2] < 0:
-                        gen_out[i][j][2] = 0
+            Gsample = gen_out[G_rand_sample]
+            Xsample = X_rn[X_rand_sample]
 
             if args.mask:
-                parts_real = Xplot[mask_real]
-                parts_gen = gen_out[mask_gen]
+                mask_gen_sample = mask_gen[G_rand_sample]
+                mask_real_sample = mask_real[X_rand_sample]
+                parts_real = Xsample[mask_real_sample]
+                parts_gen = Gsample[mask_gen_sample]
             else:
-                parts_real = Xplot.reshape(-1, args.node_feat_size)
-                parts_gen = gen_out.reshape(-1, args.node_feat_size)
+                parts_real = Xsample.reshape(-1, args.node_feat_size)
+                parts_gen = Gsample.reshape(-1, args.node_feat_size)
 
-            w1 = []
-
-            for i in range(3):
-                w1.append(wasserstein_distance(parts_real[:, i].reshape(-1), parts_gen[:, i].reshape(-1)))
-
+            w1 = [wasserstein_distance(parts_real[:, i].reshape(-1), parts_gen[:, i].reshape(-1)) for i in range(3)]
             w1s.append(w1)
 
             if args.jf:
-                realj = []
-                genj = []
+                realjf_sample = realjf[X_rand_sample]
+                genjf_sample = genjf[G_rand_sample]
 
-                for i in range(args.w1_num_samples[k]):
-                    jetv = LorentzVector()
-
-                    for j in range(args.num_hits):
-                        part = Xplot[i][j]
-                        if (not args.mask or mask_real[i][j]):
-                            vec = LorentzVector()
-                            vec.setptetaphim(part[2], part[0], part[1], 0)
-                            jetv += vec
-
-                    realj.append([jetv.mass, jetv.pt])
-
-                for i in range(args.w1_num_samples[k]):
-                    jetv = LorentzVector()
-
-                    for j in range(args.num_hits):
-                        part = gen_out[i][j]
-                        if (not args.mask or mask_gen[i][j]):
-                            vec = LorentzVector()
-                            vec.setptetaphim(part[2], part[0], part[1], 0)
-                            jetv += vec
-
-                    genj.append([jetv.mass, jetv.pt])
-
-                w1j = []
-                w1j.append(wasserstein_distance(np.array(realj)[:, 0], np.array(genj)[:, 0]))
-                w1j.append(wasserstein_distance(np.array(realj)[:, 1], np.array(genj)[:, 1]))
-
+                w1j = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
                 w1js.append(w1j)
 
         losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))

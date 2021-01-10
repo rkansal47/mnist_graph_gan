@@ -419,6 +419,7 @@ def main(args):
         if args.debug: print("dtrain")
         D.train()
         D_optimizer.zero_grad()
+        G.eval()
 
         run_batch_size = data.shape[0]
 
@@ -456,6 +457,7 @@ def main(args):
         if args.debug: print("gtrain")
         G.train()
         G_optimizer.zero_grad()
+        D.eval()
 
         run_batch_size = labels.shape[0] if labels is not None else args.batch_size
 
@@ -480,7 +482,7 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        # if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
+        if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
         if(args.start_epoch == 0 and args.save_zero):
             save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded)
 
@@ -508,25 +510,6 @@ def main(args):
 
                 if args.num_critic == 1 or (batch_ndx - 1) % args.num_critic == 0:
                     G_loss += train_G(data, labels=labels, epoch=i)
-
-                # if(args.num_critic > 1):
-                #     D_loss_items = train_D(data, labels=labels)
-                #     D_loss += D_loss_items['D']
-                #     Dr_loss += D_loss_items['Dr']
-                #     Df_loss += D_loss_items['Df']
-                #     if(args.gp): gp_loss += D_loss_items['gp']
-                #
-                #     if((batch_ndx - 1) % args.num_critic == 0):
-                #         G_loss += train_G(data, labels=labels)
-                # else:
-                #     if(batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                #         D_loss_items = train_D(data, labels=labels)
-                #         D_loss += D_loss_items['D']
-                #         Dr_loss += D_loss_items['Dr']
-                #         Df_loss += D_loss_items['Df']
-                #         if(args.gp): gp_loss += D_loss_items['gp']
-                #
-                #     G_loss += train_G(data, labels=labels)
 
                 if args.bottleneck:
                     if(batch_ndx == 10):
