@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 class JetsDataset(Dataset):
     def __init__(self, args):
-        mask = '_mask' if args.mask or args.mask_manual else ''
+        mask = '_mask' if args.mask else ''
         if args.real_only:
             dataset = torch.load(args.dataset_path + 'all_t_jets_30p_polarrel_30only.pt')
         else:
@@ -24,7 +24,7 @@ class JetsDataset(Dataset):
                 self.X = dataset[cutoff:]
         elif args.coords == 'polarrel' or args.coords == 'polarrelabspt':
             args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
-            if args.mask:
+            if args.mask_feat:
                 args.maxepp.append(1.0)
 
             print(args.maxepp)

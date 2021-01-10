@@ -50,9 +50,9 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         Xplot = X.cpu().detach().numpy() * args.maxp / args.norm
         gen_out = gen_out * args.maxp / args.norm
     else:
-        if args.mask_manual:
+        if args.mask:
             mask_real = (X.cpu().detach().numpy()[:, :, 3] + 0.5) >= 1
-            mask_gen = (gen_out[:, :, 3] + 0.5) >= 1
+            mask_gen = (gen_out[:, :, 3] + 0.5) >= 0.5
 
         Xplot = X.cpu().detach().numpy()[:, :, :3]
         Xplot = Xplot / args.norm
@@ -63,24 +63,22 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
         gen_out[:, :, 2] += 0.5
         gen_out *= args.maxepp
 
-    if args.mask_manual:
+    for i in range(args.num_samples):
+        for j in range(args.num_hits):
+            if gen_out[i][j][2] < 0:
+                gen_out[i][j][2] = 0
+
+    if args.mask:
+        print('mask: ')
         print(mask_real)
         print(mask_real.shape)
         parts_real = Xplot[mask_real]
         parts_gen = gen_out[mask_gen]
     else:
-        for i in range(args.num_samples):
-            for j in range(args.num_hits):
-                if gen_out[i][j][2] < 0:
-                    gen_out[i][j][2] = 0
+        parts_real = Xplot.reshape(-1, args.node_feat_size)
+        parts_gen = gen_out.reshape(-1, args.node_feat_size)
 
-        if args.mask:
-            parts_real = Xplot[Xplot[:, :, args.node_feat_size - 1] > 0]
-            parts_gen = gen_out[gen_out[:, :, args.node_feat_size - 1] > 0]
-        else:
-            parts_real = Xplot.reshape(-1, args.node_feat_size)
-            parts_gen = gen_out.reshape(-1, args.node_feat_size)
-
+    print("real, gen outputs: ")
     print(Xplot.shape)
     print(gen_out.shape)
 
@@ -95,7 +93,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
 
         for j in range(args.num_hits):
             part = Xplot[i][j]
-            if (not args.mask or part[3] > 0) and (not args.mask_manual or mask_real[i][j]):
+            if (not args.mask or mask_real[i][j]):
                 vec = LorentzVector()
                 vec.setptetaphim(part[2], part[0], part[1], 0)
                 jetv += vec
@@ -107,7 +105,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
 
         for j in range(args.num_hits):
             part = gen_out[i][j]
-            if (not args.mask or part[3] > 0) and (not args.mask_manual or mask_gen[i][j]):
+            if (not args.mask or mask_gen[i][j]):
                 vec = LorentzVector()
                 vec.setptetaphim(part[2], part[0], part[1], 0)
                 jetv += vec

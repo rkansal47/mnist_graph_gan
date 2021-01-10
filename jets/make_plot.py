@@ -13,13 +13,14 @@ import energyflow as ef
 import energyflow.utils as ut
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from model import Graph_GAN
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = 82
-epoch = 2065
+epoch = 1895
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -59,6 +60,12 @@ dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
 args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 't', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': True})
+
+args = eval(open("./args/" + "82_t30_real_only_lrg_2e-5_lrd_6e-5_batch_size_256.txt").read())
+args['device'] = device
+args['dataset_path'] = dir + 'datasets/'
+
+args = utils.objectview(args)
 X = JetsDataset(args)
 
 labels = X[:][1]
@@ -71,6 +78,10 @@ rng = np.random.default_rng()
 num_samples = 100000
 
 G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
+Gl = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
+G = Graph_GAN(True, args)
+
+G.load_state_dict(Gl.state_dict())
 
 if args.clabels:
     gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()

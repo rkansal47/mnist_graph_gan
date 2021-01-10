@@ -233,7 +233,7 @@ def calc_jsd(args, X, G, dist):
 # make sure to deepcopy G passing in
 def calc_w1(args, X, G, dist, losses, X_loaded=None):
     print("evaluating 1-WD")
-    num_batches = np.array(100000 / np.array(args.w1_num_samples), dtype=int)
+    num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
     # num_batches = [5, 5, 5]
     G.eval()
 
@@ -249,11 +249,41 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
                 gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
             gen_out = gen_out[:args.w1_num_samples[k]]
 
-            sample = X[rng.choice(N, size=args.w1_num_samples[k])].cpu().detach().numpy()
+            sample = X[rng.choice(N, size=args.w1_num_samples[k])]
+
+            if args.coords == 'cartesian':
+                Xplot = sample.cpu().detach().numpy() * args.maxp / args.norm
+                gen_out = gen_out * args.maxp / args.norm
+            else:
+                if args.mask:
+                    mask_real = (sample.cpu().detach().numpy()[:, :, 3] + 0.5) >= 1
+                    mask_gen = (gen_out[:, :, 3] + 0.5) >= 0.5
+
+                Xplot = sample.cpu().detach().numpy()[:, :, :3]
+                Xplot = Xplot / args.norm
+                Xplot[:, :, 2] += 0.5
+                Xplot *= args.maxepp
+
+                gen_out = gen_out[:, :, :3] / args.norm
+                gen_out[:, :, 2] += 0.5
+                gen_out *= args.maxepp
+
+            for i in range(len(gen_out)):
+                for j in range(args.num_hits):
+                    if gen_out[i][j][2] < 0:
+                        gen_out[i][j][2] = 0
+
+            if args.mask:
+                parts_real = Xplot[mask_real]
+                parts_gen = gen_out[mask_gen]
+            else:
+                parts_real = Xplot.reshape(-1, args.node_feat_size)
+                parts_gen = gen_out.reshape(-1, args.node_feat_size)
+
             w1 = []
 
             for i in range(3):
-                w1.append(wasserstein_distance(sample[:, :, i].reshape(-1), gen_out[:, :, i].reshape(-1)))
+                w1.append(wasserstein_distance(parts_real[:, i].reshape(-1), parts_gen[:, i].reshape(-1)))
 
             w1s.append(w1)
 
@@ -264,18 +294,21 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
                 for i in range(args.w1_num_samples[k]):
                     jetv = LorentzVector()
 
-                    for part in sample[i]:
-                        vec = LorentzVector()
-                        vec.setptetaphim(part[2], part[0], part[1], 0)
-                        jetv += vec
+                    for j in range(args.num_hits):
+                        part = Xplot[i][j]
+                        if (not args.mask or mask_real[i][j]):
+                            vec = LorentzVector()
+                            vec.setptetaphim(part[2], part[0], part[1], 0)
+                            jetv += vec
 
                     realj.append([jetv.mass, jetv.pt])
 
                 for i in range(args.w1_num_samples[k]):
                     jetv = LorentzVector()
 
-                    for part in gen_out[i]:
-                        if part[2] >= 0:
+                    for j in range(args.num_hits):
+                        part = gen_out[i][j]
+                        if (not args.mask or mask_gen[i][j]):
                             vec = LorentzVector()
                             vec.setptetaphim(part[2], part[0], part[1], 0)
                             jetv += vec

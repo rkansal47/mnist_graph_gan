@@ -84,6 +84,7 @@ def parse_args():
     parser.add_argument("--fe1d", type=int, nargs='*', default=0, help="hidden and output disc fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe", type=int, nargs='+', default=[96, 160, 192], help="hidden and output fe layers e.g. 64 128")
     parser.add_argument("--fnd", type=int, nargs='*', default=[128, 64], help="hidden disc output layers e.g. 128 128")
+    parser.add_argument("--fmg", type=int, nargs='*', default=[64], help="mask network layers e.g. 64; input 0 for no intermediate layers")
     parser.add_argument("--mp-iters-gen", type=int, default=0, help="number of message passing iterations in the generator")
     parser.add_argument("--mp-iters-disc", type=int, default=0, help="number of message passing iterations in the discriminator (if applicable)")
     parser.add_argument("--mp-iters", type=int, default=2, help="number of message passing iterations in gen and disc both - will be overwritten by gen or disc specific args if given")
@@ -105,11 +106,14 @@ def parse_args():
     utils.add_bool_arg(parser, "gtanh", "use tanh for g output", default=True)
     # utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
 
-    utils.add_bool_arg(parser, "mask", "use masking for zero-padded particles", default=False)
+    utils.add_bool_arg(parser, "mask-feat", "add mask as fourth feature", default=False)
     utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
     utils.add_bool_arg(parser, "mask-manual", "manually mask generated nodes with pT less than cutoff", default=False)
-    utils.add_bool_arg(parser, "mask-exp", "exponentially decaying mask (instead of binary)", default=False)
+    utils.add_bool_arg(parser, "mask-exp", "exponentially decaying or binary mask; relevant only if mask-manual is true", default=False)
     utils.add_bool_arg(parser, "mask-real-only", "only use masking for real jets", default=False)
+    utils.add_bool_arg(parser, "mask-learn", "learn mask from latent vars only use during gen", default=False)
+    utils.add_bool_arg(parser, "mask-learn-bin", "binary or continuous learnt mask", default=True)
+    utils.add_bool_arg(parser, "mask-fnd-np", "use num masked particles as an additional arg in D (dea will automatically be set true)", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
     # optimization
@@ -164,6 +168,7 @@ def parse_args():
 
     utils.add_bool_arg(parser, "w1", "calc w1", default=True)
     parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
+    parser.add_argument("--w1-tot-samples", type=int, default=100000, help='tot # of jets to generate to sample from')
 
     parser.add_argument("--jf", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
 
@@ -230,9 +235,13 @@ def parse_args():
                 args.batch_size = 32
         else:
             if args.num_hits == 30:
-                args.batch_size = 128
+                args.batch_size = 256
             elif args.num_hits == 100:
                 args.batch_size = 32
+
+    if args.mask_fnd_np:
+        print("setting dea true due to mask-fnd-np arg")
+        args.dea = True
 
     if not args.mp_iters_gen: args.mp_iters_gen = args.mp_iters
     if not args.mp_iters_disc: args.mp_iters_disc = args.mp_iters
@@ -240,10 +249,14 @@ def parse_args():
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
-    if args.mask:
-        args.node_feat_size += 1
-    else:
-        args.mask_weights = False
+    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only: args.mask = True
+    else: args.mask = False
+
+    if args.mask_feat: args.node_feat_size += 1
+
+    if args.mask_learn:
+        if args.fmg == [0]:
+            args.fmg = []
 
     return args
 
@@ -463,7 +476,7 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        # if(args.w1): evaluation.calc_w1(args, X, G, normal_dist, losses)
+        if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
         if(args.start_epoch == 0 and args.save_zero):
             save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded)
 
@@ -537,10 +550,6 @@ def main(args):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
-                # mean, std = evaluation.calc_jsd(args, X, G, normal_dist)
-                # print("JSD = " + str(mean) + " ± " + str(std))
-                # losses['jsdm'].append(mean)
-                # losses['jsdstd'].append(std)
                 save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, i + 1, losses, X_loaded=X_loaded)
 
     train()
