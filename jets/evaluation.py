@@ -240,11 +240,11 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
     gen_out = gen_out[:args.w1_tot_samples]
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
-    gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
+    gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
 
     if args.jf:
         realjf = utils.jet_features(X_rn, mask=mask_real)
-        genjf = utils.jet_features(gen_out, mask=mask_gen)
+        genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
 
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
@@ -256,7 +256,7 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
             G_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
             X_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
 
-            Gsample = gen_out[G_rand_sample]
+            Gsample = gen_out_rn[G_rand_sample]
             Xsample = X_rn[X_rand_sample]
 
             if args.mask:
@@ -284,3 +284,5 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
         if args.jf:
             losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1js), axis=0))
             losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1js), axis=0))
+
+    return gen_out

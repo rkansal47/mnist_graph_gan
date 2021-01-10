@@ -44,7 +44,7 @@ def parse_args():
 
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
 
-    parser.add_argument("--num-samples", type=int, default=10000, help="num samples to evaluate every 5 epochs")
+    parser.add_argument("--num-samples", type=int, default=100000, help="num samples to evaluate every 5 epochs")
 
     utils.add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
     utils.add_bool_arg(parser, "bottleneck", "use torch.utils.bottleneck settings", default=False)
@@ -482,9 +482,10 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
         if(args.start_epoch == 0 and args.save_zero):
-            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded)
+            if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
+            else: gen_out = None
+            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded, gen_out=gen_out)
 
         for i in range(args.start_epoch, args.num_epochs):
             print("Epoch %d %s" % ((i + 1), args.name))
@@ -537,7 +538,9 @@ def main(args):
                 losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
-                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, i + 1, losses, X_loaded=X_loaded)
+                if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
+                else: gen_out = None
+                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded, gen_out=gen_out)
 
     train()
 

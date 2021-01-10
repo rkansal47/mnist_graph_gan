@@ -42,6 +42,10 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
         for i in range(int(args.num_samples / args.batch_size)):
             gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
         gen_out = gen_out[:args.num_samples]
+    elif args.w1_tot_samples < args.num_samples:
+        for i in range(int((args.num_samples - args.w1_tot_samples) / args.batch_size) + 1):
+            gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+        gen_out = gen_out[:args.num_samples]
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
     gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.num_samples], real=False)
