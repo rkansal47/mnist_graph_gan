@@ -476,7 +476,7 @@ def main(args):
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, normal_dist, mu2, sigma2))
-        if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
+        # if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
         if(args.start_epoch == 0 and args.save_zero):
             save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded)
 
