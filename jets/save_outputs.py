@@ -296,8 +296,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None)
 
 
 def save_models(args, D, G, optimizers, name, epoch):
-    torch.save(D, args.model_path + args.name + "/D_" + str(epoch) + ".pt")
-    torch.save(G, args.model_path + args.name + "/G_" + str(epoch) + ".pt")
+    torch.save(D.state_dict(), args.model_path + args.name + "/D_" + str(epoch) + ".pt")
+    torch.save(G.state_dict(), args.model_path + args.name + "/G_" + str(epoch) + ".pt")
 
     torch.save(optimizers[0].state_dict(), args.model_path + args.name + "/D_optim_" + str(epoch) + ".pt")
     torch.save(optimizers[1].state_dict(), args.model_path + args.name + "/G_optim_" + str(epoch) + ".pt")
