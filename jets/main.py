@@ -347,12 +347,16 @@ def main(args):
 
     # model
 
+    G = Graph_GAN(gen=True, args=deepcopy(args))
+    D = Graph_GAN(gen=False, args=deepcopy(args))
+
     if(args.load_model):
-        G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt", map_location=args.device)
-        D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt", map_location=args.device)
-    else:
-        G = Graph_GAN(gen=True, args=deepcopy(args))
-        D = Graph_GAN(gen=False, args=deepcopy(args))
+        try:
+            G.load_state_dict(torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt", map_location=args.device))
+            D.load_state_dict(torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt", map_location=args.device))
+        except AttributeError:
+            G = torch.load(args.model_path + args.name + "/G_" + str(args.start_epoch) + ".pt", map_location=args.device)
+            D = torch.load(args.model_path + args.name + "/D_" + str(args.start_epoch) + ".pt", map_location=args.device)
 
     if args.multi_gpu:
         print("Using", torch.cuda.device_count(), "GPUs")
