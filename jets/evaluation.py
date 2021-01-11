@@ -40,8 +40,8 @@ def init_losses(args):
                 losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
                 if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
                 if losses['w1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'std'], 0)
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:(args.start_epoch / args.save_epochs)]
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:(args.start_epoch / args.save_epochs)]
+                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
+                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
 
             if args.jf:
                 try:
@@ -50,8 +50,8 @@ def init_losses(args):
                         losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt')
                         if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0)
                         if losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0)
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:(args.start_epoch / args.save_epochs)]
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:(args.start_epoch / args.save_epochs)]
+                        losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
+                        losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
                         # losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
                         # losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
                         # if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]

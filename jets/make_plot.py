@@ -59,7 +59,7 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': False})
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': True, 'mask_manual': False, 'real_only': False})
 
 args = eval(open("./args/" + "88_t30_real_only_lrg_4e-5_lrd_12e-5_batch_size_256.txt").read())
 args['device'] = device
@@ -124,6 +124,7 @@ for i in range(num_samples):
             gen_out[i][j][2] = 0
 
 len(gen_out[gen_out[:, :, 2] < 0])
+
 # # num_samples = 100000
 #
 # plt.hist(Xplot[:, :, 2].reshape(-1), np.arange())
@@ -404,11 +405,23 @@ plt.show()
 plt.rcParams.update({'font.size': 16})
 
 
+mask_real = Xplot[:, :, 3] + 0.5
+mask_gen = (gen_out[:, :, 2] > ((args.pt_cutoff + 0.5) * args.maxepp[2]).detach().numpy()).astype(float)
+mask_gen
+mask_real
 
+np_gen = np.sum(mask_gen, axis=1)
+np_real = np.sum(mask_real, axis=1)
 
-
-
-
+fig = plt.figure(figsize=(5, 10))
+plt.xlabel('# particles')
+plt.ylabel('# of jets with N particles')
+_ = plt.hist(np_real, np.linspace(25, 30, 6), histtype='step', label='Real', color='red')
+_ = plt.hist(np_gen, np.linspace(25, 30, 6), histtype='step', label='Gen', color='blue')
+plt.legend(loc=2)
+# plt.ylim(0, 10000)
+plt.savefig(figpath + 'np.pdf', dpi=250, bbox_inches='tight')
+plt.show()
 
 
 
