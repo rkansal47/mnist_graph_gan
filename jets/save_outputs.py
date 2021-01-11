@@ -162,7 +162,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
         plt.close()
 
         if args.jf:
-            x = np.arange(5, epoch + 1, 5)[-len(losses['w1j_' + str(args.w1_num_samples[0]) + 'm']):]
+            x = np.arange(0, epoch + 1, 5)[-len(losses['w1j_' + str(args.w1_num_samples[0]) + 'm']):]
             fig = plt.figure(figsize=(20, 7))
 
             for i in range(2):
