@@ -145,7 +145,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
         fig = plt.figure(figsize=(30, 7))
 
         print(x.shape)
-        print(losses['w1_' + str(args.w1_num_samples[0]) + 'm'].shape)
+        print(np.array(losses['w1_' + str(args.w1_num_samples[0]) + 'm']).shape)
 
         for i in range(3):
             fig.add_subplot(1, 3, i + 1)
