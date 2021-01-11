@@ -268,11 +268,14 @@ class Graph_GAN(nn.Module):
                     if not self.args.sum: x = x / (torch.sum(mask, 1) + 1e-12)
                 else: x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
 
-                if self.args.mask_fnd_np:
-                    # print(mask[:2, :, 0])
-                    num_particles = torch.mean(mask, dim=1)
-                    # print(num_particles[:2])
-                    x = torch.cat((num_particles, x), dim=1)
+                try:
+                    if self.args.mask_fnd_np:
+                        # print(mask[:2, :, 0])
+                        num_particles = torch.mean(mask, dim=1)
+                        # print(num_particles[:2])
+                        x = torch.cat((num_particles, x), dim=1)
+                except AttributeError:
+                    do_nothing = 0
 
                 for i in range(len(self.fnd) - 1):
                     x = F.leaky_relu(self.fnd[i](x), negative_slope=self.args.leaky_relu_alpha)

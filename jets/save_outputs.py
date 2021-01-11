@@ -137,7 +137,7 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
     # Plot W1
 
     if args.w1 and epoch >= 5:
-        x = np.arange(5, epoch + 1, 5)[-len(losses['w1_' + str(args.w1_num_samples[0]) + 'm']):]
+        x = np.arange(0, epoch + 1, 5)[-len(losses['w1_' + str(args.w1_num_samples[0]) + 'm']):]
 
         plt.rcParams.update({'font.size': 12})
         colors = ['blue', 'green', 'orange']
