@@ -457,7 +457,6 @@ def main(args):
         if args.debug: print("gtrain")
         G.train()
         G_optimizer.zero_grad()
-        D.eval()
 
         run_batch_size = labels.shape[0] if labels is not None else args.batch_size
 

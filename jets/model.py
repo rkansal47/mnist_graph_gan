@@ -187,7 +187,6 @@ class Graph_GAN(nn.Module):
                     print(mask[:2, :, 0])
 
         except AttributeError as err:
-            print(err)
             mask_bool = False
 
         for i in range(self.args.mp_iters):

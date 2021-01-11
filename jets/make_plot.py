@@ -19,8 +19,8 @@ plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 82
-epoch = 1895
+model = 70
+epoch = 1945
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -59,9 +59,9 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 't', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': True})
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': False})
 
-args = eval(open("./args/" + "82_t30_real_only_lrg_2e-5_lrd_6e-5_batch_size_256.txt").read())
+args = eval(open("./args/" + "88_t30_real_only_lrg_4e-5_lrd_12e-5_batch_size_256.txt").read())
 args['device'] = device
 args['dataset_path'] = dir + 'datasets/'
 
@@ -78,10 +78,8 @@ rng = np.random.default_rng()
 num_samples = 100000
 
 G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
-Gl = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
 G = Graph_GAN(True, args)
-
-G.load_state_dict(Gl.state_dict())
+G.load_state_dict(torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device))
 
 G.eval()
 if args.clabels:
