@@ -540,7 +540,7 @@ def main(args):
             if((i + 1) % args.save_epochs == 0):
                 if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
                 else: gen_out = None
-                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, 0, losses, X_loaded=X_loaded, gen_out=gen_out)
+                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], normal_dist, args.name, i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
 
     train()
 
