@@ -13,7 +13,6 @@ import logging
 
 
 def main():
-    logging.info("Starting")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
@@ -154,7 +153,7 @@ def main():
 
             for key in D_losses: losses[key].append(epoch_loss[key] / (lenX / args.num_gen))
             losses['G'].append(epoch_loss['G'] / (lenX / args.num_critic))
-            for key in epoch_loss.keys(): logging.info("{} loss: {.3f}".format(key, losses[key][-1]))
+            for key in epoch_loss.keys(): logging.info("{} loss: {:.3f}".format(key, losses[key][-1]))
 
             # losses['D'].append(D_loss / (lenX / args.num_gen))
             # losses['Dr'].append(Dr_loss / (lenX / args.num_gen))

@@ -316,7 +316,7 @@ def load_args(args):
             if len(prev_models):
                 args.start_epoch = max(prev_models)
             else:
-                logging.info("No model to load from")
+                logging.debug("No model to load from")
                 args.start_epoch = 0
                 args.load_model = False
         if args.start_epoch == 0: args.load_model = False
