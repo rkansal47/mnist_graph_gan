@@ -47,7 +47,7 @@ def parse_args():
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
 
-    parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't'])
+    parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't', 'w', 'z', 'q'])
 
     utils.add_bool_arg(parser, "real-only", "use jets with ony real particles", default=False)
 
@@ -112,7 +112,7 @@ def parse_args():
 
     # optimization
 
-    parser.add_argument("--optimizer", type=str, default="rmsprop", help="optimizer - options are adam, rmsprop, adadelta or acgd")
+    parser.add_argument("--optimizer", type=str, default="rmsprop", help="pick optimizer", choices=['adam', 'rmsprop', 'adadelta', 'agcd'])
     parser.add_argument("--loss", type=str, default="ls", help="loss to use - options are og, ls, w, hinge", choices=['og', 'ls', 'w', 'hinge'])
 
     parser.add_argument("--lr-disc", type=float, default=3e-5, help="learning rate discriminator")

@@ -21,7 +21,7 @@ def save_sample_outputs(args, D, G, X, name, epoch, losses, X_loaded=None, gen_o
         pbins = [bin, bin, bin]
     elif args.coords == 'polarrel':
         plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
-        if args.jets == 'g':
+        if args.jets == 'g' or args.jets == 'q':
             if args.num_hits == 100:
                 pbins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
             else:
