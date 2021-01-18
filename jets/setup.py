@@ -17,8 +17,6 @@ import numpy as np
 import logging
 
 def parse_args():
-    dir_path = dirname(realpath(__file__))
-
     parser = argparse.ArgumentParser()
 
     # meta
@@ -35,7 +33,7 @@ def parse_args():
     parser.add_argument("--start-epoch", type=int, default=-1, help="which epoch to start training on, only applies if loading a model, by default start at the highest epoch model")
     parser.add_argument("--num-epochs", type=int, default=2000, help="number of epochs to train")
 
-    parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
+    parser.add_argument("--dir-path", type=str, default="", help="path where dataset and output will be stored")
 
     parser.add_argument("--num-samples", type=int, default=100000, help="num samples to evaluate every 5 epochs")
 
@@ -216,16 +214,8 @@ def check_args(args):
     if torch.cuda.device_count() <= 1:
         args.multi_gpu = False
 
-    if(args.n):
-        args.dir_path = "/graphganvol/mnist_graph_gan/jets"
-        if not args.no_save_zero_or: args.save_zero = True
-
     if(args.bottleneck):
         args.save_zero = False
-
-    if(args.lx):
-        args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/jets"
-        args.save_zero = True
 
     if(args.batch_size == 0):
         if args.multi_gpu:
@@ -238,6 +228,12 @@ def check_args(args):
                 args.batch_size = 256
             elif args.num_hits == 100:
                 args.batch_size = 32
+
+    if(args.n):
+        if not args.no_save_zero_or: args.save_zero = True
+
+    if(args.lx):
+        if not args.no_save_zero_or: args.save_zero = True
 
     if args.mask_fnd_np:
         logging.info("setting dea true due to mask-fnd-np arg")
@@ -262,6 +258,11 @@ def check_args(args):
 
 
 def init_project_dirs(args):
+    if args.dir_path == "":
+        if args.n: args.dir_path = "/graphganvol/mnist_graph_gan/jets"
+        elif args.lx: args.dir_path = "/eos/user/r/rkansal/mnist_graph_gan/jets"
+        else: args.dir_path = dirname(realpath(__file__))
+
     args_dict = vars(args)
     dirs = ['models', 'losses', 'args', 'figs', 'datasets', 'err', 'evaluation', 'outs', 'noise']
     for dir in dirs:
