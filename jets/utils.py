@@ -8,6 +8,89 @@ from scipy import linalg
 
 from skhep.math.vectors import LorentzVector
 
+import logging
+import tqdm
+import io
+
+from torch.distributions.normal import Normal
+
+
+# from https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/38895482#38895482
+class TqdmToLogger(io.StringIO):
+    """
+        Output stream for TQDM which will output to logger module instead of
+        the StdOut.
+    """
+    logger = None
+    level = None
+    buf = ''
+
+    def __init__(self, logger, level=None):
+        super(TqdmToLogger, self).__init__()
+        self.logger = logger
+        self.level = level or logging.INFO
+
+    def write(self, buf):
+        self.buf = buf.strip('\r\n\t ')
+
+    def flush(self):
+        self.logger.log(self.level, self.buf)
+
+
+# from https://stackoverflow.com/questions/38543506/change-logging-print-function-to-tqdm-write-so-logging-doesnt-interfere-wit
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.tqdm.write(msg)
+            self.flush()
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+
+
+class CustomFormatter(logging.Formatter):
+    """Logging Formatter to add colors and count warning / errors"""
+
+    grey = "\x1b[38;21m"
+    green = "\x1b[1;32m"
+    yellow = "\x1b[33;21m"
+    red = "\x1b[31;21m"
+    bold_red = "\x1b[31;1m"
+    blue = "\x1b[1;34m"
+    light_blue = "\x1b[1;36m"
+    purple = "\x1b[1;35m"
+    reset = "\x1b[0m"
+    info_format = '%(asctime)s %(message)s'
+    debug_format = '%(asctime)s [%(filename)s:%(lineno)d in %(funcName)s] %(message)s'
+
+    def __init__(self, args):
+        if args.log_file == 'stdout':
+            self.FORMATS = {
+                logging.DEBUG: self.blue + self.debug_format + self.reset,
+                logging.INFO: self.grey + self.info_format + self.reset,
+                logging.WARNING: self.yellow + self.debug_format + self.reset,
+                logging.ERROR: self.red + self.debug_format + self.reset,
+                logging.CRITICAL: self.bold_red + self.debug_format + self.reset
+            }
+        else:
+            self.FORMATS = {
+                logging.DEBUG: self.debug_format,
+                logging.INFO: self.info_format,
+                logging.WARNING: self.debug_format,
+                logging.ERROR: self.debug_format,
+                logging.CRITICAL: self.debug_format
+            }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt, datefmt='%d/%m %H:%M:%S')
+        return formatter.format(record)
+
 
 def add_bool_arg(parser, name, help, default=False, no_name=None):
     varname = '_'.join(name.split('-'))  # change hyphens to underscores
@@ -23,8 +106,8 @@ def add_bool_arg(parser, name, help, default=False, no_name=None):
 
 
 def mask_manual(args, gen_data):
-    # print("Before Mask: ")
-    # print(gen_data[0])
+    logging.debug("Before Mask: ")
+    logging.debug(gen_data[0])
     if args.mask_real_only:
         mask = torch.ones(gen_data.size(0), gen_data.size(1), 1).to(args.device) - 0.5
     elif args.mask_exp:
@@ -37,8 +120,8 @@ def mask_manual(args, gen_data):
         mask = (gen_data[:, :, 2] > args.pt_cutoff).unsqueeze(2).float() - 0.5
 
     gen_data = torch.cat((gen_data, mask), dim=2)
-    # print("After Mask: ")
-    # print(gen_data[0])
+    logging.debug("After Mask: ")
+    logging.debug(gen_data[0])
     return gen_data
 
 
@@ -47,7 +130,8 @@ class objectview(object):
         self.__dict__ = d
 
 
-def gen(args, G, dist=None, num_samples=0, noise=None, labels=None, X_loaded=None):
+def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
+    dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
     if(noise is None):
         noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
     else: num_samples = noise.size(0)
@@ -92,8 +176,6 @@ def gradient_penalty(args, D, real_data, generated_data, batch_size):
 
     # Return gradient penalty
     gp = args.gp * ((gradients_norm - 1) ** 2).mean()
-    # print("gradient penalty")
-    # print(gp)
     return gp
 
 
@@ -102,13 +184,6 @@ bce = torch.nn.BCELoss()
 
 
 def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_size, Y_real, Y_fake, mse):
-    if args.debug:
-        print("real outputs")
-        print(real_outputs[:10])
-
-        print("fake outputs")
-        print(fake_outputs[:10])
-
     if(args.loss == 'og' or args.loss == 'ls'):
         if args.label_smoothing:
             Y_real = torch.empty(run_batch_size).uniform_(0.7, 1.2).to(args.device)
@@ -147,8 +222,6 @@ def calc_D_loss(args, D, data, gen_data, real_outputs, fake_outputs, run_batch_s
 
 
 def calc_G_loss(args, fake_outputs, Y_real, run_batch_size, mse):
-    if args.debug: print(fake_outputs[:10])
-
     if(args.loss == 'og'):
         G_loss = bce(fake_outputs, Y_real[:run_batch_size])
     elif(args.loss == 'ls'):
@@ -197,7 +270,7 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
     if not np.isfinite(covmean).all():
         msg = ('fid calculation produces singular product; '
                'adding %s to diagonal of cov estimates') % eps
-        print(msg)
+        logging.debug(msg)
         offset = np.eye(sigma1.shape[0]) * eps
         covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset))
 

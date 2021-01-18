@@ -20,66 +20,9 @@ from os import path
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import wasserstein_distance
 
+import logging
+
 cutoff = 0.32178
-
-
-def init_losses(args):
-    losses = {}
-
-    if(args.load_model):
-        losses['D'] = np.loadtxt(args.losses_path + args.name + "/" + "D.txt").tolist()[:args.start_epoch]
-        losses['Dr'] = np.loadtxt(args.losses_path + args.name + "/" + "Dr.txt").tolist()[:args.start_epoch]
-        losses['Df'] = np.loadtxt(args.losses_path + args.name + "/" + "Df.txt").tolist()[:args.start_epoch]
-        losses['G'] = np.loadtxt(args.losses_path + args.name + "/" + "G.txt").tolist()[:args.start_epoch]
-        if args.fid: losses['fid'] = np.loadtxt(args.losses_path + args.name + "/" + "fid.txt").tolist()[:args.start_epoch]
-        if(args.gp): losses['gp'] = np.loadtxt(args.losses_path + args.name + "/" + "gp.txt").tolist()[:args.start_epoch]
-
-        if args.w1:
-            for k in range(len(args.w1_num_samples)):
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'm.txt')
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1_" + str(args.w1_num_samples[k]) + 'std.txt')
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'm'], 0)
-                if losses['w1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1_' + str(args.w1_num_samples[k]) + 'std'], 0)
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
-
-            if args.jf:
-                try:
-                    for k in range(len(args.w1_num_samples)):
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt')
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt')
-                        if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0)
-                        if losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0)
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
-                        # losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
-                        # losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
-                        # if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
-                        # if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0).tolist()[:args.start_epoch]
-                except:
-                    for k in range(len(args.w1_num_samples)):
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = []
-                        losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = []
-    else:
-        losses['D'] = []
-        losses['Dr'] = []
-        losses['Df'] = []
-        losses['G'] = []
-
-        if args.w1:
-            for k in range(len(args.w1_num_samples)):
-                losses['w1_' + str(args.w1_num_samples[k]) + 'm'] = []
-                losses['w1_' + str(args.w1_num_samples[k]) + 'std'] = []
-
-            if args.jf:
-                for k in range(len(args.w1_num_samples)):
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = []
-                    losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = []
-
-        if args.fid: losses['fid'] = []
-        if(args.gp): losses['gp'] = []
-
-    return losses
 
 
 def normalized_cut_2d(edge_index, pos):
@@ -129,7 +72,7 @@ class MoNet(torch.nn.Module):
 
 
 def get_mu2_sigma2(args, C, X_loaded, fullpath):
-    print("getting mu2, sigma2")
+    logging.info("Getting mu2, sigma2")
     activations = 0
     for batch_ndx, data in tqdm(enumerate(X_loaded), total=len(X_loaded)):
         tg_data = utils.tg_transform(args, data.to(args.device))
@@ -146,8 +89,6 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
 
     activations = np.concatenate((np_activations, activations.cpu().detach().numpy()))  # because torch doesn't have a built in function for calculating the covariance matrix
 
-    print(activations.shape)
-
     mu = np.mean(activations, axis=0)
     sigma = np.cov(activations, rowvar=False)
 
@@ -159,11 +100,11 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
 
 def load(args, X_loaded):
     C = MoNet(25).to(args.device)
-    C.load_state_dict(torch.load(args.eval_path + "C_state_dict.pt"))
+    C.load_state_dict(torch.load(args.evaluation_path + "C_state_dict.pt"))
     numstr = str(args.num) if args.num != -1 else "all_nums"
     dstr = "_sm_nh_" + str(args.num_hits) + "_" if args.sparse_mnist else "_sp_"
-    fullpath = args.eval_path + numstr + dstr
-    print(fullpath)
+    fullpath = args.evaluation_path + numstr + dstr
+    logging.debug(fullpath)
     if path.exists(fullpath + "mu2.txt"):
         mu2 = np.loadtxt(fullpath + "mu2.txt")
         sigma2 = np.loadtxt(fullpath + "sigma2.txt")
@@ -173,14 +114,14 @@ def load(args, X_loaded):
 
 
 # make sure to deepcopy G passing in
-def get_fid(args, C, G, dist, mu2, sigma2):
-    print("evaluating fid")
+def get_fid(args, C, G, mu2, sigma2):
+    logging.info("Evaluating GFD")
     G.eval()
     C.eval()
     num_iters = np.ceil(float(args.fid_eval_size) / float(args.fid_batch_size))
     with torch.no_grad():
         for i in tqdm(range(int(num_iters))):
-            gen_data = utils.tg_transform(args, utils.gen(args, G, dist, args.fid_batch_size))
+            gen_data = utils.tg_transform(args, utils.gen(args, G, args.fid_batch_size))
             if(i == 0):
                 activations = C(gen_data)
             else:
@@ -192,7 +133,7 @@ def get_fid(args, C, G, dist, mu2, sigma2):
     sigma1 = np.cov(activations, rowvar=False)
 
     fid = utils.calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
-    print("fid:" + str(fid))
+    logging.info("GFD:" + str(fid))
 
     return fid
 
@@ -201,8 +142,8 @@ rng = np.random.default_rng()
 
 
 # make sure to deepcopy G passing in
-def calc_jsd(args, X, G, dist):
-    print("evaluating JSD")
+def calc_jsd(args, X, G):
+    logging.info("evaluating JSD")
     G.eval()
 
     bins = [np.arange(-1, 1, 0.02), np.arange(-1, 1, 0.02), np.arange(-1, 1, 0.01)]
@@ -211,9 +152,9 @@ def calc_jsd(args, X, G, dist):
     jsds = []
 
     for j in tqdm(range(10)):
-        gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
+        gen_out = utils.gen(args, G, num_samples=args.batch_size).cpu().detach().numpy()
         for i in range(int(args.num_samples / args.batch_size)):
-            gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
+            gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size).cpu().detach().numpy()), 0)
         gen_out = gen_out[:args.num_samples]
 
         sample = X[rng.choice(N, size=args.num_samples, replace=False)].cpu().detach().numpy()
@@ -230,13 +171,13 @@ def calc_jsd(args, X, G, dist):
 
 
 # make sure to deepcopy G passing in
-def calc_w1(args, X, G, dist, losses, X_loaded=None):
-    print("evaluating 1-WD")
+def calc_w1(args, X, G, losses, X_loaded=None):
+    logging.info("Evaluating 1-WD")
 
     G.eval()
-    gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
+    gen_out = utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
     for i in range(int(args.w1_tot_samples / args.batch_size)):
-        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+        gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
     gen_out = gen_out[:args.w1_tot_samples]
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
@@ -249,10 +190,10 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
     for k in range(len(args.w1_num_samples)):
-        print("Num Samples: " + str(args.w1_num_samples[k]))
+        logging.debug("Num Samples: " + str(args.w1_num_samples[k]))
         w1s = []
         if args.jf: w1js = []
-        for j in tqdm(range(num_batches[k])):
+        for j in range(num_batches[k]):
             G_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
             X_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
 

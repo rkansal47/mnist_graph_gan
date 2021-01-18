@@ -1,16 +1,16 @@
 import torch
 from torch.utils.data import Dataset
-
+import logging
 
 class JetsDataset(Dataset):
     def __init__(self, args):
         mask = '_mask' if args.mask else ''
         if args.real_only:
-            dataset = torch.load(args.dataset_path + 'all_t_jets_30p_polarrel_30only.pt')
+            dataset = torch.load(args.datasets_path + 'all_t_jets_30p_polarrel_30only.pt')
         else:
-            dataset = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_150p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
+            dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
 
-        jet_features = torch.load(args.dataset_path + 'all_' + args.jets + '_jets_150p_jetptetamass.pt').float()[:, :args.clabels]
+        jet_features = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_jetptetamass.pt').float()[:, :args.clabels]
 
         if args.coords == 'cartesian':
             args.maxp = float(torch.max(torch.abs(dataset)))
@@ -27,7 +27,7 @@ class JetsDataset(Dataset):
             if args.mask_feat:
                 args.maxepp.append(1.0)
 
-            print(args.maxepp)
+            logging.debug("Max Vals: " + str(args.maxepp))
             for i in range(3):
                 dataset[:, :, i] /= args.maxepp[i]
 
@@ -36,7 +36,7 @@ class JetsDataset(Dataset):
             dataset *= args.norm
             self.X = dataset
             args.pt_cutoff = torch.unique(self.X[:, :, 2], sorted=True)[1]  # smallest particle pT after 0
-            print("cutoff: " + str(args.pt_cutoff))
+            logging.debug("Cutoff: " + str(args.pt_cutoff))
 
         if args.clabels == 1:
             args.maxjf = [torch.max(torch.abs(jet_features))]
@@ -48,10 +48,7 @@ class JetsDataset(Dataset):
 
         self.jet_features = jet_features * args.norm
 
-        print(self.jet_features)
-
-        print("Dataset loaded")
-        print(self.X.shape)
+        logging.info("Dataset shape: " + str(self.X.shape))
 
     def __len__(self):
         return len(self.X)

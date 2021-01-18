@@ -4,13 +4,14 @@ import matplotlib.pyplot as plt
 import utils
 from os import remove
 import mplhep as hep
-from skhep.math.vectors import LorentzVector
+
+import logging
 
 plt.switch_backend('agg')
 
 
-def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None, gen_out=None):
-    print("drawing figs")
+def save_sample_outputs(args, D, G, X, name, epoch, losses, X_loaded=None, gen_out=None):
+    logging.info("drawing figs")
     plt.rcParams.update({'font.size': 16})
     plt.style.use(hep.style.CMS)
 
@@ -38,13 +39,13 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
 
     G.eval()
     if gen_out is None:
-        gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
+        gen_out = utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
         for i in range(int(args.num_samples / args.batch_size)):
-            gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+            gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
         gen_out = gen_out[:args.num_samples]
     elif args.w1_tot_samples < args.num_samples:
         for i in range(int((args.num_samples - args.w1_tot_samples) / args.batch_size) + 1):
-            gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+            gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
         gen_out = gen_out[:args.num_samples]
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
@@ -61,12 +62,12 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
         parts_real = X_rn.reshape(-1, args.node_feat_size)
         parts_gen = gen_out.reshape(-1, args.node_feat_size)
 
-    print("real, gen outputs: ")
-    print(X_rn.shape)
-    print(gen_out.shape)
+    logging.info("real, gen outputs: ")
+    logging.info(X_rn.shape)
+    logging.info(gen_out.shape)
 
-    print(X_rn[0][:10])
-    print(gen_out[0][:10])
+    logging.info(X_rn[0][:10])
+    logging.info(gen_out[0][:10])
 
     # Plot particle features + jet mass
 
@@ -144,8 +145,8 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
 
         fig = plt.figure(figsize=(30, 7))
 
-        print(x.shape)
-        print(np.array(losses['w1_' + str(args.w1_num_samples[0]) + 'm']).shape)
+        logging.info(x.shape)
+        logging.info(np.array(losses['w1_' + str(args.w1_num_samples[0]) + 'm']).shape)
 
         for i in range(3):
             fig.add_subplot(1, 3, i + 1)
@@ -186,18 +187,18 @@ def save_sample_outputs(args, D, G, X, dist, name, epoch, losses, X_loaded=None,
         remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1j.pdf")
         # remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
     except:
-        print("couldn't remove loss file")
+        logging.info("couldn't remove loss file")
 
-    print("saved figs")
+    logging.info("saved figs")
 
 
 def save_models(args, D, G, optimizers, name, epoch):
     if args.multi_gpu:
-        torch.save(D.module.state_dict(), args.model_path + args.name + "/D_" + str(epoch) + ".pt")
-        torch.save(G.module.state_dict(), args.model_path + args.name + "/G_" + str(epoch) + ".pt")
+        torch.save(D.module.state_dict(), args.models_path + args.name + "/D_" + str(epoch) + ".pt")
+        torch.save(G.module.state_dict(), args.models_path + args.name + "/G_" + str(epoch) + ".pt")
     else:
-        torch.save(D.state_dict(), args.model_path + args.name + "/D_" + str(epoch) + ".pt")
-        torch.save(G.state_dict(), args.model_path + args.name + "/G_" + str(epoch) + ".pt")
+        torch.save(D.state_dict(), args.models_path + args.name + "/D_" + str(epoch) + ".pt")
+        torch.save(G.state_dict(), args.models_path + args.name + "/G_" + str(epoch) + ".pt")
 
-    torch.save(optimizers[0].state_dict(), args.model_path + args.name + "/D_optim_" + str(epoch) + ".pt")
-    torch.save(optimizers[1].state_dict(), args.model_path + args.name + "/G_optim_" + str(epoch) + ".pt")
+    torch.save(optimizers[0].state_dict(), args.models_path + args.name + "/D_optim_" + str(epoch) + ".pt")
+    torch.save(optimizers[1].state_dict(), args.models_path + args.name + "/G_optim_" + str(epoch) + ".pt")

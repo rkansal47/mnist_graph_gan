@@ -19,8 +19,8 @@ plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 70
-epoch = 1945
+model = 88
+epoch = 590
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -64,8 +64,8 @@ args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coo
 args = eval(open("./args/" + "88_t30_real_only_lrg_4e-5_lrd_12e-5_batch_size_256.txt").read())
 args['device'] = device
 args['dataset_path'] = dir + 'datasets/'
-
 args = utils.objectview(args)
+
 X = JetsDataset(args)
 
 labels = X[:][1]
@@ -97,8 +97,6 @@ model
 name
 np.save('./models/' + str(model) + '/' + name + "_gen_out", gen_out)
 # gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
-
-# gen_out /= maxepp
 
 # maxepp = [1.4130558967590332, 0.520724892616272, 0.8537549376487732]
 Xplot = X[:num_samples, :, :].cpu().detach().numpy()

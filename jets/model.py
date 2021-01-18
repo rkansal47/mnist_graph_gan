@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from spectral_normalization import SpectralNorm
+import logging
 
 
 class Graph_GAN(nn.Module):
@@ -151,19 +152,20 @@ class Graph_GAN(nn.Module):
                 for i in range(len(self.fmg)):
                     self.fmg[i] = SpectralNorm(self.fmg[i])
 
-        print("fe: ")
-        print(self.fe)
+        logging.info("fe: ")
+        logging.info(self.fe)
 
-        print("fn: ")
-        print(self.fn)
+        logging.info("fn: ")
+        logging.info(self.fn)
 
         if(self.args.dea):
-            print("fnd: ")
-            print(self.fnd)
+            logging.info("fnd: ")
+            logging.info(self.fnd)
 
         if(self.G and self.args.mask_learn):
-            print("fmg: ")
-            print(self.fmg)
+            logging.info("fmg: ")
+            logging.info(self.fmg)
+
 
     def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
@@ -182,15 +184,13 @@ class Graph_GAN(nn.Module):
                     mask = self.dropout(mask)
 
                 mask = (mask > 0).float() if self.args.mask_learn_bin else torch.sigmoid(mask)
-                if self.args.debug:
-                    print("gen mask")
-                    print(mask[:2, :, 0])
+                logging.debug("gen mask")
+                logging.debug(mask[:2, :, 0])
 
         except AttributeError as err:
             mask_bool = False
 
         for i in range(self.args.mp_iters):
-            # print(i)
             clabel_iter = self.args.clabels and ((i == 0 and self.args.clabels_first_layer) or (i and self.args.clabels_hidden_layers))
 
             node_size = x.size(2)
@@ -203,11 +203,11 @@ class Graph_GAN(nn.Module):
             A = self.getA(x, batch_size, fe_in_size)
 
             if (A != A).any():
-                print("Nan values in A")
-                print("x: ")
-                print(x)
-                print("A: ")
-                print(A)
+                logging.warning("Nan values in A")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
 
             if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits ** 2, 1)), axis=1)
 
@@ -217,26 +217,25 @@ class Graph_GAN(nn.Module):
                 A = self.dropout(A)
 
             if (A != A).any():
-                print("Nan values in A after message passing")
-                print("x: ")
-                print(x)
-                print("A: ")
-                print(A)
+                logging.warning("Nan values in A after message passing")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
 
             # message aggregation into new features
             A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
             if mask_bool:
-                # print(mask)
                 A = A * mask.unsqueeze(1)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
 
             if (x != x).any():
-                print("Nan values in x after message passing")
-                print("x: ")
-                print(x)
-                print("A: ")
-                print(A)
+                logging.warning("Nan values in x after message passing")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
 
             if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, 1)), axis=1)
 
@@ -249,11 +248,11 @@ class Graph_GAN(nn.Module):
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
             if (x != x).any():
-                print("Nan values in x after fn")
-                print("x: ")
-                print(x)
-                print("A: ")
-                print(A)
+                logging.warning("Nan values in x after fn")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
 
         if(self.G):
             x = torch.tanh(x[:, :, :self.args.node_feat_size]) if self.args.gtanh else x[:, :, :self.args.node_feat_size]
@@ -270,9 +269,7 @@ class Graph_GAN(nn.Module):
 
                 try:
                     if self.args.mask_fnd_np:
-                        # print(mask[:2, :, 0])
                         num_particles = torch.mean(mask, dim=1)
-                        # print(num_particles[:2])
                         x = torch.cat((num_particles, x), dim=1)
                 except AttributeError:
                     do_nothing = 0
@@ -286,14 +283,12 @@ class Graph_GAN(nn.Module):
             else:
                 x = x[:, :, :1]
                 if mask_bool:
-                    if self.args.debug:
-                        print("D output pre mask")
-                        print(mask[:2, :, 0])
-                        print(x[:2, :, 0])
+                    logging.debug("D output pre mask")
+                    logging.debug(mask[:2, :, 0])
+                    logging.debug(x[:2, :, 0])
                     x = x * mask
-                    if self.args.debug:
-                        print("post mask")
-                        print(x[:2, :, 0])
+                    logging.debug("post mask")
+                    logging.debug(x[:2, :, 0])
                     x = torch.sum(x, 1) / (torch.sum(mask, 1) + 1e-12)
                 else:
                     x = torch.mean(x, 1)
@@ -304,8 +299,6 @@ class Graph_GAN(nn.Module):
         node_size = x.size(2)
         x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
         x2 = x.repeat(1, self.args.num_hits, 1)
-
-        # print(x.shape)
 
         if(self.args.pos_diffs):
             num_coords = 3 if self.args.coords == 'cartesian' else 2
@@ -332,7 +325,7 @@ class Graph_GAN(nn.Module):
         return A
 
     def init_params(self):
-        print("glorot-ing")
+        logging.info("glorot-ing")
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform(m.weight, self.args.glorot)
