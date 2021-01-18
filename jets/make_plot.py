@@ -13,28 +13,42 @@ import energyflow as ef
 import energyflow.utils as ut
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from model import Graph_GAN
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 7
-epoch = 790
+model = 88
+epoch = 590
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
+w1m = np.loadtxt('./losses/82/w1_10000m.txt')
 
-G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
-w1m = np.loadtxt('./losses/7/w1_100m.txt')
+w1m
+(np.argsort(w1m[:, 0])[:20] * 5, np.sort(w1m[:, 0])[:20])
 
-len(w1m)
-w1std = np.loadtxt('./losses/7/w1_100std.txt')
-w1m[int(795/5)]
-w1std[int(795/5)]
+(np.argsort(w1m[:, 1])[:20] * 5, np.sort(w1m[:, 1])[:20])
 
-plt.plot(w1m[:, 0])
+np.where(np.argsort(w1m[:, 0]) == np.argsort(w1m[:, 1]))
 
-#
+np.argsort(w1m[:, 2])[:20] * 5
+
+s1 = "["
+s2 = "["
+j = 1
+for i in np.argsort(w1m[:, 1])[:20]:
+    s1 += str(np.where(np.argsort(w1m[:, 0]) == i)[0][0] + 1) + ", "
+    s2 += str(np.where(np.argsort(w1m[:, 0]) == i)[0][0] + 1 + j) + ", "
+    j += 1
+s1 = s1[:-2] + "]"
+s2 = s2[:-2] + "]"
+print(s1)
+print(s2)
+
+np.argsort(np.linalg.norm(w1m[:, :3], axis=1))[:20] * 5
+
 # realw1m = [0.00584264, 0.00556786, 0.0014096]
 # realw1std = [0.00214083, 0.00204827, 0.00051136]
 
@@ -45,7 +59,13 @@ normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
 dir = './'
 # dir = '/graphganvol/mnist_graph_gan/jets/'
 
-args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 100, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': False})
+args = utils.objectview({'dataset_path': dir + 'datasets/', 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 0, 'jets': 'g', 'norm': 1, 'mask': True, 'mask_manual': False, 'real_only': False})
+
+args = eval(open("./args/" + "88_t30_real_only_lrg_4e-5_lrd_12e-5_batch_size_256.txt").read())
+args['device'] = device
+args['dataset_path'] = dir + 'datasets/'
+args = utils.objectview(args)
+
 X = JetsDataset(args)
 
 labels = X[:][1]
@@ -57,6 +77,11 @@ rng = np.random.default_rng()
 
 num_samples = 100000
 
+G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
+G = Graph_GAN(True, args)
+G.load_state_dict(torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device))
+
+G.eval()
 if args.clabels:
     gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
     for i in tqdm(range(int(num_samples / batch_size))):
@@ -68,10 +93,10 @@ else:
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
     gen_out = gen_out[:num_samples]
 
-# np.save('./models/' + str(model) + '/' + name + "_gen_out", gen_out)
-gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
-
-# gen_out /= maxepp
+model
+name
+np.save('./models/' + str(model) + '/' + name + "_gen_out", gen_out)
+# gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
 
 # maxepp = [1.4130558967590332, 0.520724892616272, 0.8537549376487732]
 Xplot = X[:num_samples, :, :].cpu().detach().numpy()
@@ -97,21 +122,26 @@ for i in range(num_samples):
             gen_out[i][j][2] = 0
 
 len(gen_out[gen_out[:, :, 2] < 0])
-# num_samples = 100000
 
-plt.hist(Xplot[:, :, 2].reshape(-1), np.arange())
-
-plt.hist(Xplot[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
-
-# pT < 9e-5 means 0
-
-plt.hist(gen_out[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
-
-len(gen_out[gen_out[:, :, 2] < 0.0001])
-
-len(Xplot[Xplot[:, :, 2] < 0.00012])
-
-plt.hist(gen_out[gen_out[:, :, 2] < 0.0001][:, 0], bins[0], histtype='step', label='Real', color='red')
+# # num_samples = 100000
+#
+# plt.hist(Xplot[:, :, 2].reshape(-1), np.arange())
+#
+# plt.hist(Xplot[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
+#
+# np.unique(Xplot[:, :, 2])
+#
+# # pT < 9e-5 means 0 for g100
+# # pT < 1.3e-4 for g30; 10^4 zero-padded
+# # ggp
+#
+# plt.hist(gen_out[:, :, 2].reshape(-1), np.arange(0, 0.0002, 0.000002), histtype='step', label='Real', color='red', log=True)
+#
+# len(gen_out[gen_out[:, :, 2] < 0.0001])
+#
+# len(Xplot[Xplot[:, :, 2] < 0.00012])
+#
+# plt.hist(gen_out[gen_out[:, :, 2] < 0.0001][:, 0], bins[0], histtype='step', label='Real', color='red')
 
 real_masses = []
 real_pt = []
@@ -134,7 +164,7 @@ for i in tqdm(range(num_samples)):
 
     for part in gen_out[i]:
         vec = LorentzVector()
-        if part[2] >= 0.0001:
+        if part[2] >= 0:
             vec.setptetaphim(part[2], part[0], part[1], 0)
         else:
             vec.setptetaphim(0, part[0], part[1], 0)
@@ -146,7 +176,7 @@ for i in tqdm(range(num_samples)):
 len(real_masses)
 len(gen_masses)
 
-binsm = np.arange(0, 0.3, 0.003)
+binsm = np.linspace(0, 0.225, 191)
 binspt = np.arange(0.5, 1.2, 0.007)
 
 fig = plt.figure(figsize=(16, 8))
@@ -174,9 +204,9 @@ plt.savefig(figpath + "_100000_jets_rel_mass_pt_cut.pdf", bbox_inches='tight')
 plt.show()
 
 plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
-sf = [3, 2, 3]
-rnd = [0, 1, 0]
-castings = [int, float, int]
+# sf = [3, 2, 3]
+# rnd = [0, 1, 0]
+# castings = [int, float, int]
 
 if args.jets == 'g':
     bins = [np.arange(-0.3, 0.3, 0.005), np.arange(-0.3, 0.3, 0.005), np.arange(0, 0.2, 0.002)]
@@ -314,10 +344,6 @@ plt.savefig(figpath + "_100000_jets_efp.pdf", bbox_inches='tight')
 plt.show()
 
 fig = plt.figure(figsize=(20, 12))
-bins0 = np.arange(0, 0.0013, step=0.000013)
-bins1 = np.arange(0, 0.0004, step=0.000004)
-
-bins = [bins0, bins1, bins1, bins1, bins1]
 
 for i in range(5):
     fig.add_subplot(2, 3, i + 2)
@@ -340,6 +366,62 @@ plt.legend(loc=1, prop={'size': 18})
 plt.tight_layout(pad=0.5)
 plt.savefig(figpath + "_100000_jets_efp_mass.pdf", bbox_inches='tight')
 plt.show()
+
+
+num_pixels = 100
+Njets = 100000
+img_width = 0.8
+
+average_real_jet_image = np.zeros((num_pixels, num_pixels, 1))
+for i in range(Njets):
+    average_real_jet_image += ut.pixelate(X_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
+average_real_jet_image /= Njets
+
+average_gen_jet_image = np.zeros((num_pixels, num_pixels, 1))
+for i in range(Njets):
+    average_gen_jet_image += ut.pixelate(gen_out_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
+average_gen_jet_image /= Njets
+
+plt.rcParams.update({'font.size': 12})
+fig = plt.figure(figsize=(20, 10))
+fig.add_subplot(1, 2, 1)
+plt.imshow(average_real_jet_image[:, :, 0], origin='lower', cmap = 'binary', norm=LogNorm(vmin=1e-7))
+plt.colorbar()
+plt.title("Average of Real Jets", fontsize=25)
+plt.xlabel('$i\phi$')
+plt.ylabel('$i\eta$')
+
+fig.add_subplot(1, 2, 2)
+plt.imshow(average_gen_jet_image[:, :, 0], origin='lower', cmap='binary', norm=LogNorm(vmin=1e-7))
+plt.colorbar()
+plt.title("Average of Generated Jets", fontsize=25)
+plt.xlabel('$i\phi$')
+plt.ylabel('$i\eta$')
+
+plt.savefig(figpath + '_jets_ave.pdf', dpi=250, bbox_inches='tight')
+plt.show()
+plt.rcParams.update({'font.size': 16})
+
+
+mask_real = Xplot[:, :, 3] + 0.5
+mask_gen = (gen_out[:, :, 2] > ((args.pt_cutoff + 0.5) * args.maxepp[2]).detach().numpy()).astype(float)
+mask_gen
+mask_real
+
+np_gen = np.sum(mask_gen, axis=1)
+np_real = np.sum(mask_real, axis=1)
+
+fig = plt.figure(figsize=(5, 10))
+plt.xlabel('# particles')
+plt.ylabel('# of jets with N particles')
+_ = plt.hist(np_real, np.linspace(25, 30, 6), histtype='step', label='Real', color='red')
+_ = plt.hist(np_gen, np.linspace(25, 30, 6), histtype='step', label='Gen', color='blue')
+plt.legend(loc=2)
+# plt.ylim(0, 10000)
+plt.savefig(figpath + 'np.pdf', dpi=250, bbox_inches='tight')
+plt.show()
+
+
 
 efpset2 = ef.EFPSet(('n==', 2), ('d==', 2), ('p==', 1), measure='hadr', beta=1, normed=None, coords='ptyphim')
 
@@ -427,42 +509,6 @@ plt.ylabel('# Exact - # EFP Jets')
 lg = plt.legend(loc=1, prop={'size': 18})
 plt.savefig(figpath + "_100000_jets_mass_diff.pdf", bbox_inches='tight')
 plt.show()
-
-
-num_pixels = 100
-Njets = 100000
-img_width = 0.8
-
-average_real_jet_image = np.zeros((num_pixels, num_pixels, 1))
-for i in range(Njets):
-    average_real_jet_image += ut.pixelate(X_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
-average_real_jet_image /= Njets
-
-average_gen_jet_image = np.zeros((num_pixels, num_pixels, 1))
-for i in range(Njets):
-    average_gen_jet_image += ut.pixelate(gen_out_efp_format[i, :, :], npix=num_pixels, img_width=img_width, nb_chan=1, norm=False, charged_counts_only=False)
-average_gen_jet_image /= Njets
-
-plt.rcParams.update({'font.size': 12})
-fig = plt.figure(figsize=(20, 10))
-fig.add_subplot(1, 2, 1)
-plt.imshow(average_real_jet_image[:, :, 0], origin='lower', cmap = 'binary', norm=LogNorm(vmin=1e-7))
-plt.colorbar()
-plt.title("Average of Real Jets", fontsize=25)
-plt.xlabel('$i\phi$')
-plt.ylabel('$i\eta$')
-
-fig.add_subplot(1, 2, 2)
-plt.imshow(average_gen_jet_image[:, :, 0], origin='lower', cmap='binary', norm=LogNorm(vmin=1e-7))
-plt.colorbar()
-plt.title("Average of Generated Jets", fontsize=25)
-plt.xlabel('$i\phi$')
-plt.ylabel('$i\eta$')
-
-plt.savefig(figpath + '_jets_ave.pdf', dpi=250, bbox_inches='tight')
-plt.show()
-plt.rcParams.update({'font.size': 16})
-
 
 Nangle = 1000
 

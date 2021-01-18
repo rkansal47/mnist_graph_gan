@@ -20,7 +20,7 @@ from os import path
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import wasserstein_distance
 
-from skhep.math.vectors import LorentzVector
+import logging
 
 cutoff = 0.32178
 
@@ -72,7 +72,7 @@ class MoNet(torch.nn.Module):
 
 
 def get_mu2_sigma2(args, C, X_loaded, fullpath):
-    print("getting mu2, sigma2")
+    logging.info("Getting mu2, sigma2")
     activations = 0
     for batch_ndx, data in tqdm(enumerate(X_loaded), total=len(X_loaded)):
         tg_data = utils.tg_transform(args, data.to(args.device))
@@ -89,8 +89,6 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
 
     activations = np.concatenate((np_activations, activations.cpu().detach().numpy()))  # because torch doesn't have a built in function for calculating the covariance matrix
 
-    print(activations.shape)
-
     mu = np.mean(activations, axis=0)
     sigma = np.cov(activations, rowvar=False)
 
@@ -102,11 +100,11 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
 
 def load(args, X_loaded):
     C = MoNet(25).to(args.device)
-    C.load_state_dict(torch.load(args.eval_path + "C_state_dict.pt"))
+    C.load_state_dict(torch.load(args.evaluation_path + "C_state_dict.pt"))
     numstr = str(args.num) if args.num != -1 else "all_nums"
     dstr = "_sm_nh_" + str(args.num_hits) + "_" if args.sparse_mnist else "_sp_"
-    fullpath = args.eval_path + numstr + dstr
-    print(fullpath)
+    fullpath = args.evaluation_path + numstr + dstr
+    logging.debug(fullpath)
     if path.exists(fullpath + "mu2.txt"):
         mu2 = np.loadtxt(fullpath + "mu2.txt")
         sigma2 = np.loadtxt(fullpath + "sigma2.txt")
@@ -116,14 +114,14 @@ def load(args, X_loaded):
 
 
 # make sure to deepcopy G passing in
-def get_fid(args, C, G, dist, mu2, sigma2):
-    print("evaluating fid")
+def get_fid(args, C, G, mu2, sigma2):
+    logging.info("Evaluating GFD")
     G.eval()
     C.eval()
     num_iters = np.ceil(float(args.fid_eval_size) / float(args.fid_batch_size))
     with torch.no_grad():
         for i in tqdm(range(int(num_iters))):
-            gen_data = utils.tg_transform(args, utils.gen(args, G, dist, args.fid_batch_size))
+            gen_data = utils.tg_transform(args, utils.gen(args, G, args.fid_batch_size))
             if(i == 0):
                 activations = C(gen_data)
             else:
@@ -135,7 +133,7 @@ def get_fid(args, C, G, dist, mu2, sigma2):
     sigma1 = np.cov(activations, rowvar=False)
 
     fid = utils.calculate_frechet_distance(mu1, sigma1, mu2, sigma2)
-    print("fid:" + str(fid))
+    logging.info("GFD:" + str(fid))
 
     return fid
 
@@ -144,8 +142,8 @@ rng = np.random.default_rng()
 
 
 # make sure to deepcopy G passing in
-def calc_jsd(args, X, G, dist):
-    print("evaluating JSD")
+def calc_jsd(args, X, G):
+    logging.info("evaluating JSD")
     G.eval()
 
     bins = [np.arange(-1, 1, 0.02), np.arange(-1, 1, 0.02), np.arange(-1, 1, 0.01)]
@@ -154,9 +152,9 @@ def calc_jsd(args, X, G, dist):
     jsds = []
 
     for j in tqdm(range(10)):
-        gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()
+        gen_out = utils.gen(args, G, num_samples=args.batch_size).cpu().detach().numpy()
         for i in range(int(args.num_samples / args.batch_size)):
-            gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size).cpu().detach().numpy()), 0)
+            gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size).cpu().detach().numpy()), 0)
         gen_out = gen_out[:args.num_samples]
 
         sample = X[rng.choice(N, size=args.num_samples, replace=False)].cpu().detach().numpy()
@@ -173,60 +171,52 @@ def calc_jsd(args, X, G, dist):
 
 
 # make sure to deepcopy G passing in
-def calc_w1(args, X, G, dist, losses, X_loaded=None):
-    print("evaluating 1-WD")
-    num_batches = np.array(100000 / np.array(args.w1_num_samples), dtype=int)
-    # num_batches = [5, 5, 5]
-    G.eval()
+def calc_w1(args, X, G, losses, X_loaded=None):
+    logging.info("Evaluating 1-WD")
 
-    N = len(X)
+    G.eval()
+    gen_out = utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
+    for i in range(int(args.w1_tot_samples / args.batch_size)):
+        gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+    gen_out = gen_out[:args.w1_tot_samples]
+
+    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
+    gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
+
+    if args.jf:
+        realjf = utils.jet_features(X_rn, mask=mask_real)
+        genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
+
+    num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
     for k in range(len(args.w1_num_samples)):
-        print("Num Samples: " + str(args.w1_num_samples[k]))
+        logging.debug("Num Samples: " + str(args.w1_num_samples[k]))
         w1s = []
         if args.jf: w1js = []
-        for j in tqdm(range(num_batches[k])):
-            gen_out = utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
-            for i in range(int(args.w1_num_samples[k] / args.batch_size)):
-                gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=dist, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
-            gen_out = gen_out[:args.w1_num_samples[k]]
+        for j in range(num_batches[k]):
+            G_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
+            X_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
 
-            sample = X[rng.choice(N, size=args.w1_num_samples[k])].cpu().detach().numpy()
-            w1 = []
+            Gsample = gen_out_rn[G_rand_sample]
+            Xsample = X_rn[X_rand_sample]
 
-            for i in range(3):
-                w1.append(wasserstein_distance(sample[:, :, i].reshape(-1), gen_out[:, :, i].reshape(-1)))
+            if args.mask:
+                mask_gen_sample = mask_gen[G_rand_sample]
+                mask_real_sample = mask_real[X_rand_sample]
+                parts_real = Xsample[mask_real_sample]
+                parts_gen = Gsample[mask_gen_sample]
+            else:
+                parts_real = Xsample.reshape(-1, args.node_feat_size)
+                parts_gen = Gsample.reshape(-1, args.node_feat_size)
 
+            w1 = [wasserstein_distance(parts_real[:, i].reshape(-1), parts_gen[:, i].reshape(-1)) for i in range(3)]
             w1s.append(w1)
 
             if args.jf:
-                realj = []
-                genj = []
+                realjf_sample = realjf[X_rand_sample]
+                genjf_sample = genjf[G_rand_sample]
 
-                for i in range(args.w1_num_samples[k]):
-                    jetv = LorentzVector()
-
-                    for part in sample[i]:
-                        vec = LorentzVector()
-                        vec.setptetaphim(part[2], part[0], part[1], 0)
-                        jetv += vec
-
-                    realj.append([jetv.mass, jetv.pt])
-
-                for i in range(args.w1_num_samples[k]):
-                    jetv = LorentzVector()
-
-                    for part in gen_out[i]:
-                        vec = LorentzVector()
-                        vec.setptetaphim(part[2], part[0], part[1], 0)
-                        jetv += vec
-
-                    genj.append([jetv.mass, jetv.pt])
-
-                w1j = []
-                for i in range(len(args.jet_features)):
-                    w1j.append(wasserstein_distance(np.array(realj)[:, i], np.array(genj)[:, i]))
-
+                w1j = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
                 w1js.append(w1j)
 
         losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))
@@ -235,3 +225,5 @@ def calc_w1(args, X, G, dist, losses, X_loaded=None):
         if args.jf:
             losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1js), axis=0))
             losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1js), axis=0))
+
+    return gen_out

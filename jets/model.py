@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from spectral_normalization import SpectralNorm
+import logging
 
 
 class Graph_GAN(nn.Module):
@@ -32,8 +33,8 @@ class Graph_GAN(nn.Module):
             if self.args.deltar:
                 anc += 1
 
-        if self.args.mask:
-            anc += 1
+        # if self.args.mask:
+        #     anc += 1
 
         anc += int(self.args.int_diffs)
         self.args.fe_in_size = 2 * self.args.hidden_node_size + anc + self.args.clabels_hidden_layers
@@ -45,7 +46,7 @@ class Graph_GAN(nn.Module):
         self.args.fn.append(self.args.hidden_node_size)
 
         if(self.args.dea):
-            self.args.fnd.insert(0, self.args.hidden_node_size)
+            self.args.fnd.insert(0, self.args.hidden_node_size + int(self.args.mask_fnd_np))
             self.args.fnd.append(1)
 
         self.fe = nn.ModuleList()
@@ -55,10 +56,12 @@ class Graph_GAN(nn.Module):
             self.bne = nn.ModuleList()
             self.bnn = nn.ModuleList()
 
-        if self.G:
-            first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
-        else:
-            first_layer_node_size = self.args.node_feat_size
+        if self.G: first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
+        else: first_layer_node_size = self.args.node_feat_size
+
+        if self.G and self.args.mask_learn:
+            self.args.fmg.insert(0, first_layer_node_size)
+            self.args.fmg.append(1)
 
         self.args.fe1_in_size = 2 * first_layer_node_size + anc + self.args.clabels_first_layer
         self.args.fe1.insert(0, self.args.fe1_in_size)
@@ -119,6 +122,14 @@ class Graph_GAN(nn.Module):
                 self.fnd.append(linear)
                 if self.args.batch_norm: self.bnd.append(nn.BatchNorm1d(self.args.fnd[i + 1]))
 
+        if self.args.mask_learn and self.G:
+            self.fmg = nn.ModuleList()
+            self.bnmg = nn.ModuleList()
+            for i in range(len(self.args.fmg) - 1):
+                linear = nn.Linear(self.args.fmg[i], self.args.fmg[i + 1])
+                self.fmg.append(linear)
+                if self.args.batch_norm: self.bnmg.append(nn.BatchNorm1d(self.args.fmg[i + 1]))
+
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
 
@@ -137,24 +148,49 @@ class Graph_GAN(nn.Module):
                 for i in range(len(self.fnd)):
                     self.fnd[i] = SpectralNorm(self.fnd[i])
 
-        print("fe: ")
-        print(self.fe)
+            if self.args.mask_learn:
+                for i in range(len(self.fmg)):
+                    self.fmg[i] = SpectralNorm(self.fmg[i])
 
-        print("fn: ")
-        print(self.fn)
+        logging.info("fe: ")
+        logging.info(self.fe)
+
+        logging.info("fn: ")
+        logging.info(self.fn)
 
         if(self.args.dea):
-            print("fnd: ")
-            print(self.fnd)
+            logging.info("fnd: ")
+            logging.info(self.fnd)
 
-    def forward(self, x, labels=None):
+        if(self.G and self.args.mask_learn):
+            logging.info("fmg: ")
+            logging.info(self.fmg)
+
+
+    def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
-        if (self.args.mask_weights or self.args.mask_manual) and self.D:
-            mask = x[:, :, 3:4] + 0.5
-            if self.args.mask_manual: x = x[:, :, :3]
+        try:
+            mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn)) or (self.G and self.args.mask_learn) and epoch >= self.args.mask_epoch
+            if self.D and mask_bool: mask = x[:, :, 3:4] + 0.5
+            if self.D and (self.args.mask_manual or self.args.mask_learn): x = x[:, :, :3]
+
+            if self.G and self.args.mask_learn:
+                mask = F.leaky_relu(self.fmg[0](x), negative_slope=self.args.leaky_relu_alpha)
+                if(self.args.batch_norm): mask = self.bnmg[0](mask)
+                mask = self.dropout(mask)
+                for i in range(len(self.fmg) - 1):
+                    mask = F.leaky_relu(self.fmg[i + 1](mask), negative_slope=self.args.leaky_relu_alpha)
+                    if(self.args.batch_norm): x = self.bnmg[i](x)
+                    mask = self.dropout(mask)
+
+                mask = (mask > 0).float() if self.args.mask_learn_bin else torch.sigmoid(mask)
+                logging.debug("gen mask")
+                logging.debug(mask[:2, :, 0])
+
+        except AttributeError as err:
+            mask_bool = False
 
         for i in range(self.args.mp_iters):
-            # print(i)
             clabel_iter = self.args.clabels and ((i == 0 and self.args.clabels_first_layer) or (i and self.args.clabels_hidden_layers))
 
             node_size = x.size(2)
@@ -166,6 +202,13 @@ class Graph_GAN(nn.Module):
             # message passing
             A = self.getA(x, batch_size, fe_in_size)
 
+            if (A != A).any():
+                logging.warning("Nan values in A")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
+
             if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits ** 2, 1)), axis=1)
 
             for j in range(len(self.fe[i])):
@@ -173,11 +216,26 @@ class Graph_GAN(nn.Module):
                 if(self.args.batch_norm): A = self.bne[i][j](A)  # try before activation
                 A = self.dropout(A)
 
+            if (A != A).any():
+                logging.warning("Nan values in A after message passing")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
+
             # message aggregation into new features
             A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
-            if self.args.mask_manual and self.D: A = A * mask.unsqueeze(1)
+            if mask_bool:
+                A = A * mask.unsqueeze(1)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
+
+            if (x != x).any():
+                logging.warning("Nan values in x after message passing")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
 
             if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, 1)), axis=1)
 
@@ -189,34 +247,58 @@ class Graph_GAN(nn.Module):
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
+            if (x != x).any():
+                logging.warning("Nan values in x after fn")
+                logging.warning("x: ")
+                logging.warning(x)
+                logging.warning("A: ")
+                logging.warning(A)
+
         if(self.G):
-            # if(self.args.coords == 'polarrel' or self.args.coords == 'polarrelabspt'):
-            #     x = torch.cat((x[:, :, :2], torch.relu(x[:, :, 2].unsqueeze(-1))), axis=2)
-            return torch.tanh(x[:, :, :self.args.node_feat_size]) if self.args.gtanh else x[:, :, :self.args.node_feat_size]
+            x = torch.tanh(x[:, :, :self.args.node_feat_size]) if self.args.gtanh else x[:, :, :self.args.node_feat_size]
+            if mask_bool:
+                x = torch.cat((x, mask - 0.5), dim=2)
+            return x
         else:
             if(self.args.dea):
-                x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
+                if mask_bool:
+                    x = x * mask
+                    x = torch.sum(x, 1)
+                    if not self.args.sum: x = x / (torch.sum(mask, 1) + 1e-12)
+                else: x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
+
+                try:
+                    if self.args.mask_fnd_np:
+                        num_particles = torch.mean(mask, dim=1)
+                        x = torch.cat((num_particles, x), dim=1)
+                except AttributeError:
+                    do_nothing = 0
+
                 for i in range(len(self.fnd) - 1):
                     x = F.leaky_relu(self.fnd[i](x), negative_slope=self.args.leaky_relu_alpha)
                     if(self.args.batch_norm): x = self.bnd[i](x)
                     x = self.dropout(x)
+
                 x = self.dropout(self.fnd[-1](x))
             else:
-                if self.args.mask_weights or self.args.mask_manual: x = x[:, :, :1] * mask
-                else: x = x[:, :, :1]
+                x = x[:, :, :1]
+                if mask_bool:
+                    logging.debug("D output pre mask")
+                    logging.debug(mask[:2, :, 0])
+                    logging.debug(x[:2, :, 0])
+                    x = x * mask
+                    logging.debug("post mask")
+                    logging.debug(x[:2, :, 0])
+                    x = torch.sum(x, 1) / (torch.sum(mask, 1) + 1e-12)
+                else:
+                    x = torch.mean(x, 1)
 
-                x = torch.sum(x, 1) if (self.args.loss == 'w' or self.args.loss == 'hinge' or not self.args.dearlysigmoid) else torch.sum(torch.sigmoid(x), 1)
-                x = x / torch.sum(mask, 1) if self.args.mask_weights else x / self.args.num_hits
-
-            # if self.args.debug: print(x[0, :10, 0])
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
 
     def getA(self, x, batch_size, fe_in_size):
         node_size = x.size(2)
         x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
         x2 = x.repeat(1, self.args.num_hits, 1)
-
-        # print(x.shape)
 
         if(self.args.pos_diffs):
             num_coords = 3 if self.args.coords == 'cartesian' else 2
@@ -230,8 +312,11 @@ class Graph_GAN(nn.Module):
             elif self.args.deltacoords:
                 A = torch.cat((x1, x2, diffs), 2)
 
-            if(self.args.mask):
-                A = torch.cat((A, x2[:, :, 3].unsqueeze(2)), 2)
+            # try:
+            #     if(self.args.mask):
+            #         A = torch.cat((A, x2[:, :, 3].unsqueeze(2)), 2)
+            # except AttributeError:
+            #     do_nothing = 0
 
             A = A.view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
         else:
@@ -240,7 +325,7 @@ class Graph_GAN(nn.Module):
         return A
 
     def init_params(self):
-        print("glorot-ing")
+        logging.info("glorot-ing")
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform(m.weight, self.args.glorot)
