@@ -24,7 +24,8 @@ epoch = 815
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
-w1m = np.loadtxt('./losses/82/w1_10000m.txt')
+# w1m = np.loadtxt('./losses/82/w1_10000m.txt')
+w1m = np.loadtxt('./w1j_10000m.txt')
 
 w1m
 (np.argsort(w1m[:, 0])[:20] * 5, np.sort(w1m[:, 0])[:20])

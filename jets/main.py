@@ -110,7 +110,7 @@ def main():
         if(args.start_epoch == 0 and args.save_zero):
             if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
             else: gen_out = None
-            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], args.name, 0, losses, X_loaded=X_loaded, gen_out=gen_out)
+            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], 0, losses, X_loaded=X_loaded, gen_out=gen_out)
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
@@ -129,7 +129,7 @@ def main():
                 data = data[0].to(args.device)
 
                 if args.num_critic > 1 or (batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                    D_loss_items = train_D(data, labels=labels, epoch=i, print_output=(batch_ndx == lenX))  # print outputs for the last iteration of each epoch
+                    D_loss_items = train_D(data, labels=labels, epoch=i, print_output=(batch_ndx == lenX - 1))  # print outputs for the last iteration of each epoch
                     for key in D_losses: epoch_loss[key] += D_loss_items[key]
 
                 if args.num_critic == 1 or (batch_ndx - 1) % args.num_critic == 0:
@@ -138,6 +138,9 @@ def main():
                 if args.bottleneck:
                     if(batch_ndx == 10):
                         return
+
+                if(batch_ndx == 0):
+                    break
 
             logging.info("Epoch {} Training Over".format(i + 1))
 
@@ -156,7 +159,7 @@ def main():
             if((i + 1) % args.save_epochs == 0):
                 if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
                 else: gen_out = None
-                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], args.name, i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
+                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
 
     train()
 

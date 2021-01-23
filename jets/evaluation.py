@@ -24,6 +24,8 @@ import logging
 
 cutoff = 0.32178
 
+# need to turn this into a class eventually - can load and save mu and sigma, X features etc.
+
 
 def normalized_cut_2d(edge_index, pos):
     row, col = edge_index
@@ -175,10 +177,7 @@ def calc_w1(args, X, G, losses, X_loaded=None):
     logging.info("Evaluating 1-WD")
 
     G.eval()
-    gen_out = utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
-    for i in range(int(args.w1_tot_samples / args.batch_size)):
-        gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
-    gen_out = gen_out[:args.w1_tot_samples]
+    gen_out = utils.gen_multi_batch(args, G, args.w1_tot_samples)
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
     gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
@@ -186,6 +185,9 @@ def calc_w1(args, X, G, losses, X_loaded=None):
     if args.jf:
         realjf = utils.jet_features(X_rn, mask=mask_real)
         genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
+
+        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+        genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
 
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
@@ -216,8 +218,13 @@ def calc_w1(args, X, G, losses, X_loaded=None):
                 realjf_sample = realjf[X_rand_sample]
                 genjf_sample = genjf[G_rand_sample]
 
-                w1j = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
-                w1js.append(w1j)
+                realefp_sample = realefp[X_rand_sample]
+                genefp_sample = genefp[X_rand_sample]
+
+                w1jf = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
+                w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
+
+                w1js.append([i for t in (w1jf, w1jefp) for i in t])
 
         losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))
         losses['w1_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1s), axis=0))

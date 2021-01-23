@@ -14,6 +14,8 @@ import io
 
 from torch.distributions.normal import Normal
 
+import energyflow as ef
+
 
 # from https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/38895482#38895482
 class TqdmToLogger(io.StringIO):
@@ -146,6 +148,15 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     if args.mask_manual: gen_data = mask_manual(args, gen_data)
 
     return gen_data
+
+
+def gen_multi_batch(args, G, num_samples, noise=None, labels=None, X_loaded=None):
+    gen_out = gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
+    for i in range(int(num_samples / args.batch_size)):
+        gen_out = np.concatenate((gen_out, gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+    gen_out = gen_out[:num_samples]
+
+    return gen_out
 
 
 # from https://github.com/EmilienDupont/wgan-gp
@@ -338,3 +349,18 @@ def unnorm_data(args, jets, real=True, rem_zero=True):
                     jets[i][j][2] = 0
 
     return jets, mask
+
+
+def efp(args, jets, mask=None, real=True):
+    efpset = ef.EFPSet(('n==', 4), ('d==', 4), ('p==', 1), measure='hadr', beta=1, normed=None, coords='ptyphim')
+
+    efp_format = np.concatenate((np.expand_dims(jets[:, :, 2], 2), jets[:, :, :2], np.zeros((jets.shape[0], jets.shape[1], 1))), axis=2)
+
+    if not real and args.mask:
+        for i in range(jets.shape[0]):
+            for j in range(args.num_hits):
+                if not mask[i][j]:
+                    for k in range(4):
+                        efp_format[i][j][k] = 0
+
+    return efpset.batch_compute(efp_format)

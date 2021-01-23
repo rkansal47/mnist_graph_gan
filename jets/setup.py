@@ -281,10 +281,15 @@ def init_model_dirs(args):
         if args.name != "test" and not args.load_model and not args.override_load_check:
             logging.error("Name already used - exiting")
             sys.exit()
-    else:
-        mkdir(args.losses_path + args.name)
-        mkdir(args.models_path + args.name)
-        mkdir(args.figs_path + args.name)
+
+    try: mkdir(args.losses_path + args.name)
+    except FileExistsError: logging.debug("losses dir exists")
+
+    try: mkdir(args.models_path + args.name)
+    except FileExistsError: logging.debug("models dir exists")
+
+    try: mkdir(args.figs_path + args.name)
+    except FileExistsError: logging.debug("figs dir exists")
 
     return args
 

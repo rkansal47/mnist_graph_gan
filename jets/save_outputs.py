@@ -8,13 +8,11 @@ import mplhep as hep
 import logging
 
 plt.switch_backend('agg')
+plt.rcParams.update({'font.size': 16})
+plt.style.use(hep.style.CMS)
 
 
-def save_sample_outputs(args, D, G, X, name, epoch, losses, X_loaded=None, gen_out=None):
-    logging.info("drawing figs")
-    plt.rcParams.update({'font.size': 16})
-    plt.style.use(hep.style.CMS)
-
+def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, losses, name, show=False):
     if args.coords == 'cartesian':
         plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
         bin = np.arange(-500, 500, 10)
@@ -32,31 +30,6 @@ def save_sample_outputs(args, D, G, X, name, epoch, losses, X_loaded=None, gen_o
         plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
         pbins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 400, 4)]
 
-    jlabels = ['Relative Mass', 'Relative $p_T']
-    mbins = np.arange(0, 0.225, 0.0045)
-
-    # Generating data
-
-    G.eval()
-    if gen_out is None:
-        logging.info("gen out none")
-        gen_out = utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
-        for i in range(int(args.num_samples / args.batch_size)):
-            gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
-        gen_out = gen_out[:args.num_samples]
-    elif args.w1_tot_samples < args.num_samples:
-        logging.info("gen out not large enough: size {}".format(len(gen_out)))
-        for i in range(int((args.num_samples - args.w1_tot_samples) / args.batch_size) + 1):
-            gen_out = np.concatenate((gen_out, utils.gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
-        gen_out = gen_out[:args.num_samples]
-
-    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
-    gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.num_samples], real=False)
-
-    if args.jf:
-        realjf = utils.jet_features(X_rn, mask=mask_real)
-        genjf = utils.jet_features(gen_out, mask=mask_gen)
-
     if args.mask:
         parts_real = X_rn[mask_real]
         parts_gen = gen_out[mask_gen]
@@ -64,43 +37,65 @@ def save_sample_outputs(args, D, G, X, name, epoch, losses, X_loaded=None, gen_o
         parts_real = X_rn.reshape(-1, args.node_feat_size)
         parts_gen = gen_out.reshape(-1, args.node_feat_size)
 
-    logging.info("real, gen outputs: ")
-    logging.info(X_rn.shape)
-    logging.info(gen_out.shape)
-
-    logging.info(X_rn[0][:10])
-    logging.info(gen_out[0][:10])
-
-    # Plot particle features + jet mass
-
-    fig = plt.figure(figsize=(30, 8))
+    fig = plt.figure(figsize=(22, 8))
 
     for i in range(3):
-        fig.add_subplot(1, 4, i + 1)
+        fig.add_subplot(1, 3, i + 1)
         plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
         _ = plt.hist(parts_real[:, i], pbins[i], histtype='step', label='Real', color='red')
         _ = plt.hist(parts_gen[:, i], pbins[i], histtype='step', label='Generated', color='blue')
         plt.xlabel('Particle ' + plabels[i])
         plt.ylabel('Number of Particles')
-        # plt.title('JSD = ' + str(round(losses['jsdm'][-1][i], 3)) + ' ± ' + str(round(losses['jsdstd'][-1][i], 3)))
+        plt.title('$W_1$ = {:.2e}'.format(losses['w1_' + str(args.w1_num_samples[-1]) + 'm'][-1][i]), fontsize=12)
         plt.legend(loc=1, prop={'size': 18})
 
-    fig.add_subplot(1, 4, 4)
+    plt.tight_layout(2.0)
+    plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
+    if show: plt.show()
+    else: plt.close()
+
+
+def plot_jet_feats(args, realjf, genjf, realefp, genefp, losses, name, show=False):
+    if args.jets == 'g':
+        bins0 = np.linspace(0, 0.0013, 101)
+        bins1 = np.linspace(0, 0.0004, 101)
+        bins = [bins0, bins1, bins1, bins1, bins1]
+    else:
+        binranges = [0.0045, 0.0035, 0.004, 0.002, 0.003]
+        bins = [np.linspace(0, binr, 101) for binr in binranges]
+
+    if args.jets == 'g' or args.jets == 'q' or args.jets == 't': mbins = np.linspace(0, 0.225, 51)
+    else: mbins = np.linspace(0, 0.12, 51)
+
+    fig = plt.figure(figsize=(20, 12))
+
+    for i in range(5):
+        fig.add_subplot(2, 3, i + 2)
+        plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+        plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
+        _ = plt.hist(realefp[:, i], bins[i], histtype='step', label='Real', color='red')
+        _ = plt.hist(genefp[:, i], bins[i], histtype='step', label='Generated', color='blue')
+        plt.xlabel('EFP ' + str(i + 1), x = 0.7)
+        plt.ylabel('Jets')
+        plt.legend(loc=1, prop={'size': 18})
+        plt.title('$W_1$ = {:.2e}'.format(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'][-1][i + 2]), fontsize=16)
+
+    fig.add_subplot(2, 3, 1)
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-    # plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
     _ = plt.hist(realjf[:, 0], bins=mbins, histtype='step', label='Real', color='red')
     _ = plt.hist(genjf[:, 0], bins=mbins, histtype='step', label='Generated', color='blue')
     plt.xlabel('Jet $m/p_{T}$')
     plt.ylabel('Jets')
     plt.legend(loc=1, prop={'size': 18})
+    plt.title('$W_1$ = {:.2e}'.format(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'][-1][0]), fontsize=16)
 
-    name = args.name + "/" + str(epoch)
-    plt.tight_layout(2.0)
+    plt.tight_layout(pad=0.5)
     plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
-    plt.close()
+    if show: plt.show()
+    else: plt.close()
 
-    # Plot loss
 
+def plot_losses(args, losses, name, show=False):
     plt.figure()
 
     if(args.loss == "og" or args.loss == "ls"):
@@ -119,77 +114,112 @@ def save_sample_outputs(args, D, G, X, name, epoch, losses, X_loaded=None, gen_o
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
+
     plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
-    plt.close()
+    if show: plt.show()
+    else: plt.close()
 
-    # Plot fid
 
-    if args.fid:
-        fid_5 = losses['fid'][::5]
-        x = np.arange(len(losses['fid']), step=5)
+def plot_w1(args, losses, name, epoch, show=False):
+    if args.coords == 'cartesian': plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
+    elif args.coords == 'polarrel': plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
+    elif args.coords == 'polarrelabspt': plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
+    jlabels = ['Relative Mass', 'Relative $p_T', 'EFP']
+    colors = ['blue', 'green', 'orange', 'red', 'yellow']
 
-        plt.figure()
-        plt.plot(x, np.log10(fid_5))
-        # plt.ylim((0, 5))
+    x = np.arange(0, epoch + 1, args.save_epochs)[-len(losses['w1_' + str(args.w1_num_samples[0]) + 'm']):]
+
+    if args.jf: fig = plt.figure(figsize=(30, 16))
+    else: fig = plt.figure(figsize=(30, 7))
+
+    for i in range(3):
+        if args.jf: fig.add_subplot(2, 3, i + 1)
+        else: fig.add_subplot(1, 3, i + 1)
+
+        for k in range(len(args.w1_num_samples)):
+            plt.plot(x, np.log10(np.array(losses['w1_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
+            # plt.fill_between(x, np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] - np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] + np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), color=colors[k], alpha=0.2)
+            # plt.plot(x, np.ones(len(x)) * np.log10(realw1m[k][i]), '--', label=str(args.num_samples[k]) + ' Real $W_1$', color=colors[k])
+            # plt.fill_between(x, np.log10(np.ones(len(x)) * (realw1m[k][i] - realw1std[k][i])), np.log10(np.ones(len(x)) * (realw1m[k][i] + realw1std[k][i])), color=colors[k], alpha=0.2)
+        plt.legend(loc=1)
         plt.xlabel('Epoch')
-        plt.ylabel('Log10FID')
-        # plt.legend()
-        plt.savefig(args.losses_path + name + "_fid.pdf", bbox_inches='tight')
-        plt.close()
+        plt.ylabel('Particle ' + plabels[i] + ' Log$W_1$')
 
-    # Plot W1
+    if args.jf:
+        x = np.arange(0, epoch + 1, args.save_epochs)[-len(losses['w1j_' + str(args.w1_num_samples[0]) + 'm']):]
 
-    if args.w1 and epoch >= 5:
-        x = np.arange(0, epoch + 1, 5)[-len(losses['w1_' + str(args.w1_num_samples[0]) + 'm']):]
-
-        plt.rcParams.update({'font.size': 12})
-        colors = ['blue', 'green', 'orange']
-
-        fig = plt.figure(figsize=(30, 7))
-
-        logging.info(x.shape)
-        logging.info(np.array(losses['w1_' + str(args.w1_num_samples[0]) + 'm']).shape)
-
-        for i in range(3):
-            fig.add_subplot(1, 3, i + 1)
+        for i in range(2):
+            fig.add_subplot(2, 3, i + 4)
             for k in range(len(args.w1_num_samples)):
-                plt.plot(x, np.log10(np.array(losses['w1_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
-                # plt.fill_between(x, np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] - np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] + np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), color=colors[k], alpha=0.2)
-                # plt.plot(x, np.ones(len(x)) * np.log10(realw1m[k][i]), '--', label=str(args.num_samples[k]) + ' Real W1', color=colors[k])
-                # plt.fill_between(x, np.log10(np.ones(len(x)) * (realw1m[k][i] - realw1std[k][i])), np.log10(np.ones(len(x)) * (realw1m[k][i] + realw1std[k][i])), color=colors[k], alpha=0.2)
-            plt.legend(loc=2, prop={'size': 11})
+                plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
+            plt.legend(loc=1)
             plt.xlabel('Epoch')
-            plt.ylabel('Particle ' + plabels[i] + ' LogW1')
+            plt.ylabel(jlabels[i] + ' Log$W_1$')
 
-        plt.savefig(args.losses_path + name + "_w1.pdf", bbox_inches='tight')
-        plt.close()
+        fig.add_subplot(2, 3, 6)
+        for i in range(5):
+            plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'])[:, i + 2]), label='EFP ' + str(i + 1), color=colors[i])
+        plt.legend(loc=1)
+        plt.xlabel('Epoch')
+        plt.ylabel('Jet EFPs Log$W_1$')
 
-        if args.jf:
-            x = np.arange(0, epoch + 1, 5)[-len(losses['w1j_' + str(args.w1_num_samples[0]) + 'm']):]
-            fig = plt.figure(figsize=(20, 7))
+    plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
+    if show: plt.show()
+    else: plt.close()
 
-            for i in range(2):
-                fig.add_subplot(1, 2, i + 1)
-                for k in range(len(args.w1_num_samples)):
-                    plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
-                plt.legend(loc=2, prop={'size': 11})
-                plt.xlabel('Epoch')
-                plt.ylabel('Particle ' + jlabels[i] + ' LogW1')
 
-            plt.savefig(args.losses_path + name + "_w1j.pdf", bbox_inches='tight')
-            plt.close()
+def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=None):
+    logging.info("drawing figs")
+
+    # Generating data
+    G.eval()
+    if gen_out is None:
+        logging.info("gen out none")
+        gen_out = utils.gen_multi_batch(args, G, args.num_samples)
+    elif args.w1_tot_samples < args.num_samples:
+        logging.info("gen out not large enough: size {}".format(len(gen_out)))
+        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.w1_tot_samples)), 0)
+
+    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
+    gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.num_samples], real=False)
+
+    logging.info("real, gen outputs: \n {} \n {} \n {} \n {}".format(X_rn.shape, gen_out.shape, X_rn[0][:10], gen_out[0][:10]))
+    # logging.info(X_rn.shape)
+    # logging.info(gen_out.shape)
+    # logging.info(X_rn[0][:10])
+    # logging.info(gen_out[0][:10])
+
+    name = args.name + "/" + str(epoch)
+
+    plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, losses, name + 'p')
+
+    if args.jf:
+        realjf = utils.jet_features(X_rn, mask=mask_real)
+        genjf = utils.jet_features(gen_out, mask=mask_gen)
+
+        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+        genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
+
+        plot_jet_feats(args, realjf, genjf, realefp, genefp, losses, name + 'j')
+
+    if len(losses['G']) > 1: plot_losses(args, losses, name)
+    # if args.fid: plot_fid(args, losses, name)
+    if args.w1 and len(losses['w1_' + str(args.w1_num_samples[-1]) + 'm']) > 1: plot_w1(args, losses, name + '_w1', epoch)
 
     # save losses and remove earlier ones
-
     for key in losses: np.savetxt(args.losses_path + args.name + "/" + key + '.txt', losses[key])
 
-    try:
-        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
-        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1.pdf")
-        remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1j.pdf")
-        # remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
-    except:
-        logging.info("couldn't remove loss file")
+    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
+    except: logging.info("couldn't remove loss file")
+
+    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1.pdf")
+    except: logging.info("couldn't remove loss file")
+
+    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1j.pdf")
+    except: logging.info("couldn't remove loss file")
+
+    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
+    except: logging.info("couldn't remove loss file")
 
     logging.info("saved figs")
 
