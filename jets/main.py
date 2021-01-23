@@ -114,12 +114,6 @@ def main():
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
-            # Dr_loss = 0
-            # Df_loss = 0
-            # G_loss = 0
-            # D_loss = 0
-            # gp_loss = 0
-            # epoch_loss = {'Dr': 0, 'Df': 0, 'D': 0, 'G': 0}
             D_losses = ['Dr', 'Df', 'D']
             if args.gp: D_losses.append('gp')
             epoch_loss = {'G': 0}
@@ -135,12 +129,8 @@ def main():
                 data = data[0].to(args.device)
 
                 if args.num_critic > 1 or (batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                    D_loss_items = train_D(data, labels=labels, epoch=i, print_output=(batch_ndx == lenX / args.batch_size))  # print outputs for the last iteration of each epoch
+                    D_loss_items = train_D(data, labels=labels, epoch=i, print_output=(batch_ndx == lenX))  # print outputs for the last iteration of each epoch
                     for key in D_losses: epoch_loss[key] += D_loss_items[key]
-                    # D_loss += D_loss_items['D']
-                    # Dr_loss += D_loss_items['Dr']
-                    # Df_loss += D_loss_items['Df']
-                    # if(args.gp): epoch_loss['gp'] += D_loss_items['gp']
 
                 if args.num_critic == 1 or (batch_ndx - 1) % args.num_critic == 0:
                     epoch_loss['G'] += train_G(data, labels=labels, epoch=i)
@@ -154,19 +144,6 @@ def main():
             for key in D_losses: losses[key].append(epoch_loss[key] / (lenX / args.num_gen))
             losses['G'].append(epoch_loss['G'] / (lenX / args.num_critic))
             for key in epoch_loss.keys(): logging.info("{} loss: {:.3f}".format(key, losses[key][-1]))
-
-            # losses['D'].append(D_loss / (lenX / args.num_gen))
-            # losses['Dr'].append(Dr_loss / (lenX / args.num_gen))
-            # losses['Df'].append(Df_loss / (lenX / args.num_gen))
-            # losses['G'].append(G_loss / (lenX / args.num_critic))
-            # if(args.gp): losses['gp'].append(gp_loss / (lenX / args.num_gen))
-
-            # logging.info("d loss: " + str(losses['D'][-1]))
-            # logging.info("g loss: " + str(losses['G'][-1]))
-            # logging.info("dr loss: " + str(losses['Dr'][-1]))
-            # logging.info("df loss: " + str(losses['Df'][-1]))
-            #
-            # if(args.gp): logging.info("gp loss: " + str(losses['gp'][-1]))
 
             if((i + 1) % 5 == 0):
                 optimizers = (D_optimizer, G_optimizer)
