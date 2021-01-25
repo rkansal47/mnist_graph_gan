@@ -46,6 +46,7 @@ def parse_args():
     parser.add_argument("--save-epochs", type=int, default=5, help="save outputs per how many epochs")
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
+    utils.add_bool_arg(parser, "break-zero", "break after 1 iteration", default=False)
 
     parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't', 'w', 'z', 'q'])
 
@@ -219,14 +220,14 @@ def check_args(args):
 
     if(args.batch_size == 0):
         if args.multi_gpu:
-            if args.num_hits == 30:
+            if args.num_hits <= 30:
                 args.batch_size = 128
-            elif args.num_hits == 100:
+            else:
                 args.batch_size = 32
         else:
-            if args.num_hits == 30:
+            if args.num_hits <= 30:
                 args.batch_size = 256
-            elif args.num_hits == 100:
+            else:
                 args.batch_size = 32
 
     if(args.n):

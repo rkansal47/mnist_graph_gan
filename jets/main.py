@@ -139,8 +139,9 @@ def main():
                     if(batch_ndx == 10):
                         return
 
-                # if(batch_ndx == 0):
-                #     break
+                if args.break_zero:
+                    if(batch_ndx == 0):
+                        break
 
             logging.info("Epoch {} Training Over".format(i + 1))
 

@@ -57,12 +57,13 @@ def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, losses, name, show
 
 def plot_jet_feats(args, realjf, genjf, realefp, genefp, losses, name, show=False):
     if args.jets == 'g':
-        bins0 = np.linspace(0, 0.0013, 101)
-        bins1 = np.linspace(0, 0.0004, 101)
-        bins = [bins0, bins1, bins1, bins1, bins1]
+        binranges = [0.0013, 0.0004, 0.0004, 0.0004, 0.0004]
+    elif args.jets == 'q':
+        binranges = [0.002, 0.001, 0.001, 0.001, 0.001]
     else:
         binranges = [0.0045, 0.0035, 0.004, 0.002, 0.003]
-        bins = [np.linspace(0, binr, 101) for binr in binranges]
+
+    bins = [np.linspace(0, binr, 101) for binr in binranges]
 
     if args.jets == 'g' or args.jets == 'q' or args.jets == 't': mbins = np.linspace(0, 0.225, 51)
     else: mbins = np.linspace(0, 0.12, 51)

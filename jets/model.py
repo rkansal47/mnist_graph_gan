@@ -187,7 +187,7 @@ class Graph_GAN(nn.Module):
                 logging.debug("gen mask")
                 logging.debug(mask[:2, :, 0])
 
-        except AttributeError as err:
+        except AttributeError:
             mask_bool = False
 
         for i in range(self.args.mp_iters):
@@ -202,12 +202,7 @@ class Graph_GAN(nn.Module):
             # message passing
             A = self.getA(x, batch_size, fe_in_size)
 
-            if (A != A).any():
-                logging.warning("Nan values in A")
-                logging.warning("x: ")
-                logging.warning(x)
-                logging.warning("A: ")
-                logging.warning(A)
+            if (A != A).any(): logging.warning("Nan values in A \n x: \n {} \n A: \n {}".format(x, A))
 
             if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits ** 2, 1)), axis=1)
 
@@ -216,26 +211,15 @@ class Graph_GAN(nn.Module):
                 if(self.args.batch_norm): A = self.bne[i][j](A)  # try before activation
                 A = self.dropout(A)
 
-            if (A != A).any():
-                logging.warning("Nan values in A after message passing")
-                logging.warning("x: ")
-                logging.warning(x)
-                logging.warning("A: ")
-                logging.warning(A)
+            if (A != A).any(): logging.warning("Nan values in A after message passing \n x: \n {} \n A: \n {}".format(x, A))
 
             # message aggregation into new features
             A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
-            if mask_bool:
-                A = A * mask.unsqueeze(1)
+            if mask_bool: A = A * mask.unsqueeze(1)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
 
-            if (x != x).any():
-                logging.warning("Nan values in x after message passing")
-                logging.warning("x: ")
-                logging.warning(x)
-                logging.warning("A: ")
-                logging.warning(A)
+            if (x != x).any(): logging.warning("Nan values in x after message passing \n x: \n {} \n A: \n {}".format(x, A))
 
             if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, 1)), axis=1)
 
@@ -247,12 +231,7 @@ class Graph_GAN(nn.Module):
             x = self.dropout(self.fn[i][-1](x))
             x = x.view(batch_size, self.args.num_hits, self.args.hidden_node_size)
 
-            if (x != x).any():
-                logging.warning("Nan values in x after fn")
-                logging.warning("x: ")
-                logging.warning(x)
-                logging.warning("A: ")
-                logging.warning(A)
+            if (x != x).any(): logging.warning("Nan values in x after fn \n x: \n {} \n A: \n {}".format(x, A))
 
         if(self.G):
             x = torch.tanh(x[:, :, :self.args.node_feat_size]) if self.args.gtanh else x[:, :, :self.args.node_feat_size]
@@ -267,12 +246,9 @@ class Graph_GAN(nn.Module):
                     if not self.args.sum: x = x / (torch.sum(mask, 1) + 1e-12)
                 else: x = torch.sum(x, 1) if self.args.sum else torch.mean(x, 1)
 
-                try:
-                    if self.args.mask_fnd_np:
-                        num_particles = torch.mean(mask, dim=1)
-                        x = torch.cat((num_particles, x), dim=1)
-                except AttributeError:
-                    do_nothing = 0
+                if hasattr(self.args, 'mask_fnd_np') and self.args.mask_fnd_np:
+                    num_particles = torch.mean(mask, dim=1)
+                    x = torch.cat((num_particles, x), dim=1)
 
                 for i in range(len(self.fnd) - 1):
                     x = F.leaky_relu(self.fnd[i](x), negative_slope=self.args.leaky_relu_alpha)
