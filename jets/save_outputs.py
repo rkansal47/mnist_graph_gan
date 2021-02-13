@@ -210,7 +210,7 @@ def plot_w1(args, losses, name, epoch, show=False):
     if args.coords == 'cartesian': plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
     elif args.coords == 'polarrel': plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
     elif args.coords == 'polarrelabspt': plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
-    jlabels = ['Relative Mass', 'Relative $p_T', 'EFP']
+    jlabels = ['Relative Mass', 'Relative $p_T$', 'EFP']
     colors = ['blue', 'green', 'orange', 'red', 'yellow']
 
     x = np.arange(0, epoch + 1, args.save_epochs)[-len(losses['w1_' + str(args.w1_num_samples[0]) + 'm']):]
