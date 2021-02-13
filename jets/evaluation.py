@@ -179,8 +179,12 @@ def calc_w1(args, X, G, losses, X_loaded=None):
     G.eval()
     gen_out = utils.gen_multi_batch(args, G, args.w1_tot_samples)
 
+    logging.info("Generated Data")
+
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
     gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
+
+    logging.info("Unnormed data")
 
     if args.jf:
         realjf = utils.jet_features(X_rn, mask=mask_real)
@@ -192,7 +196,7 @@ def calc_w1(args, X, G, losses, X_loaded=None):
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
     for k in range(len(args.w1_num_samples)):
-        logging.debug("Num Samples: " + str(args.w1_num_samples[k]))
+        logging.info("Num Samples: " + str(args.w1_num_samples[k]))
         w1s = []
         if args.jf: w1js = []
         for j in range(num_batches[k]):
