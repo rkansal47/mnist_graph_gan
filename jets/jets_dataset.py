@@ -24,7 +24,7 @@ class JetsDataset(Dataset):
                 self.X = dataset[cutoff:]
         elif args.coords == 'polarrel' or args.coords == 'polarrelabspt':
             args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
-            if args.mask_feat:
+            if hasattr(args, 'mask_feat') and args.mask_feat:
                 args.maxepp.append(1.0)
 
             logging.debug("Max Vals: " + str(args.maxepp))

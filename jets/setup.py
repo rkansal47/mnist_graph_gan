@@ -16,6 +16,7 @@ import numpy as np
 
 import logging
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 

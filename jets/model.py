@@ -59,7 +59,7 @@ class Graph_GAN(nn.Module):
         if self.G: first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
         else: first_layer_node_size = self.args.node_feat_size
 
-        if self.G and self.args.mask_learn:
+        if self.G and hasattr(self.args, 'mask_learn') and self.args.mask_learn:
             self.args.fmg.insert(0, first_layer_node_size)
             self.args.fmg.append(1)
 

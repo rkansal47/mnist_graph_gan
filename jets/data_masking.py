@@ -19,8 +19,6 @@ for t in jet_types:
 for t in jet_types:
     torch.save(datasets[t], './datasets/all_' + t + '_jets_150p_polarrel_mask.pt')
 
-torch.load('./datasets/all_g_jets_100p_polarrel_mask.pt')[:]
-
 for t in jet_types:
     print("{} {} jets total, ave {:.1f} non-zero padded particles per jet".format(len(datasets[t]), t, torch.sum(masks[t]) / len(datasets[t])))
 
@@ -61,21 +59,21 @@ len(datasets30['t'][(datasets30['t'][:, :, 3] + 0.5).bool()])
 torch.mean(nps30['t']) * len(nps30['t'])
 
 plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
-bins = [np.linspace(-0.5, 0.5, 200), np.linspace(-0.5, 0.5, 200), np.linspace(0, 0.2, 100)]
+bins = [np.linspace(-0.3, 0.3, 200), np.linspace(-0.3, 0.3, 200), np.linspace(0, 0.2, 100)]
 
 fig = plt.figure(figsize=(22, 8))
 
 for i in range(3):
     fig.add_subplot(1, 3, i + 1)
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-    _ = plt.hist(datasets30['t'][:, :, i].detach().numpy().reshape(-1), bins[i], label='With 0P', histtype='step', color='blue')
-    _ = plt.hist(parts['t'][:, i].detach().numpy().reshape(-1), bins[i], label='Without 0P', histtype='step', color='red')
+    _ = plt.hist(datasets30['z'][:, :, i].detach().numpy().reshape(-1), bins[i], label='With 0P', histtype='step', color='blue')
+    _ = plt.hist(parts['z'][:, i].detach().numpy().reshape(-1), bins[i], label='Without 0P', histtype='step', color='red')
     plt.xlabel('Particle ' + plabels[i])
     plt.ylabel('Particles')
     plt.legend(prop={'size': 18})
 
 plt.tight_layout(pad=2.0)
-plt.savefig("figs/all_t30_0pcomp_150.pdf", bbox_inches='tight')
+plt.savefig("figs/all_z30_0pcomp_150.pdf", bbox_inches='tight')
 plt.show()
 
 
