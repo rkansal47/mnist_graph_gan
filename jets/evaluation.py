@@ -190,8 +190,12 @@ def calc_w1(args, X, G, losses, X_loaded=None):
         realjf = utils.jet_features(X_rn, mask=mask_real)
         genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
 
+        logging.info("Obtained jet features")
+
         realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
         genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
+
+        logging.info("Obtained EFPs")
 
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
