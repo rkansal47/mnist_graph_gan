@@ -111,6 +111,7 @@ def parse_args():
     utils.add_bool_arg(parser, "mask-learn-bin", "binary or continuous learnt mask", default=True)
     utils.add_bool_arg(parser, "mask-fnd-np", "use num masked particles as an additional arg in D (dea will automatically be set true)", default=False)
     utils.add_bool_arg(parser, "mask-c", "conditional mask", default=False)
+    utils.add_bool_arg(parser, "mask-fne-np", "pass num particles as features into fn and fe", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
     # optimization

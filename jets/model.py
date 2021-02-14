@@ -37,12 +37,12 @@ class Graph_GAN(nn.Module):
         #     anc += 1
 
         anc += int(self.args.int_diffs)
-        self.args.fe_in_size = 2 * self.args.hidden_node_size + anc + self.args.clabels_hidden_layers
+        self.args.fe_in_size = 2 * self.args.hidden_node_size + anc + self.args.clabels_hidden_layers + self.args.mask_fne_np
         self.args.fe_out_size = self.args.fe[-1]
         self.args.fe.insert(0, self.args.fe_in_size)
 
         # self.args.hidden_node_size += self.args.clabels_hidden_layers
-        self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size + self.args.clabels_hidden_layers)
+        self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size + self.args.clabels_hidden_layers + self.args.mask_fne_np)
         self.args.fn.append(self.args.hidden_node_size)
 
         if(self.args.dea):
@@ -63,7 +63,7 @@ class Graph_GAN(nn.Module):
             self.args.fmg.insert(0, first_layer_node_size)
             self.args.fmg.append(1)
 
-        self.args.fe1_in_size = 2 * first_layer_node_size + anc + self.args.clabels_first_layer
+        self.args.fe1_in_size = 2 * first_layer_node_size + anc + self.args.clabels_first_layer + self.args.mask_fne_np
         self.args.fe1.insert(0, self.args.fe1_in_size)
         self.args.fe1_out_size = self.args.fe1[-1]
         fe_iter = nn.ModuleList()
@@ -77,7 +77,7 @@ class Graph_GAN(nn.Module):
         if self.args.batch_norm: self.bne.append(bne)
 
         # first_layer_node_size += self.args.clabels_first_layer
-        self.args.fn1.insert(0, self.args.fe1_out_size + first_layer_node_size + self.args.clabels_first_layer)
+        self.args.fn1.insert(0, self.args.fe1_out_size + first_layer_node_size + self.args.clabels_first_layer + self.args.mask_fne_np)
         self.args.fn1.append(self.args.hidden_node_size)
 
         # node network
@@ -188,14 +188,19 @@ class Graph_GAN(nn.Module):
                 logging.debug(mask[:2, :, 0])
 
             if self.G and self.args.mask_c:
-                np = (labels[:, self.args.clabels] * self.args.num_hits).int() - 1
-                mask = (x[:, :, 0].argsort(1).argsort(1) <= np.unsqueeze(1)).unsqueeze(2).int()
+                nump = (labels[:, self.args.clabels] * self.args.num_hits).int() - 1
+                mask = (x[:, :, 0].argsort(1).argsort(1) <= nump.unsqueeze(1)).unsqueeze(2).float()
                 logging.debug("x")
                 logging.debug(x[:2, :, 0])
-                logging.debug("np")
-                logging.debug(np[:2])
+                logging.debug("nump")
+                logging.debug(nump[:2])
                 logging.debug("gen mask")
                 logging.debug(mask[:2, :, 0])
+
+            if self.args.mask_fne_np:
+                nump = torch.mean(mask, dim=1)
+                logging.debug("nump")
+                logging.debug(nump[:2])
 
 
         except AttributeError:
@@ -209,13 +214,16 @@ class Graph_GAN(nn.Module):
             fe_out_size = self.args.fe_out_size if i else self.args.fe1_out_size
 
             if clabel_iter: fe_in_size -= self.args.clabels
+            if self.args.mask_fne_np: fe_in_size -= 1
 
             # message passing
             A = self.getA(x, batch_size, fe_in_size)
 
             if (A != A).any(): logging.warning("Nan values in A \n x: \n {} \n A: \n {}".format(x, A))
 
+            # NEED TO FIX FOR MASK-FNE-NP + CLABELS (probably just labels --> labels[:, :self.args.clabels])
             if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits ** 2, 1)), axis=1)
+            if self.args.mask_fne_np: A = torch.cat((A, nump.repeat(self.args.num_hits ** 2, 1)), axis=1)
 
             for j in range(len(self.fe[i])):
                 A = F.leaky_relu(self.fe[i][j](A), negative_slope=self.args.leaky_relu_alpha)
@@ -233,6 +241,7 @@ class Graph_GAN(nn.Module):
             if (x != x).any(): logging.warning("Nan values in x after message passing \n x: \n {} \n A: \n {}".format(x, A))
 
             if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, 1)), axis=1)
+            if self.args.mask_fne_np: x = torch.cat((x, nump.repeat(self.args.num_hits, 1)), axis=1)
 
             for j in range(len(self.fn[i]) - 1):
                 x = F.leaky_relu(self.fn[i][j](x), negative_slope=self.args.leaky_relu_alpha)
