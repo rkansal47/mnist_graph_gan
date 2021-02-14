@@ -190,18 +190,18 @@ def calc_w1(args, X, G, losses, X_loaded=None):
         realjf = utils.jet_features(X_rn, mask=mask_real)
 
         logging.info("Obtained real jet features")
-        
+
         genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
 
         logging.info("Obtained gen jet features")
 
-        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
-
-        logging.info("Obtained Real EFPs")
-
-        genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
-
-        logging.info("Obtained Gen EFPs")
+        # realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+        #
+        # logging.info("Obtained Real EFPs")
+        #
+        # genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
+        #
+        # logging.info("Obtained Gen EFPs")
 
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
@@ -232,13 +232,14 @@ def calc_w1(args, X, G, losses, X_loaded=None):
                 realjf_sample = realjf[X_rand_sample]
                 genjf_sample = genjf[G_rand_sample]
 
-                realefp_sample = realefp[X_rand_sample]
-                genefp_sample = genefp[X_rand_sample]
+                # realefp_sample = realefp[X_rand_sample]
+                # genefp_sample = genefp[X_rand_sample]
 
                 w1jf = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
-                w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
+                # w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
 
-                w1js.append([i for t in (w1jf, w1jefp) for i in t])
+                # w1js.append([i for t in (w1jf, w1jefp) for i in t])
+                w1js.append(w1jf)
 
         losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))
         losses['w1_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1s), axis=0))

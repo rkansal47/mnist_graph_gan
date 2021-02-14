@@ -171,7 +171,7 @@ def plot_jet_mass_pt(args, realjf, genjf, name, show=False):
     plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
     _ = plt.hist(realjf[:, 1], bins=binspt, histtype='step', label='Real', color='red')
     _ = plt.hist(genjf[:, 1], bins=binspt, histtype='step', label='Generated', color='blue')
-    plt.xlabel('Jet Relative Pt')
+    plt.xlabel('Jet Relative $p_T$')
     plt.ylabel('Jets')
     plt.legend(loc=1, prop={'size': 18})
 
@@ -242,12 +242,12 @@ def plot_w1(args, losses, name, epoch, show=False):
             plt.xlabel('Epoch')
             plt.ylabel(jlabels[i] + ' Log$W_1$')
 
-        fig.add_subplot(2, 3, 6)
-        for i in range(5):
-            plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'])[:, i + 2]), label='EFP ' + str(i + 1), color=colors[i])
-        plt.legend(loc=1)
-        plt.xlabel('Epoch')
-        plt.ylabel('Jet EFPs Log$W_1$')
+        # fig.add_subplot(2, 3, 6)
+        # for i in range(5):
+        #     plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'])[:, i + 2]), label='EFP ' + str(i + 1), color=colors[i])
+        # plt.legend(loc=1)
+        # plt.xlabel('Epoch')
+        # plt.ylabel('Jet EFPs Log$W_1$')
 
     plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     if show: plt.show()
@@ -279,10 +279,11 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
         realjf = utils.jet_features(X_rn, mask=mask_real)
         genjf = utils.jet_features(gen_out, mask=mask_gen)
 
-        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
-        genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
+        # realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+        # genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
 
-        plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
+        # plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
+        plot_jet_mass_pt(args, realjf, genjf, name + 'j', losses)
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)
