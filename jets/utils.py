@@ -363,4 +363,6 @@ def efp(args, jets, mask=None, real=True):
                     for k in range(4):
                         efp_format[i][j][k] = 0
 
+    logging.info("Batch Computing")
+
     return efpset.batch_compute(efp_format)
