@@ -177,7 +177,7 @@ def calc_w1(args, X, G, losses, X_loaded=None):
     logging.info("Evaluating 1-WD")
 
     G.eval()
-    gen_out = utils.gen_multi_batch(args, G, args.w1_tot_samples)
+    gen_out = utils.gen_multi_batch(args, G, args.w1_tot_samples, X_loaded=X_loaded)
 
     logging.info("Generated Data")
 

@@ -138,7 +138,7 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
         noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
     else: num_samples = noise.size(0)
 
-    if args.clabels and labels is None:
+    if (args.clabels or args.mask_c) and labels is None:
         labels = next(iter(X_loaded))[1].to(args.device)
         while(labels.size(0) < num_samples):
             labels = torch.cat((labels, next(iter(X_loaded))[1]), axis=0)

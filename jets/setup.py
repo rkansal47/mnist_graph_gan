@@ -71,7 +71,7 @@ def parse_args():
     parser.add_argument("--hidden-node-size", type=int, default=32, help="hidden vector size of each node (incl node feature size)")
     parser.add_argument("--latent-node-size", type=int, default=0, help="latent vector size of each node - 0 means same as hidden node size")
 
-    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and detach", choices=[0, 1, 2])
+    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and eta", choices=[0, 1, 2])
     utils.add_bool_arg(parser, "clabels-fl", "use conditional labels in first layer", default=True)
     utils.add_bool_arg(parser, "clabels-hl", "use conditional labels in hidden layers", default=True)
 
@@ -110,6 +110,7 @@ def parse_args():
     utils.add_bool_arg(parser, "mask-learn", "learn mask from latent vars only use during gen", default=False)
     utils.add_bool_arg(parser, "mask-learn-bin", "binary or continuous learnt mask", default=True)
     utils.add_bool_arg(parser, "mask-fnd-np", "use num masked particles as an additional arg in D (dea will automatically be set true)", default=False)
+    utils.add_bool_arg(parser, "mask-c", "conditional mask", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
     # optimization
@@ -247,7 +248,7 @@ def check_args(args):
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
-    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only: args.mask = True
+    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c: args.mask = True
     else: args.mask = False
 
     if args.mask_feat: args.node_feat_size += 1
@@ -312,6 +313,8 @@ def init_logging(args):
 
     tqdm_out = utils.TqdmToLogger(logging.getLogger(), level=level)
     # print("print test")
+
+    logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
 
     return args, tqdm_out
 

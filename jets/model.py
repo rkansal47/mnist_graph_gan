@@ -170,9 +170,9 @@ class Graph_GAN(nn.Module):
     def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
         try:
-            mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn)) or (self.G and self.args.mask_learn) and epoch >= self.args.mask_epoch
+            mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn or self.args.mask_c)) or (self.G and (self.args.mask_learn or self.args.mask_c)) and epoch >= self.args.mask_epoch
             if self.D and mask_bool: mask = x[:, :, 3:4] + 0.5
-            if self.D and (self.args.mask_manual or self.args.mask_learn): x = x[:, :, :3]
+            if self.D and (self.args.mask_manual or self.args.mask_learn or self.args.mask_c): x = x[:, :, :3]
 
             if self.G and self.args.mask_learn:
                 mask = F.leaky_relu(self.fmg[0](x), negative_slope=self.args.leaky_relu_alpha)
@@ -180,12 +180,23 @@ class Graph_GAN(nn.Module):
                 mask = self.dropout(mask)
                 for i in range(len(self.fmg) - 1):
                     mask = F.leaky_relu(self.fmg[i + 1](mask), negative_slope=self.args.leaky_relu_alpha)
-                    if(self.args.batch_norm): x = self.bnmg[i](x)
+                    if(self.args.batch_norm): mask = self.bnmg[i](mask)
                     mask = self.dropout(mask)
 
                 mask = (mask > 0).float() if self.args.mask_learn_bin else torch.sigmoid(mask)
                 logging.debug("gen mask")
                 logging.debug(mask[:2, :, 0])
+
+            if self.G and self.args.mask_c:
+                np = (labels[:, self.args.clabels] * self.args.num_hits).int() - 1
+                mask = (x[:, :, 0].argsort(1).argsort(1) <= np.unsqueeze(1)).unsqueeze(2).int()
+                logging.debug("x")
+                logging.debug(x[:2, :, 0])
+                logging.debug("np")
+                logging.debug(np[:2])
+                logging.debug("gen mask")
+                logging.debug(mask[:2, :, 0])
+
 
         except AttributeError:
             mask_bool = False

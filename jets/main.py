@@ -123,7 +123,7 @@ def main():
 
             bar = tqdm(enumerate(X_loaded), total=lenX, mininterval=0.1, desc="Epoch {}".format(i + 1))
             for batch_ndx, data in bar:
-                if args.clabels: labels = data[1].to(args.device)
+                if args.clabels or args.mask_c: labels = data[1].to(args.device)
                 else: labels = None
 
                 data = data[0].to(args.device)

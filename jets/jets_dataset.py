@@ -48,6 +48,14 @@ class JetsDataset(Dataset):
 
         self.jet_features = jet_features * args.norm
 
+        if args.mask_c:
+            num_particles = (torch.sum(dataset[:, :, 3] + 0.5, dim=1) / args.num_hits).unsqueeze(1)
+
+            if args.clabels:
+                self.jet_features = torch.cat((self.jet_features, num_particles), dim=1)
+            else:
+                self.jet_features = num_particles
+
         logging.info("Dataset shape: " + str(self.X.shape))
 
     def __len__(self):

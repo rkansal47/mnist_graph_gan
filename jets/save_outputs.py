@@ -261,10 +261,10 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
     G.eval()
     if gen_out is None:
         logging.info("gen out none")
-        gen_out = utils.gen_multi_batch(args, G, args.num_samples)
+        gen_out = utils.gen_multi_batch(args, G, args.num_samples, X_loaded=X_loaded)
     elif args.w1_tot_samples < args.num_samples:
         logging.info("gen out not large enough: size {}".format(len(gen_out)))
-        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.w1_tot_samples)), 0)
+        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.w1_tot_samples, X_loaded=X_loaded)), 0)
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
     gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.num_samples], real=False)
