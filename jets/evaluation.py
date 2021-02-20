@@ -199,19 +199,19 @@ def calc_w1(args, X, G, losses, X_loaded=None):
         #
         # logging.info("Obtained gen jet features")
 
-        print(h.heap())
+        logging.info(h.heap())
 
         realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
 
         logging.info("Obtained Real EFPs")
 
-        print(h.heap())
+        logging.info(h.heap())
 
         genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
 
         logging.info("Obtained Gen EFPs")
 
-        print(h.heap())
+        logging.info(h.heap())
 
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
@@ -238,24 +238,24 @@ def calc_w1(args, X, G, losses, X_loaded=None):
             w1 = [wasserstein_distance(parts_real[:, i].reshape(-1), parts_gen[:, i].reshape(-1)) for i in range(3)]
             w1s.append(w1)
 
-            if args.jf:
-                realjf_sample = realjf[X_rand_sample]
-                genjf_sample = genjf[G_rand_sample]
-
-                # realefp_sample = realefp[X_rand_sample]
-                # genefp_sample = genefp[X_rand_sample]
-
-                w1jf = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
-                # w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
-
-                # w1js.append([i for t in (w1jf, w1jefp) for i in t])
-                w1js.append(w1jf)
+            # if args.jf:
+            #     realjf_sample = realjf[X_rand_sample]
+            #     genjf_sample = genjf[G_rand_sample]
+            #
+            #     # realefp_sample = realefp[X_rand_sample]
+            #     # genefp_sample = genefp[X_rand_sample]
+            #
+            #     w1jf = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
+            #     # w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
+            #
+            #     # w1js.append([i for t in (w1jf, w1jefp) for i in t])
+            #     w1js.append(w1jf)
 
         losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))
         losses['w1_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1s), axis=0))
 
-        if args.jf:
-            losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1js), axis=0))
-            losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1js), axis=0))
+        # if args.jf:
+        #     losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1js), axis=0))
+        #     losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1js), axis=0))
 
     return gen_out

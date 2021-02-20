@@ -368,6 +368,6 @@ def efp(args, jets, mask=None, real=True):
 
     logging.info("Batch Computing")
 
-    print(h.heap())
+    logging.info(h.heap())
 
     return efpset.batch_compute(efp_format)

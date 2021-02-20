@@ -275,19 +275,19 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
 
     plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name + 'p', losses)
 
-    if args.jf:
-        realjf = utils.jet_features(X_rn, mask=mask_real)
-        genjf = utils.jet_features(gen_out, mask=mask_gen)
+    # if args.jf:
+        # realjf = utils.jet_features(X_rn, mask=mask_real)
+        # genjf = utils.jet_features(gen_out, mask=mask_gen)
 
         # realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
         # genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
 
         # plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
-        plot_jet_mass_pt(args, realjf, genjf, name + 'j', losses)
+        # plot_jet_mass_pt(args, realjf, genjf, name + 'j', losses)
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)
-    if args.w1 and len(losses['w1_' + str(args.w1_num_samples[-1]) + 'm']) > 1: plot_w1(args, losses, name + '_w1', epoch)
+    # if args.w1 and len(losses['w1_' + str(args.w1_num_samples[-1]) + 'm']) > 1: plot_w1(args, losses, name + '_w1', epoch)
 
     # save losses and remove earlier ones
     for key in losses: np.savetxt(args.losses_path + args.name + "/" + key + '.txt', losses[key])
