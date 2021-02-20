@@ -7,6 +7,9 @@ from torch.utils.data import DataLoader
 
 from tqdm import tqdm
 
+from guppy import hpy
+h = hpy()
+
 # from parallel import DataParallelModel, DataParallelCriterion
 
 import logging
@@ -108,9 +111,12 @@ def main():
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, mu2, sigma2))
         if(args.start_epoch == 0 and args.save_zero):
+            print(h.heap())
             if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
             else: gen_out = None
+            print(h.heap())
             save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], 0, losses, X_loaded=X_loaded, gen_out=gen_out)
+            print(h.heap())
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
@@ -158,9 +164,12 @@ def main():
                 losses['fid'].append(evaluation.get_fid(args, C, G, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
+                print(h.heap())
                 if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
                 else: gen_out = None
+                print(h.heap())
                 save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
+                print(h.heap())
 
     train()
 

@@ -22,6 +22,10 @@ from scipy.stats import wasserstein_distance
 
 import logging
 
+from guppy import hpy
+h = hpy()
+
+
 cutoff = 0.32178
 
 # need to turn this into a class eventually - can load and save mu and sigma, X features etc.
@@ -187,21 +191,27 @@ def calc_w1(args, X, G, losses, X_loaded=None):
     logging.info("Unnormed data")
 
     if args.jf:
-        realjf = utils.jet_features(X_rn, mask=mask_real)
-
-        logging.info("Obtained real jet features")
-
-        genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
-
-        logging.info("Obtained gen jet features")
-
-        # realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+        # realjf = utils.jet_features(X_rn, mask=mask_real)
         #
-        # logging.info("Obtained Real EFPs")
+        # logging.info("Obtained real jet features")
         #
-        # genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
+        # genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
         #
-        # logging.info("Obtained Gen EFPs")
+        # logging.info("Obtained gen jet features")
+
+        print(h.heap())
+
+        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+
+        logging.info("Obtained Real EFPs")
+
+        print(h.heap())
+
+        genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
+
+        logging.info("Obtained Gen EFPs")
+
+        print(h.heap())
 
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 

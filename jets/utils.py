@@ -16,6 +16,9 @@ from torch.distributions.normal import Normal
 
 import energyflow as ef
 
+from guppy import hpy
+h = hpy()
+
 
 # from https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/38895482#38895482
 class TqdmToLogger(io.StringIO):
@@ -364,5 +367,7 @@ def efp(args, jets, mask=None, real=True):
                         efp_format[i][j][k] = 0
 
     logging.info("Batch Computing")
+
+    print(h.heap())
 
     return efpset.batch_compute(efp_format)
