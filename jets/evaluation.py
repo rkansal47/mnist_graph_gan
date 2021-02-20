@@ -204,12 +204,15 @@ def calc_w1(args, X, G, losses, X_loaded=None):
         realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
 
         logging.info("Obtained Real EFPs")
+        logging.info(realefp.shape)
+
 
         logging.info(h.heap())
 
         genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
 
         logging.info("Obtained Gen EFPs")
+        logging.info(gen.shape)
 
         logging.info(h.heap())
 
