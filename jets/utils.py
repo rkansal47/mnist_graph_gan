@@ -6,8 +6,6 @@ from torch.autograd import grad as torch_grad
 import numpy as np
 from scipy import linalg
 
-from skhep.math.vectors import LorentzVector
-
 import logging
 import tqdm
 import io
@@ -16,7 +14,9 @@ from torch.distributions.normal import Normal
 
 import energyflow as ef
 
-import awkward1 as ak
+from sys import platform
+if platform == 'linux': import awkward as ak
+else: import awkward1 as ak
 from coffea.nanoevents.methods import vector
 ak.behavior.update(vector.behavior)
 
