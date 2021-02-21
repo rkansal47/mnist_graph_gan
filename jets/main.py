@@ -111,6 +111,7 @@ def main():
             if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
             else: gen_out = None
             save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], 0, losses, X_loaded=X_loaded, gen_out=gen_out)
+            del(gen_out)
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
@@ -161,6 +162,7 @@ def main():
                 if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
                 else: gen_out = None
                 save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
+                del(gen_out)
 
     train()
 

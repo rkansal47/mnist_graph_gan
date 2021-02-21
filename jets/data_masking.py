@@ -127,3 +127,8 @@ for i in range(3):
 
 plt.tight_layout(pad=2.0)
 plt.show()
+
+
+dataset = torch.load('datasets/all_q_jets_150p_polarrel_mask.pt')
+
+torch.sum(dataset[:, :, 3] + 0.5, dim=1).unsqueeze(1)

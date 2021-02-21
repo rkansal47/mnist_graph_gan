@@ -19,6 +19,10 @@ import save_outputs
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
+import awkward1 as ak
+from coffea.nanoevents.methods import vector
+ak.behavior.update(vector.behavior)
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = 92
@@ -67,6 +71,7 @@ args['device'] = device
 args['datasets_path'] = dir + 'datasets/'
 args['mask_feat'] = False
 args['mask_learn'] = False
+args['mask_c'] = False
 args['figs_path'] = dir + 'figs/' + str(model) + '/' + str(epoch)
 args = utils.objectview(args)
 
@@ -107,11 +112,11 @@ gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
 
 X_rn, mask_real = utils.unnorm_data(args, X[:num_samples].cpu().detach().numpy(), real=True)
 gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out, real=False)
-
-gen_out_rn = gen_out[:, :, :3]
-gen_out_rn = gen_out_rn / args.norm
-# gen_out_rn[:, :, 2] += 0.5
-gen_out_rn *= args.maxepp
+#
+# gen_out_rn = gen_out[:, :, :3]
+# gen_out_rn = gen_out_rn / args.norm
+# # gen_out_rn[:, :, 2] += 0.5
+# gen_out_rn *= args.maxepp
 
 for i in range(num_samples):
     for j in range(args.num_hits):
@@ -123,6 +128,70 @@ print(gen_out_rn.shape)
 
 print(X_rn[0][:10])
 print(gen_out_rn[0][:10])
+
+
+test_vecs = ak.zip({
+        "pt": [1, 2],
+        "eta": [0.1, 0.2],
+        "phi": [0.1, 0.2],
+        "mass": [0, 0]
+        }, with_name="PtEtaPhiMLorentzVector")
+
+ak.sum(test_vecs, axis=0)
+
+test_vecs[0] + test_vecs[1]
+
+ak.Array()
+
+genvecs = ak.zip({
+        "pt": gen_out_rn[:, :, 2],
+        "eta": gen_out_rn[:, :, 0],
+        "phi": gen_out_rn[:, :, 1],
+        "mass": ak.full_like(gen_out_rn[:, :, 2], 0),
+        }, with_name="PtEtaPhiMLorentzVector")
+
+genvecs[0][0]
+genvecs[0]
+
+genvec = ak.zip({
+        "pt": gen_out_rn[0, :, 2],
+        "eta": gen_out_rn[0, :, 0],
+        "phi": gen_out_rn[0, :, 1],
+        "mass": ak.full_like(gen_out_rn[0, :, 2], 0),
+}, with_name="PtEtaPhiMLorentzVector")
+
+genvec
+
+ak.sum(genvec, axis=0)['eta']
+
+jet_sums = ak.zip({
+        "pt": np.zeros(gen_out_rn.shape[0]),
+        "eta": np.zeros(gen_out_rn.shape[0]),
+        "phi": np.zeros(gen_out_rn.shape[0]),
+        "mass": np.zeros(gen_out_rn.shape[0]),
+        }, with_name="PtEtaPhiMLorentzVector")
+
+for j in range(len(gen_out_rn[0])):
+    jet_sums = jet_sums + genvecs[:, j]
+
+jet_sums[0].pt
+
+for for j in range(len(gen_out_rn[0])):
+
+(genvecs[0][0] + genvecs[0][1]).mass
+
+ak.sum(genvecs, axis=1)[0]
+
+jetv = LorentzVector()
+
+for j in range(len(gen_out_rn[0])):
+    part = gen_out_rn[0][j]
+    vec = LorentzVector()
+    vec.setptetaphim(part[2], part[0], part[1], 0)
+    jetv += vec
+
+jetv.pt
+
 
 realjf = utils.jet_features(X_rn, args.mask, mask_real)
 genjf = utils.jet_features(gen_out_rn, args.mask, mask_gen)

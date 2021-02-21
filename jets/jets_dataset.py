@@ -48,7 +48,7 @@ class JetsDataset(Dataset):
 
         self.jet_features = jet_features * args.norm
 
-        if args.mask_c:
+        if hasattr(args, 'mask_c') and args.mask_c:
             num_particles = (torch.sum(dataset[:, :, 3] + 0.5, dim=1) / args.num_hits).unsqueeze(1)
 
             if args.clabels:
