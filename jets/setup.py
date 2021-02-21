@@ -48,6 +48,7 @@ def parse_args():
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
     utils.add_bool_arg(parser, "break-zero", "break after 1 iteration", default=False)
+    utils.add_bool_arg(parser, "low-samples", "small number of samples for debugging", default=False)
 
     parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't', 'w', 'z', 'q'])
 
@@ -257,6 +258,11 @@ def check_args(args):
     if args.mask_learn:
         if args.fmg == [0]:
             args.fmg = []
+
+    if args.low_samples:
+        args.w1_tot_samples = 1000
+        args.w1_num_samples = [10, 100]
+        args.num_samples = 1000
 
     return args
 

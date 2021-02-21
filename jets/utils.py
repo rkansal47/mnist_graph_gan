@@ -340,7 +340,7 @@ def unnorm_data(args, jets, real=True, rem_zero=True):
         jets = jets[:, :, :3]
         jets = jets / args.norm
         jets[:, :, 2] += 0.5
-        jets *= args.maxepp
+        jets *= args.maxepp[:3]
 
     if not real and rem_zero:
         for i in range(len(jets)):

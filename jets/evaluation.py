@@ -225,7 +225,8 @@ def calc_w1(args, X, G, losses, X_loaded=None):
                 parts_real = Xsample.reshape(-1, args.node_feat_size)
                 parts_gen = Gsample.reshape(-1, args.node_feat_size)
 
-            w1 = [wasserstein_distance(parts_real[:, i].reshape(-1), parts_gen[:, i].reshape(-1)) for i in range(3)]
+            if not len(parts_gen): w1 = [1, 1, 1]
+            else: w1 = [wasserstein_distance(parts_real[:, i].reshape(-1), parts_gen[:, i].reshape(-1)) for i in range(3)]
             w1s.append(w1)
 
             if args.jf:

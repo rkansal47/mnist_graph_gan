@@ -171,7 +171,7 @@ class Graph_GAN(nn.Module):
         batch_size = x.shape[0]
         try:
             mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn or self.args.mask_c)) or (self.G and (self.args.mask_learn or self.args.mask_c)) and epoch >= self.args.mask_epoch
-            if self.D and mask_bool: mask = x[:, :, 3:4] + 0.5
+            if self.D and (mask_bool or self.args.mask_fnd_np): mask = x[:, :, 3:4] + 0.5
             if self.D and (self.args.mask_manual or self.args.mask_learn or self.args.mask_c): x = x[:, :, :3]
 
             if self.G and self.args.mask_learn:
