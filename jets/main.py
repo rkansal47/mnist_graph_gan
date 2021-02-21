@@ -150,7 +150,7 @@ def main():
             losses['G'].append(epoch_loss['G'] / (lenX / args.num_critic))
             for key in epoch_loss.keys(): logging.info("{} loss: {:.3f}".format(key, losses[key][-1]))
 
-            if((i + 1) % 5 == 0):
+            if((i + 1) % args.save_model_epochs == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
                 # if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
