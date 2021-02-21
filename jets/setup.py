@@ -104,6 +104,7 @@ def parse_args():
     # utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
 
     utils.add_bool_arg(parser, "mask-feat", "add mask as fourth feature", default=False)
+    utils.add_bool_arg(parser, "mask-feat-bin", "binary fourth feature", default=False)
     utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
     utils.add_bool_arg(parser, "mask-manual", "manually mask generated nodes with pT less than cutoff", default=False)
     utils.add_bool_arg(parser, "mask-exp", "exponentially decaying or binary mask; relevant only if mask-manual is true", default=False)

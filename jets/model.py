@@ -257,6 +257,9 @@ class Graph_GAN(nn.Module):
             x = torch.tanh(x[:, :, :self.args.node_feat_size]) if self.args.gtanh else x[:, :, :self.args.node_feat_size]
             if mask_bool:
                 x = torch.cat((x, mask - 0.5), dim=2)
+            if hasattr(self.args, 'mask_feat_bin') and self.args.mask_feat_bin:
+                mask = (x[:, :, 3:4] > 0).float() - 0.5
+                x = torch.cat((x[:, :, :3], mask), dim=2)
             return x
         else:
             if(self.args.dea):
