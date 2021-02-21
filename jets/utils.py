@@ -19,6 +19,8 @@ import energyflow as ef
 from guppy import hpy
 h = hpy()
 
+import multiprocessing
+
 
 # from https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/38895482#38895482
 class TqdmToLogger(io.StringIO):
@@ -369,5 +371,7 @@ def efp(args, jets, mask=None, real=True):
     logging.info("Batch Computing")
 
     logging.info(h.heap())
+
+    logging.info("Start method \n {}".format(multiprocessing.get_start_method()))
 
     return efpset.batch_compute(efp_format)

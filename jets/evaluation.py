@@ -25,6 +25,8 @@ import logging
 from guppy import hpy
 h = hpy()
 
+import multiprocessing
+
 
 cutoff = 0.32178
 
@@ -201,15 +203,20 @@ def calc_w1(args, X, G, losses, X_loaded=None):
 
         logging.info(h.heap())
 
+        logging.info("Start method \n {}".format(multiprocessing.get_start_method()))
+
         realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
 
         logging.info("Obtained Real EFPs")
         logging.info(realefp.shape)
 
+        logging.info("Start method \n {}".format(multiprocessing.get_start_method()))
 
         logging.info(h.heap())
 
         genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
+
+        logging.info("Start method \n {}".format(multiprocessing.get_start_method()))
 
         logging.info("Obtained Gen EFPs")
         logging.info(genefp.shape)
