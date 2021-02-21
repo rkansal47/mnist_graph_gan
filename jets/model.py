@@ -258,7 +258,7 @@ class Graph_GAN(nn.Module):
             if mask_bool:
                 x = torch.cat((x, mask - 0.5), dim=2)
             if hasattr(self.args, 'mask_feat_bin') and self.args.mask_feat_bin:
-                mask = (x[:, :, 3:4] > 0).float() - 0.5
+                mask = (x[:, :, 3:4] < 0).float() - 0.5     # inversing mask sign for positive mask initializations
                 x = torch.cat((x[:, :, :3], mask), dim=2)
             return x
         else:
