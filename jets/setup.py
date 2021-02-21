@@ -44,7 +44,7 @@ def parse_args():
 
     utils.add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
     utils.add_bool_arg(parser, "no-save-zero-or", "override --n save-zero default", default=False)
-    parser.add_argument("--save-epochs", type=int, default=5, help="save outputs per how many epochs")
+    parser.add_argument("--save-epochs", type=int, default=0, help="save outputs per how many epochs")
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
     utils.add_bool_arg(parser, "break-zero", "break after 1 iteration", default=False)
@@ -240,6 +240,11 @@ def check_args(args):
 
     if(args.lx):
         if not args.no_save_zero_or: args.save_zero = True
+
+    if args.save_epochs == 0:
+        if args.num_hits <= 30:
+            args.save_epochs = 5
+        else: args.save_epochs = 1
 
     if args.mask_fnd_np:
         logging.info("setting dea true due to mask-fnd-np arg")
