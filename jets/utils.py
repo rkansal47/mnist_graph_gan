@@ -16,6 +16,10 @@ from torch.distributions.normal import Normal
 
 import energyflow as ef
 
+import awkward1 as ak
+from coffea.nanoevents.methods import vector
+ak.behavior.update(vector.behavior)
+
 
 # from https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/38895482#38895482
 class TqdmToLogger(io.StringIO):
@@ -311,20 +315,18 @@ def rand_mix(args, X1, X2, p):
 
 
 def jet_features(jets, mask_bool=False, mask=None):
-    if mask is None: mask_bool = False
-    jf = []
-    for i in range(len(jets)):
-        jetv = LorentzVector()
+    vecs = ak.zip({
+            "pt": jets[:, :, 2:3],
+            "eta": jets[:, :, 0:1],
+            "phi": jets[:, :, 1:2],
+            "mass": ak.full_like(jets[:, :, 2:3], 0),
+            }, with_name="PtEtaPhiMLorentzVector")
 
-        for j in range(len(jets[0])):
-            part = jets[i][j]
-            if (not mask_bool or mask[i][j]):
-                vec = LorentzVector()
-                vec.setptetaphim(part[2], part[0], part[1], 0)
-                jetv += vec
+    sum_vecs = vecs.sum(axis=1)
 
-        jf.append([jetv.mass, jetv.pt])
-    return np.array(jf)
+    jf = np.concatenate((sum_vecs.mass, sum_vecs.pt), axis=1)
+
+    return jf
 
 
 def unnorm_data(args, jets, real=True, rem_zero=True):
@@ -347,6 +349,9 @@ def unnorm_data(args, jets, real=True, rem_zero=True):
             for j in range(args.num_hits):
                 if jets[i][j][2] < 0:
                     jets[i][j][2] = 0
+                if mask is not None and not mask[i][j]:
+                    for k in range(3):
+                        jets[i][j][k] = 0
 
     return jets, mask
 

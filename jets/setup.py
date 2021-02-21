@@ -237,7 +237,7 @@ def check_args(args):
                 args.batch_size = 32
 
     if(args.n):
-        if not args.no_save_zero_or: args.save_zero = True
+        if not (args.no_save_zero_or or args.num_hits == 100): args.save_zero = True
 
     if(args.lx):
         if not args.no_save_zero_or: args.save_zero = True

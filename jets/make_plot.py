@@ -128,30 +128,48 @@ print(gen_out_rn.shape)
 
 print(X_rn[0][:10])
 print(gen_out_rn[0][:10])
-
+np.array([1, 2]).reshape((-1, 1))
 
 test_vecs = ak.zip({
-        "pt": [1, 2],
-        "eta": [0.1, 0.2],
-        "phi": [0.1, 0.2],
-        "mass": [0, 0]
+        "pt": np.array([1, 2]).reshape((-1, 1)),
+        "eta": np.array([0.1, 0.2]).reshape((-1, 1)),
+        "phi": np.array([0.1, 0.2]).reshape((-1, 1)),
+        "mass": np.array([0, 0]).reshape((-1, 1)),
         }, with_name="PtEtaPhiMLorentzVector")
+
+test_vecs.sum(axis=0).mass
 
 ak.sum(test_vecs, axis=0)
 
-test_vecs[0] + test_vecs[1]
+ak.sum()
+ak.unflatten(test_vecs)
+
+import awkward as ak0
+
+
+test_vecs.sum(axis=0)
+
+(test_vecs[0] + test_vecs[1]).mass
 
 ak.Array()
 
 genvecs = ak.zip({
-        "pt": gen_out_rn[:, :, 2],
-        "eta": gen_out_rn[:, :, 0],
-        "phi": gen_out_rn[:, :, 1],
-        "mass": ak.full_like(gen_out_rn[:, :, 2], 0),
+        "pt": gen_out_rn[:, :, 2:3],
+        "eta": gen_out_rn[:, :, 0:1],
+        "phi": gen_out_rn[:, :, 1:2],
+        "mass": ak.full_like(gen_out_rn[:, :, 2:3], 0),
         }, with_name="PtEtaPhiMLorentzVector")
+
+
+
+ak.to_numpy(genvecs.sum(axis=1).mass)
 
 genvecs[0][0]
 genvecs[0]
+
+importlib.reload(utils)
+
+utils.jet_features(gen_out_rn)[1]
 
 genvec = ak.zip({
         "pt": gen_out_rn[0, :, 2],
@@ -184,13 +202,13 @@ ak.sum(genvecs, axis=1)[0]
 
 jetv = LorentzVector()
 
-for j in range(len(gen_out_rn[0])):
-    part = gen_out_rn[0][j]
+for j in range(len(gen_out_rn[1])):
+    part = gen_out_rn[1][j]
     vec = LorentzVector()
     vec.setptetaphim(part[2], part[0], part[1], 0)
     jetv += vec
 
-jetv.pt
+jetv.mass
 
 
 realjf = utils.jet_features(X_rn, args.mask, mask_real)
