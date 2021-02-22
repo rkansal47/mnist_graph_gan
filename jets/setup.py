@@ -60,6 +60,8 @@ def parse_args():
     parser.add_argument("--log-file", type=str, default="", help='log file name - default is name of file in outs/ ; "stdout" prints to console')
     parser.add_argument("--log", type=str, default="INFO", help="log level", choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
 
+    parser.add_argument("--seed", type=int, default=4, help="torch seed")
+
     # architecture
 
     parser.add_argument("--num-hits", type=int, default=30, help="number of hits")

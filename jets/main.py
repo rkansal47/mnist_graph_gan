@@ -14,10 +14,10 @@ import logging
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
 
     args, tqdm_out = setup.init()
+    torch.manual_seed(args.seed)
     # args = setup.init()
     args.device = device
     logging.info("Args initalized")
