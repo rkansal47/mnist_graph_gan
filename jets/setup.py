@@ -114,6 +114,8 @@ def parse_args():
     utils.add_bool_arg(parser, "mask-real-only", "only use masking for real jets", default=False)
     utils.add_bool_arg(parser, "mask-learn", "learn mask from latent vars only use during gen", default=False)
     utils.add_bool_arg(parser, "mask-learn-bin", "binary or continuous learnt mask", default=True)
+    utils.add_bool_arg(parser, "mask-learn-sep", "learn mask from separate noise vector", default=False)
+    utils.add_bool_arg(parser, "mask-disc-sep", "separate disc network for # particles", default=False)
     utils.add_bool_arg(parser, "mask-fnd-np", "use num masked particles as an additional arg in D (dea will automatically be set true)", default=False)
     utils.add_bool_arg(parser, "mask-c", "conditional mask", default=False)
     utils.add_bool_arg(parser, "mask-fne-np", "pass num particles as features into fn and fe", default=False)
@@ -270,7 +272,7 @@ def check_args(args):
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
-    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c: args.mask = True
+    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c or args.mask_learn_sep: args.mask = True
     else: args.mask = False
 
     if args.noise_padding and not args.mask:

@@ -20,10 +20,17 @@ class Graph_GAN(nn.Module):
         self.args.fe1 = self.args.fe1g if self.G else self.args.fe1d
         if self.G: self.args.dea = False
 
+
+        if self.G: first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
+        else: first_layer_node_size = self.args.node_feat_size
+
         if not self.args.fe1: self.args.fe1 = self.args.fe.copy()
         self.args.fn1 = self.args.fn.copy()
 
-        anc = 0
+
+        # setting up # of nodes in each network layer
+
+        anc = 0     # anc - # of extra params to pass into edge network
         if self.args.pos_diffs:
             if self.args.deltacoords:
                 if self.args.coords == 'cartesian':
@@ -33,21 +40,12 @@ class Graph_GAN(nn.Module):
             if self.args.deltar:
                 anc += 1
 
-        # if self.args.mask:
-        #     anc += 1
-
         anc += int(self.args.int_diffs)
-        self.args.fe_in_size = 2 * self.args.hidden_node_size + anc + self.args.clabels_hidden_layers + self.args.mask_fne_np
-        self.args.fe_out_size = self.args.fe[-1]
-        self.args.fe.insert(0, self.args.fe_in_size)
 
-        # self.args.hidden_node_size += self.args.clabels_hidden_layers
-        self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size + self.args.clabels_hidden_layers + self.args.mask_fne_np)
-        self.args.fn.append(self.args.hidden_node_size)
 
-        if(self.args.dea):
-            self.args.fnd.insert(0, self.args.hidden_node_size + int(self.args.mask_fnd_np))
-            self.args.fnd.append(1)
+        # edge and node networks
+        # both are ModuleLists of ModuleLists
+        # with shape: # of MP layers   X   # of FC layers in each MP layer
 
         self.fe = nn.ModuleList()
         self.fn = nn.ModuleList()
@@ -56,16 +54,13 @@ class Graph_GAN(nn.Module):
             self.bne = nn.ModuleList()
             self.bnn = nn.ModuleList()
 
-        if self.G: first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
-        else: first_layer_node_size = self.args.node_feat_size
 
-        if self.G and hasattr(self.args, 'mask_learn') and self.args.mask_learn:
-            self.args.fmg.insert(0, first_layer_node_size)
-            self.args.fmg.append(1)
+        # building first MP layer networks:
 
         self.args.fe1_in_size = 2 * first_layer_node_size + anc + self.args.clabels_first_layer + self.args.mask_fne_np
         self.args.fe1.insert(0, self.args.fe1_in_size)
         self.args.fe1_out_size = self.args.fe1[-1]
+
         fe_iter = nn.ModuleList()
         if self.args.batch_norm: bne = nn.ModuleList()
         for j in range(len(self.args.fe1) - 1):
@@ -76,11 +71,10 @@ class Graph_GAN(nn.Module):
         self.fe.append(fe_iter)
         if self.args.batch_norm: self.bne.append(bne)
 
-        # first_layer_node_size += self.args.clabels_first_layer
+
         self.args.fn1.insert(0, self.args.fe1_out_size + first_layer_node_size + self.args.clabels_first_layer + self.args.mask_fne_np)
         self.args.fn1.append(self.args.hidden_node_size)
 
-        # node network
         fn_iter = nn.ModuleList()
         if self.args.batch_norm: bnn = nn.ModuleList()
         for j in range(len(self.args.fn1) - 1):
@@ -91,8 +85,17 @@ class Graph_GAN(nn.Module):
         self.fn.append(fn_iter)
         if self.args.batch_norm: self.bnn.append(bnn)
 
+
+        # building networks for the rest of the MP layers:
+
+        self.args.fe_in_size = 2 * self.args.hidden_node_size + anc + self.args.clabels_hidden_layers + self.args.mask_fne_np
+        self.args.fe.insert(0, self.args.fe_in_size)
+        self.args.fe_out_size = self.args.fe[-1]
+
+        self.args.fn.insert(0, self.args.fe_out_size + self.args.hidden_node_size + self.args.clabels_hidden_layers + self.args.mask_fne_np)
+        self.args.fn.append(self.args.hidden_node_size)
+
         for i in range(self.args.mp_iters - 1):
-            # edge network
             fe_iter = nn.ModuleList()
             if self.args.batch_norm: bne = nn.ModuleList()
             for j in range(len(self.args.fe) - 1):
@@ -103,7 +106,7 @@ class Graph_GAN(nn.Module):
             self.fe.append(fe_iter)
             if self.args.batch_norm: self.bne.append(bne)
 
-            # node network
+
             fn_iter = nn.ModuleList()
             if self.args.batch_norm: bnn = nn.ModuleList()
             for j in range(len(self.args.fn) - 1):
@@ -114,7 +117,13 @@ class Graph_GAN(nn.Module):
             self.fn.append(fn_iter)
             if self.args.batch_norm: self.bnn.append(bnn)
 
+
+        # final disc FCN
+
         if(self.args.dea):
+            self.args.fnd.insert(0, self.args.hidden_node_size + int(self.args.mask_fnd_np))
+            self.args.fnd.append(1)
+
             self.fnd = nn.ModuleList()
             self.bnd = nn.ModuleList()
             for i in range(len(self.args.fnd) - 1):
@@ -122,13 +131,20 @@ class Graph_GAN(nn.Module):
                 self.fnd.append(linear)
                 if self.args.batch_norm: self.bnd.append(nn.BatchNorm1d(self.args.fnd[i + 1]))
 
-        if self.args.mask_learn and self.G:
+
+        # initial gen mask FCN
+
+        if self.G and (hasattr(self.args, 'mask_learn') and self.args.mask_learn) or (hasattr(self.args, 'mask_learn_sep') and self.args.mask_learn_sep):
+            self.args.fmg.insert(0, first_layer_node_size)
+            self.args.fmg.append(1 if self.args.mask_learn else self.args.num_hits)
+
             self.fmg = nn.ModuleList()
             self.bnmg = nn.ModuleList()
             for i in range(len(self.args.fmg) - 1):
                 linear = nn.Linear(self.args.fmg[i], self.args.fmg[i + 1])
                 self.fmg.append(linear)
                 if self.args.batch_norm: self.bnmg.append(nn.BatchNorm1d(self.args.fmg[i + 1]))
+
 
         p = self.args.gen_dropout if self.G else self.args.disc_dropout
         self.dropout = nn.Dropout(p=p)
@@ -162,7 +178,7 @@ class Graph_GAN(nn.Module):
             logging.info("fnd: ")
             logging.info(self.fnd)
 
-        if(self.G and self.args.mask_learn):
+        if self.G and (hasattr(self.args, 'mask_learn') and self.args.mask_learn) or (hasattr(self.args, 'mask_learn_sep') and self.args.mask_learn_sep):
             logging.info("fmg: ")
             logging.info(self.fmg)
 
@@ -170,9 +186,12 @@ class Graph_GAN(nn.Module):
     def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
         try:
-            mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn or self.args.mask_c)) or (self.G and (self.args.mask_learn or self.args.mask_c)) and epoch >= self.args.mask_epoch
+            mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn or self.args.mask_c or self.args.mask_learn_sep)) \
+                        or (self.G and (self.args.mask_learn or self.args.mask_c or self.args.mask_learn_sep)) \
+                        and epoch >= self.args.mask_epoch
+
             if self.D and (mask_bool or self.args.mask_fnd_np): mask = x[:, :, 3:4] + 0.5
-            if self.D and (self.args.mask_manual or self.args.mask_learn or self.args.mask_c): x = x[:, :, :3]
+            if self.D and (self.args.mask_manual or self.args.mask_learn or self.args.mask_c or self.args.mask_learn_sep): x = x[:, :, :3]
 
             if self.G and self.args.mask_learn:
                 mask = F.leaky_relu(self.fmg[0](x), negative_slope=self.args.leaky_relu_alpha)
@@ -183,7 +202,7 @@ class Graph_GAN(nn.Module):
                     if(self.args.batch_norm): mask = self.bnmg[i](mask)
                     mask = self.dropout(mask)
 
-                mask = (mask > 0).float() if self.args.mask_learn_bin else torch.sigmoid(mask)
+                mask = torch.sign(mask) if self.args.mask_learn_bin else torch.sigmoid(mask)
                 logging.debug("gen mask \n {}".format(mask[:2, :, 0]))
 
             if self.G and self.args.mask_c:
@@ -194,6 +213,20 @@ class Graph_GAN(nn.Module):
             if self.args.mask_fne_np:
                 nump = torch.mean(mask, dim=1)
                 logging.debug("nump \n {}".format(nump[:2]))
+
+            if self.G and self.args.mask_learn_sep:
+                nump = x[:, -1, :]
+                x = x[:, :-1, :]
+
+                for i in range(len(self.fmg)):
+                    nump = F.leaky_relu(self.fmg[i](nump), negative_slope=self.args.leaky_relu_alpha)
+                    if(self.args.batch_norm): nump = self.bnmg[i](nump)
+                    nump = self.dropout(nump)
+
+                nump = torch.argmax(nump, dim=1)
+                mask = (x[:, :, 0].argsort(1).argsort(1) <= nump.unsqueeze(1)).unsqueeze(2).float()
+
+                logging.debug("x \n {} \n num particles \n {} \n gen mask \n {}".format(x[:2, :, 0], nump[:2], mask[:2, :, 0]))
 
         except AttributeError:
             mask_bool = False

@@ -23,6 +23,9 @@ import awkward1 as ak
 from coffea.nanoevents.methods import vector
 ak.behavior.update(vector.behavior)
 
+from guppy import hpy
+h = hpy()
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = 92
@@ -139,6 +142,8 @@ gen_masses = genjf[:, 0]
 len(real_masses)
 len(gen_masses)
 
+gen_out_rn
+
 importlib.reload(save_outputs)
 %matplotlib inline
 save_outputs.plot_jet_mass_pt(args, realjf, genjf, '_jets_mass_pt', show=True)
@@ -147,7 +152,14 @@ importlib.reload(save_outputs)
 %matplotlib inline
 save_outputs.plot_part_feats_jet_mass(args, X_rn, mask_real, gen_out_rn, mask_gen, realjf, genjf, '', show=True)
 
-save_outputs.plot_part_feats(args, X_rn, mask_real, gen_out_rn, mask_gen, 'p', show=True)
+h.heap()
+
+importlib.reload(save_outputs)
+%matplotlib inline
+save_outputs.plot_part_feats(args, X_rn, mask_real, gen_out_rn, mask_gen, 'p')
+
+h.heap()
+
 
 importlib.reload(utils)
 realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
