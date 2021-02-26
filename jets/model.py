@@ -184,24 +184,16 @@ class Graph_GAN(nn.Module):
                     mask = self.dropout(mask)
 
                 mask = (mask > 0).float() if self.args.mask_learn_bin else torch.sigmoid(mask)
-                logging.debug("gen mask")
-                logging.debug(mask[:2, :, 0])
+                logging.debug("gen mask \n {}".format(mask[:2, :, 0]))
 
             if self.G and self.args.mask_c:
                 nump = (labels[:, self.args.clabels] * self.args.num_hits).int() - 1
                 mask = (x[:, :, 0].argsort(1).argsort(1) <= nump.unsqueeze(1)).unsqueeze(2).float()
-                logging.debug("x")
-                logging.debug(x[:2, :, 0])
-                logging.debug("nump")
-                logging.debug(nump[:2])
-                logging.debug("gen mask")
-                logging.debug(mask[:2, :, 0])
+                logging.debug("x \n {} \n num particles \n {} \n gen mask \n {}".format(x[:2, :, 0], nump[:2], mask[:2, :, 0]))
 
             if self.args.mask_fne_np:
                 nump = torch.mean(mask, dim=1)
-                logging.debug("nump")
-                logging.debug(nump[:2])
-
+                logging.debug("nump \n {}".format(nump[:2]))
 
         except AttributeError:
             mask_bool = False

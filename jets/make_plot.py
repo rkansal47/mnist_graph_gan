@@ -40,7 +40,7 @@ w1m
 
 np.where(np.argsort(w1m[:, 0]) == np.argsort(w1m[:, 1]))
 
-np.argsort(w1m[:, 2])[:20] * 5
+np.argsort(w1m[:, 0])[:20] * 5
 
 s1 = "["
 s2 = "["
@@ -128,87 +128,6 @@ print(gen_out_rn.shape)
 
 print(X_rn[0][:10])
 print(gen_out_rn[0][:10])
-np.array([1, 2]).reshape((-1, 1))
-
-test_vecs = ak.zip({
-        "pt": np.array([1, 2]).reshape((-1, 1)),
-        "eta": np.array([0.1, 0.2]).reshape((-1, 1)),
-        "phi": np.array([0.1, 0.2]).reshape((-1, 1)),
-        "mass": np.array([0, 0]).reshape((-1, 1)),
-        }, with_name="PtEtaPhiMLorentzVector")
-
-test_vecs.sum(axis=0).mass
-
-ak.sum(test_vecs, axis=0)
-
-ak.sum()
-ak.unflatten(test_vecs)
-
-import awkward as ak0
-
-
-test_vecs.sum(axis=0)
-
-(test_vecs[0] + test_vecs[1]).mass
-
-ak.Array()
-
-genvecs = ak.zip({
-        "pt": gen_out_rn[:, :, 2:3],
-        "eta": gen_out_rn[:, :, 0:1],
-        "phi": gen_out_rn[:, :, 1:2],
-        "mass": ak.full_like(gen_out_rn[:, :, 2:3], 0),
-        }, with_name="PtEtaPhiMLorentzVector")
-
-
-
-ak.to_numpy(genvecs.sum(axis=1).mass)
-
-genvecs[0][0]
-genvecs[0]
-
-importlib.reload(utils)
-
-utils.jet_features(gen_out_rn)[1]
-
-genvec = ak.zip({
-        "pt": gen_out_rn[0, :, 2],
-        "eta": gen_out_rn[0, :, 0],
-        "phi": gen_out_rn[0, :, 1],
-        "mass": ak.full_like(gen_out_rn[0, :, 2], 0),
-}, with_name="PtEtaPhiMLorentzVector")
-
-genvec
-
-ak.sum(genvec, axis=0)['eta']
-
-jet_sums = ak.zip({
-        "pt": np.zeros(gen_out_rn.shape[0]),
-        "eta": np.zeros(gen_out_rn.shape[0]),
-        "phi": np.zeros(gen_out_rn.shape[0]),
-        "mass": np.zeros(gen_out_rn.shape[0]),
-        }, with_name="PtEtaPhiMLorentzVector")
-
-for j in range(len(gen_out_rn[0])):
-    jet_sums = jet_sums + genvecs[:, j]
-
-jet_sums[0].pt
-
-for for j in range(len(gen_out_rn[0])):
-
-(genvecs[0][0] + genvecs[0][1]).mass
-
-ak.sum(genvecs, axis=1)[0]
-
-jetv = LorentzVector()
-
-for j in range(len(gen_out_rn[1])):
-    part = gen_out_rn[1][j]
-    vec = LorentzVector()
-    vec.setptetaphim(part[2], part[0], part[1], 0)
-    jetv += vec
-
-jetv.mass
 
 
 realjf = utils.jet_features(X_rn, args.mask, mask_real)

@@ -5,10 +5,8 @@ import logging
 class JetsDataset(Dataset):
     def __init__(self, args):
         mask = '_mask' if args.mask else ''
-        if args.real_only:
-            dataset = torch.load(args.datasets_path + 'all_t_jets_30p_polarrel_30only.pt')
-        else:
-            dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
+        if args.real_only: dataset = torch.load(args.datasets_path + 'all_t_jets_30p_polarrel_30only.pt')
+        else: dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
 
         jet_features = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_jetptetamass.pt').float()[:, :args.clabels]
 
@@ -24,8 +22,7 @@ class JetsDataset(Dataset):
                 self.X = dataset[cutoff:]
         elif args.coords == 'polarrel' or args.coords == 'polarrelabspt':
             args.maxepp = [float(torch.max(torch.abs(dataset[:, :, i]))) for i in range(3)]
-            if hasattr(args, 'mask_feat') and args.mask_feat:
-                args.maxepp.append(1.0)
+            if hasattr(args, 'mask_feat') and args.mask_feat: args.maxepp.append(1.0)
 
             logging.debug("Max Vals: " + str(args.maxepp))
             for i in range(3):
@@ -37,6 +34,7 @@ class JetsDataset(Dataset):
             self.X = dataset
             args.pt_cutoff = torch.unique(self.X[:, :, 2], sorted=True)[1]  # smallest particle pT after 0
             logging.debug("Cutoff: " + str(args.pt_cutoff))
+
 
         if args.clabels == 1:
             args.maxjf = [torch.max(torch.abs(jet_features))]
@@ -51,10 +49,20 @@ class JetsDataset(Dataset):
         if hasattr(args, 'mask_c') and args.mask_c:
             num_particles = (torch.sum(dataset[:, :, 3] + 0.5, dim=1) / args.num_hits).unsqueeze(1)
 
-            if args.clabels:
-                self.jet_features = torch.cat((self.jet_features, num_particles), dim=1)
-            else:
-                self.jet_features = num_particles
+            if args.clabels: self.jet_features = torch.cat((self.jet_features, num_particles), dim=1)
+            else: self.jet_features = num_particles
+
+
+        if hasattr(args, 'noise_padding') and args.noise_padding:
+            logging.debug("pre-noise padded dataset: \n {}".format(dataset[:2, -10:]))
+
+            noise_padding = torch.randn((len(dataset), args.num_hits, 3)) / 6
+            noise_padding[:, :, 2] += 0.5
+            mask = (dataset[:, :, 3] + 0.5).bool()
+            noise_padding[mask] = 0
+            dataset += (torch.cat((noise_padding, torch.zeros((len(dataset), args.num_hits, 1))), dim=2))
+
+            logging.debug("noise padded dataset: \n {}".format(dataset[:2, -10:]))
 
         logging.info("Dataset shape: " + str(self.X.shape))
 

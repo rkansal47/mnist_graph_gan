@@ -119,6 +119,8 @@ def parse_args():
     utils.add_bool_arg(parser, "mask-fne-np", "pass num particles as features into fn and fe", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
+    utils.add_bool_arg(parser, "noise-padding", "use Gaussian noise instead of zero-padding for fake particles", default=False)
+
     # optimization
 
     parser.add_argument("--optimizer", type=str, default="rmsprop", help="pick optimizer", choices=['adam', 'rmsprop', 'adadelta', 'agcd'])
@@ -216,6 +218,10 @@ def check_args(args):
         logging.error("latent node size can't be less than 2 - exiting")
         sys.exit()
 
+    if args.debug:
+        args.save_zero = True
+        args.low_samples = True
+
     if args.multi_gpu and args.loss != 'ls':
         logging.warning("multi gpu not implemented for non-mse loss")
         args.multi_gpu = False
@@ -267,6 +273,10 @@ def check_args(args):
     if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c: args.mask = True
     else: args.mask = False
 
+    if args.noise_padding and not args.mask:
+        logging.error("noise padding only works with masking - exiting")
+        sys.exit()
+
     if args.mask_feat: args.node_feat_size += 1
 
     if args.mask_learn:
@@ -277,6 +287,8 @@ def check_args(args):
         args.w1_tot_samples = 1000
         args.w1_num_samples = [10, 100]
         args.num_samples = 1000
+
+
 
     return args
 
@@ -376,6 +388,9 @@ def load_args(args):
 
 def init():
     args = parse_args()
+    if args.debug:
+        args.log = 'DEBUG'
+        args.log_file = 'stdout'
     args = init_project_dirs(args)
     args, tqdm_out = init_logging(args)
     # args = init_logging(args)
