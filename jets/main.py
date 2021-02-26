@@ -11,6 +11,9 @@ from tqdm import tqdm
 
 import logging
 
+from guppy import hpy
+h = hpy()
+
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -107,11 +110,16 @@ def main():
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, mu2, sigma2))
+
+        logging.info(h.heap())
+
         if(args.start_epoch == 0 and args.save_zero):
             if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
             else: gen_out = None
             save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], 0, losses, X_loaded=X_loaded, gen_out=gen_out)
             del(gen_out)
+
+        logging.info(h.heap())
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
@@ -163,6 +171,8 @@ def main():
                 else: gen_out = None
                 save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
                 del(gen_out)
+
+            logging.info(h.heap())
 
     train()
 

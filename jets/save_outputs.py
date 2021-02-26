@@ -11,8 +11,13 @@ plt.switch_backend('agg')
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
+from guppy import hpy
+h = hpy()
+
 
 def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None, show=False):
+    # logging.info("part feats")
+    # logging.info(h.heap())
     if args.coords == 'cartesian':
         plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
         bin = np.arange(-500, 500, 10)
@@ -273,7 +278,13 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
 
     name = args.name + "/" + str(epoch)
 
+    # logging.info("pre part feats")
+    # logging.info(h.heap())
+
     plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name + 'p', losses)
+
+    # logging.info("post part feats")
+    # logging.info(h.heap())
 
     if args.jf:
         realjf = utils.jet_features(X_rn, mask=mask_real)
@@ -283,7 +294,7 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
         # genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
 
         # plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
-        plot_jet_mass_pt(args, realjf, genjf, name + 'j', losses)
+        plot_jet_mass_pt(args, realjf, genjf, name + 'j')
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)
