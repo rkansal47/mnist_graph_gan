@@ -99,7 +99,10 @@ def parse_args():
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
 
     utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
-    utils.add_bool_arg(parser, "fcg", "use a fully connected graph", default=True)
+
+    utils.add_bool_arg(parser, "fully-connected", "use a fully connected graph", default=True)
+    parser.add_argument("--num-knn", type=int, default=10, help="# of nearest nodes to connect to (if not fully connected)")
+    utils.add_bool_arg(parser, "self-loops", "use self loops in graph - always true for fully connected", default=True)
 
     parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
 
@@ -221,7 +224,7 @@ def check_args(args):
         sys.exit()
 
     if args.debug:
-        args.save_zero = True
+        # args.save_zero = True
         args.low_samples = True
 
     if args.multi_gpu and args.loss != 'ls':

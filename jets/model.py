@@ -244,11 +244,13 @@ class Graph_GAN(nn.Module):
             # message passing
             A = self.getA(x, batch_size, fe_in_size)
 
+            num_knn = self.args.num_hits if (hasattr(self.args, 'fully_connected') and self.args.fully_connected) else self.args.num_knn
+
             if (A != A).any(): logging.warning("Nan values in A \n x: \n {} \n A: \n {}".format(x, A))
 
             # NEED TO FIX FOR MASK-FNE-NP + CLABELS (probably just labels --> labels[:, :self.args.clabels])
-            if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits ** 2, 1)), axis=1)
-            if self.args.mask_fne_np: A = torch.cat((A, nump.repeat(self.args.num_hits ** 2, 1)), axis=1)
+            if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits * num_knn, 1)), axis=1)
+            if self.args.mask_fne_np: A = torch.cat((A, nump.repeat(self.args.num_hits * num_knn, 1)), axis=1)
 
             for j in range(len(self.fe[i])):
                 A = F.leaky_relu(self.fe[i][j](A), negative_slope=self.args.leaky_relu_alpha)
@@ -258,7 +260,7 @@ class Graph_GAN(nn.Module):
             if (A != A).any(): logging.warning("Nan values in A after message passing \n x: \n {} \n A: \n {}".format(x, A))
 
             # message aggregation into new features
-            A = A.view(batch_size, self.args.num_hits, self.args.num_hits, fe_out_size)
+            A = A.view(batch_size, self.args.num_hits, num_knn, fe_out_size)
             if mask_bool: A = A * mask.unsqueeze(1)
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
@@ -321,30 +323,50 @@ class Graph_GAN(nn.Module):
 
     def getA(self, x, batch_size, fe_in_size):
         node_size = x.size(2)
-        x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
-        x2 = x.repeat(1, self.args.num_hits, 1)
+        num_coords = 3 if self.args.coords == 'cartesian' else 2
 
-        if(self.args.pos_diffs):
-            num_coords = 3 if self.args.coords == 'cartesian' else 2
-            diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
-            dists = torch.norm(diffs + 1e-12, dim=2).unsqueeze(2)
+        if hasattr(self.args, 'fully_connected') and self.args.fully_connected:
+            x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
+            x2 = x.repeat(1, self.args.num_hits, 1)
 
-            if self.args.deltar and self.args.deltacoords:
-                A = torch.cat((x1, x2, diffs, dists), 2)
-            elif self.args.deltar:
-                A = torch.cat((x1, x2, dists), 2)
-            elif self.args.deltacoords:
-                A = torch.cat((x1, x2, diffs), 2)
+            if(self.args.pos_diffs):
+                diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
+                dists = torch.norm(diffs + 1e-12, dim=2).unsqueeze(2)
 
-            # try:
-            #     if(self.args.mask):
-            #         A = torch.cat((A, x2[:, :, 3].unsqueeze(2)), 2)
-            # except AttributeError:
-            #     do_nothing = 0
+                if self.args.deltar and self.args.deltacoords:
+                    A = torch.cat((x1, x2, diffs, dists), 2)
+                elif self.args.deltar:
+                    A = torch.cat((x1, x2, dists), 2)
+                elif self.args.deltacoords:
+                    A = torch.cat((x1, x2, diffs), 2)
 
-            A = A.view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+                A = A.view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+            else:
+                A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+
         else:
-            A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
+            x1 = x[:, :, :num_coords].repeat(1, 1, self.args.num_hits).view(self.args.batch_size, self.args.num_hits * self.args.num_hits, num_coords)
+            x2 = x[:, :, :num_coords].repeat(1, self.args.num_hits, 1)
+
+            diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
+            dists = torch.norm(diffs + 1e-12, dim=2).reshape(self.args.batch_size, self.args.num_hits, self.args.num_hits)
+
+            sorted = torch.sort(dists, dim=2)
+            self_loops = int(self.args.self_loops is False)
+
+            logging.debug("x \n {} \n x1 \n {} \n x2 \n {} \n diffs \n {} \n dists \n {} \n sorted[0] \n {} \n sorted[1] \n {}".format(x[0], x1[0], x2[0], diffs[0], dists[0], sorted[0][0], sorted[0][1]))
+
+            dists = sorted[0][:, :, self_loops:self.args.num_knn + self_loops].reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1)
+            sorted = sorted[1][:, :, self_loops:self.args.num_knn + self_loops].reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1)
+
+            sorted.reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1).repeat(1, 1, node_size)
+
+            x1_knn = x.repeat(1, 1, self.args.num_knn).view(self.args.batch_size, self.args.num_hits * self.args.num_knn, node_size)
+            x2_knn = torch.gather(x, 1, sorted.repeat(1, 1, node_size))
+
+            A = torch.cat((x1_knn, x2_knn, dists), dim=2)
+
+            logging.debug("A \n {} \n".format(A[0]))
 
         return A
 
