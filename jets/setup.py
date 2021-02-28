@@ -244,10 +244,23 @@ def check_args(args):
             else:
                 args.batch_size = 32
         else:
-            if args.num_hits <= 30:
-                args.batch_size = 256
+            if args.fully_connected:
+                if args.num_hits <= 30:
+                    args.batch_size = 256
+                else:
+                    args.batch_size = 32
             else:
-                args.batch_size = 32
+                if args.num_hits <= 30 or args.num_knn <= 10:
+                    args.batch_size = 320
+                else:
+                    if args.num_knn <= 20:
+                        args.batch_size = 192
+                    elif args.num_knn <= 30:
+                        args.batch_size = 128
+                    else:
+                        args.batch_size = 32
+
+
 
     if(args.n):
         if not (args.no_save_zero_or or args.num_hits == 100): args.save_zero = True
