@@ -345,23 +345,23 @@ class Graph_GAN(nn.Module):
                 A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
 
         else:
-            x1 = x[:, :, :num_coords].repeat(1, 1, self.args.num_hits).view(self.args.batch_size, self.args.num_hits * self.args.num_hits, num_coords)
+            x1 = x[:, :, :num_coords].repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, num_coords)
             x2 = x[:, :, :num_coords].repeat(1, self.args.num_hits, 1)
 
             diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
-            dists = torch.norm(diffs + 1e-12, dim=2).reshape(self.args.batch_size, self.args.num_hits, self.args.num_hits)
+            dists = torch.norm(diffs + 1e-12, dim=2).reshape(batch_size, self.args.num_hits, self.args.num_hits)
 
             sorted = torch.sort(dists, dim=2)
             self_loops = int(self.args.self_loops is False)
 
             # logging.debug("x \n {} \n x1 \n {} \n x2 \n {} \n diffs \n {} \n dists \n {} \n sorted[0] \n {} \n sorted[1] \n {}".format(x[0], x1[0], x2[0], diffs[0], dists[0], sorted[0][0], sorted[0][1]))
 
-            dists = sorted[0][:, :, self_loops:self.args.num_knn + self_loops].reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1)
-            sorted = sorted[1][:, :, self_loops:self.args.num_knn + self_loops].reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1)
+            dists = sorted[0][:, :, self_loops:self.args.num_knn + self_loops].reshape(batch_size, self.args.num_hits * self.args.num_knn, 1)
+            sorted = sorted[1][:, :, self_loops:self.args.num_knn + self_loops].reshape(batch_size, self.args.num_hits * self.args.num_knn, 1)
 
-            sorted.reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1).repeat(1, 1, node_size)
+            sorted.reshape(batch_size, self.args.num_hits * self.args.num_knn, 1).repeat(1, 1, node_size)
 
-            x1_knn = x.repeat(1, 1, self.args.num_knn).view(self.args.batch_size, self.args.num_hits * self.args.num_knn, node_size)
+            x1_knn = x.repeat(1, 1, self.args.num_knn).view(batch_size, self.args.num_hits * self.args.num_knn, node_size)
             x2_knn = torch.gather(x, 1, sorted.repeat(1, 1, node_size))
 
             A = torch.cat((x1_knn, x2_knn, dists), dim=2)
