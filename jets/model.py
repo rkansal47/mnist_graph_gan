@@ -358,10 +358,10 @@ class Graph_GAN(nn.Module):
         else:
             x1 = x[:, :, :num_coords].repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, num_coords)
             if mask_bool:
-                x2 = x[:, :, :num_coords].repeat(1, self.args.num_hits, 1)
-            else:
                 mul = 1e4  # multiply masked particles by this so they are not selected as a nearest neighbour
                 x2 = (((1 - mul) * mask + mul) * x[:, :, :num_coords]).repeat(1, self.args.num_hits, 1)
+            else:
+                x2 = x[:, :, :num_coords].repeat(1, self.args.num_hits, 1)
 
             diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
             dists = torch.norm(diffs + 1e-12, dim=2).reshape(batch_size, self.args.num_hits, self.args.num_hits)
