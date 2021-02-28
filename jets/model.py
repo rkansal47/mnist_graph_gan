@@ -354,7 +354,7 @@ class Graph_GAN(nn.Module):
             sorted = torch.sort(dists, dim=2)
             self_loops = int(self.args.self_loops is False)
 
-            logging.debug("x \n {} \n x1 \n {} \n x2 \n {} \n diffs \n {} \n dists \n {} \n sorted[0] \n {} \n sorted[1] \n {}".format(x[0], x1[0], x2[0], diffs[0], dists[0], sorted[0][0], sorted[0][1]))
+            # logging.debug("x \n {} \n x1 \n {} \n x2 \n {} \n diffs \n {} \n dists \n {} \n sorted[0] \n {} \n sorted[1] \n {}".format(x[0], x1[0], x2[0], diffs[0], dists[0], sorted[0][0], sorted[0][1]))
 
             dists = sorted[0][:, :, self_loops:self.args.num_knn + self_loops].reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1)
             sorted = sorted[1][:, :, self_loops:self.args.num_knn + self_loops].reshape(self.args.batch_size, self.args.num_hits * self.args.num_knn, 1)
@@ -366,7 +366,7 @@ class Graph_GAN(nn.Module):
 
             A = torch.cat((x1_knn, x2_knn, dists), dim=2)
 
-            logging.debug("A \n {} \n".format(A[0]))
+            # logging.debug("A \n {} \n".format(A[0]))
 
         return A
 
