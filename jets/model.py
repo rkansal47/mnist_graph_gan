@@ -231,6 +231,8 @@ class Graph_GAN(nn.Module):
         except AttributeError:
             mask_bool = False
 
+        if not mask_bool: mask = None
+
         for i in range(self.args.mp_iters):
             clabel_iter = self.args.clabels and ((i == 0 and self.args.clabels_first_layer) or (i and self.args.clabels_hidden_layers))
 
@@ -242,7 +244,9 @@ class Graph_GAN(nn.Module):
             if self.args.mask_fne_np: fe_in_size -= 1
 
             # message passing
-            A = self.getA(x, batch_size, fe_in_size)
+            A, A_mask = self.getA(x, batch_size, fe_in_size, mask_bool, mask)
+
+            # logging.debug('A \n {} \n A_mask \n {}'.format(A[:2, :10], A_mask[:2, :10]))
 
             num_knn = self.args.num_hits if (hasattr(self.args, 'fully_connected') and self.args.fully_connected) else self.args.num_knn
 
@@ -261,7 +265,12 @@ class Graph_GAN(nn.Module):
 
             # message aggregation into new features
             A = A.view(batch_size, self.args.num_hits, num_knn, fe_out_size)
-            if mask_bool: A = A * mask.unsqueeze(1)
+            if mask_bool:
+                if self.args.fully_connected: A = A * mask.unsqueeze(1)
+                else: A = A * A_mask.reshape(batch_size, self.args.num_hits, num_knn, 1)
+
+            # logging.debug('A \n {}'.format(A[:2, :10]))
+
             A = torch.sum(A, 2) if self.args.sum else torch.mean(A, 2)
             x = torch.cat((A, x), 2).view(batch_size * self.args.num_hits, fe_out_size + node_size)
 
@@ -321,9 +330,11 @@ class Graph_GAN(nn.Module):
 
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
 
-    def getA(self, x, batch_size, fe_in_size):
+    def getA(self, x, batch_size, fe_in_size, mask_bool, mask):
         node_size = x.size(2)
         num_coords = 3 if self.args.coords == 'cartesian' else 2
+
+        A_mask = None
 
         if hasattr(self.args, 'fully_connected') and self.args.fully_connected:
             x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
@@ -346,7 +357,11 @@ class Graph_GAN(nn.Module):
 
         else:
             x1 = x[:, :, :num_coords].repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, num_coords)
-            x2 = x[:, :, :num_coords].repeat(1, self.args.num_hits, 1)
+            if mask_bool:
+                x2 = x[:, :, :num_coords].repeat(1, self.args.num_hits, 1)
+            else:
+                mul = 1e4  # multiply masked particles by this so they are not selected as a nearest neighbour
+                x2 = (((1 - mul) * mask + mul) * x[:, :, :num_coords]).repeat(1, self.args.num_hits, 1)
 
             diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
             dists = torch.norm(diffs + 1e-12, dim=2).reshape(batch_size, self.args.num_hits, self.args.num_hits)
@@ -362,13 +377,19 @@ class Graph_GAN(nn.Module):
             sorted.reshape(batch_size, self.args.num_hits * self.args.num_knn, 1).repeat(1, 1, node_size)
 
             x1_knn = x.repeat(1, 1, self.args.num_knn).view(batch_size, self.args.num_hits * self.args.num_knn, node_size)
-            x2_knn = torch.gather(x, 1, sorted.repeat(1, 1, node_size))
+
+            if mask_bool:
+                x2_knn = torch.gather(torch.cat((x, mask), dim=2), 1, sorted.repeat(1, 1, node_size + 1))
+                A_mask = x2_knn[:, :, -1:]
+                x2_knn = x2_knn[:, :, :-1]
+            else:
+                x2_knn = torch.gather(x, 1, sorted.repeat(1, 1, node_size))
 
             A = torch.cat((x1_knn, x2_knn, dists), dim=2)
 
             # logging.debug("A \n {} \n".format(A[0]))
 
-        return A
+        return A, A_mask
 
     def init_params(self):
         logging.info("glorot-ing")
