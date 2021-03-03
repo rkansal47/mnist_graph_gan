@@ -51,6 +51,8 @@ def parse_args():
     utils.add_bool_arg(parser, "break-zero", "break after 1 iteration", default=False)
     utils.add_bool_arg(parser, "low-samples", "small number of samples for debugging", default=False)
 
+    utils.add_bool_arg(parser, "const-ylim", "const ylim in plots", default=False)
+
     parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't', 'w', 'z', 'q'])
 
     utils.add_bool_arg(parser, "real-only", "use jets with ony real particles", default=False)

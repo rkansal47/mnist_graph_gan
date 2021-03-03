@@ -29,6 +29,7 @@ def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None,
                 pbins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
             else:
                 pbins = [np.linspace(-0.3, 0.3, 100), np.linspace(-0.3, 0.3, 100), np.linspace(0, 0.2, 100)]
+                ylims = [3e5, 3e5, 3e5]
         elif args.jets == 't':
             pbins = [np.linspace(-0.5, 0.5, 100), np.linspace(-0.5, 0.5, 100), np.linspace(0, 0.2, 100)]
     elif args.coords == 'polarrelabspt':
@@ -51,6 +52,7 @@ def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None,
         _ = plt.hist(parts_gen[:, i], pbins[i], histtype='step', label='Generated', color='blue')
         plt.xlabel('Particle ' + plabels[i])
         plt.ylabel('Number of Particles')
+        if hasattr(args, 'const_ylim') and args.const_ylim: plt.ylim(0, ylims[i])
         if losses is not None: plt.title('$W_1$ = {:.2e}'.format(losses['w1_' + str(args.w1_num_samples[-1]) + 'm'][-1][i]), fontsize=12)
         plt.legend(loc=1, prop={'size': 18})
 
