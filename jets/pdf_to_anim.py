@@ -4,11 +4,11 @@ import numpy as np
 from tqdm import tqdm
 
 
-figdir = '/graphganvol/mnist_graph_gan/jets/figs/66_g30/'
+figdir = '/graphganvol/mnist_graph_gan/jets/figs/150_g30_anim/'
 
 images = []
-for i in tqdm(range(659)):
-    fullfname = figdir + str(i) + '.pdf'
+for i in tqdm(range(151)):
+    fullfname = figdir + str(i) + 'p.pdf'
     images.append(pdf2image.convert_from_path(fullfname))
 
 videodims = (5751, 1339)
