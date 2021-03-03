@@ -57,6 +57,12 @@ class JetsDataset(Dataset):
             logging.debug("pre-noise padded dataset: \n {}".format(dataset[:2, -10:]))
 
             noise_padding = torch.randn((len(dataset), args.num_hits, 3)) / 6
+
+            # DOUBLE CHECK
+            # noise_padding[:, :, 2] = torch.relu(noise_padding[:, :, 2])
+            # noise_padding[:, :, 2] -= 0.5
+            # # noise_padding[noise_padding[:, :, 2] < -0.5][:, :, 2] = -0.5
+
             noise_padding[:, :, 2] += 0.5
             mask = (dataset[:, :, 3] + 0.5).bool()
             noise_padding[mask] = 0

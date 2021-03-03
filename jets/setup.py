@@ -256,7 +256,7 @@ def check_args(args):
                     if args.num_knn <= 20:
                         args.batch_size = 160
                     elif args.num_knn <= 30:
-                        args.batch_size = 128
+                        args.batch_size = 100
                     else:
                         args.batch_size = 32
 

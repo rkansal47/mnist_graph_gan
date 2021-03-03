@@ -1,37 +1,27 @@
 import pdf2image
 from os import listdir
+import cv2
+import numpy as np
 
-images = pdf2image.convert_from_path('figs/test/0j.pdf')
-images
 
-
-figdir = 'figs/test/'
+figdir = '/graphganvol/mnist_graph_gan/jets/figs/66_g30/'
 
 fnames = listdir(figdir)
 
-fnames
+print(fnames)
 
-fnames = fnames[1:]
+# fnames = fnames[1:]
 
 images = []
 for fname in fnames:
     fullfname = figdir + fname
     images.append(pdf2image.convert_from_path(fullfname))
 
-images
-
-from PIL import Image, ImageDraw
-import cv2
-
-videodims = (1744, 406)
+videodims = (5751, 1339)
 fourcc = cv2.VideoWriter_fourcc(*'avc1')
-video = cv2.VideoWriter("test.mp4", fourcc, 60, videodims)
+video = cv2.VideoWriter(figdir + "anim.mp4", fourcc, 60, videodims)
 
-img = Image.new('RGB', videodims, color = 'darkred')
-
-for i in range(len(images)):
-    imtemp = img.copy()
-    # draw frame specific stuff here.
-    video.write(cv2.cvtColor(np.array(imtemp), cv2.COLOR_RGB2BGR))
+for im in images:
+    video.write(np.array(im[0]))
 
 video.release()
