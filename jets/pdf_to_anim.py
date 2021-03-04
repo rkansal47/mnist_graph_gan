@@ -2,12 +2,13 @@ import pdf2image
 import cv2
 import numpy as np
 from tqdm import tqdm
+import sys
 
 
 figdir = '/graphganvol/mnist_graph_gan/jets/figs/150_g30_anim/'
 
 images = []
-for i in tqdm(range(150)):
+for i in tqdm(range(int(sys.argv[1]))):
     fullfname = figdir + str(i) + 'p.pdf'
     images.append(pdf2image.convert_from_path(fullfname))
 
