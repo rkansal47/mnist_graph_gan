@@ -6,13 +6,19 @@ from torch.autograd import grad as torch_grad
 import numpy as np
 from scipy import linalg
 
-from skhep.math.vectors import LorentzVector
-
 import logging
 import tqdm
 import io
 
 from torch.distributions.normal import Normal
+
+import energyflow as ef
+
+from sys import platform
+if platform == 'linux': import awkward as ak
+else: import awkward1 as ak
+from coffea.nanoevents.methods import vector
+ak.behavior.update(vector.behavior)
 
 
 # from https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/38895482#38895482
@@ -133,10 +139,11 @@ class objectview(object):
 def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
     if(noise is None):
-        noise = dist.sample((num_samples, args.num_hits, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
+        extra_noise_p = int(hasattr(args, 'mask_learn_sep') and args.mask_learn_sep)
+        noise = dist.sample((num_samples, args.num_hits + extra_noise_p, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
     else: num_samples = noise.size(0)
 
-    if args.clabels and labels is None:
+    if (args.clabels or args.mask_c) and labels is None:
         labels = next(iter(X_loaded))[1].to(args.device)
         while(labels.size(0) < num_samples):
             labels = torch.cat((labels, next(iter(X_loaded))[1]), axis=0)
@@ -146,6 +153,19 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     if args.mask_manual: gen_data = mask_manual(args, gen_data)
 
     return gen_data
+
+
+def gen_multi_batch(args, G, num_samples, noise=None, labels=None, X_loaded=None, use_tqdm=False):
+    gen_out = gen(args, G, num_samples=args.batch_size, labels=None if labels is None else labels[:args.batch_size], X_loaded=X_loaded).cpu().detach().numpy()
+    if use_tqdm:
+        for i in tqdm.tqdm(range(int(num_samples / args.batch_size))):
+            gen_out = np.concatenate((gen_out, gen(args, G, num_samples=args.batch_size, labels=None if labels is None else labels[args.batch_size * (i + 1):args.batch_size * (i + 2)], X_loaded=X_loaded).cpu().detach().numpy()), 0)
+    else:
+        for i in range(int(num_samples / args.batch_size)):
+            gen_out = np.concatenate((gen_out, gen(args, G, num_samples=args.batch_size, labels=None if labels is None else labels[args.batch_size * (i + 1):args.batch_size * (i + 2)], X_loaded=X_loaded).cpu().detach().numpy()), 0)
+    gen_out = gen_out[:num_samples]
+
+    return gen_out
 
 
 # from https://github.com/EmilienDupont/wgan-gp
@@ -300,20 +320,18 @@ def rand_mix(args, X1, X2, p):
 
 
 def jet_features(jets, mask_bool=False, mask=None):
-    if mask is None: mask_bool = False
-    jf = []
-    for i in range(len(jets)):
-        jetv = LorentzVector()
+    vecs = ak.zip({
+            "pt": jets[:, :, 2:3],
+            "eta": jets[:, :, 0:1],
+            "phi": jets[:, :, 1:2],
+            "mass": ak.full_like(jets[:, :, 2:3], 0),
+            }, with_name="PtEtaPhiMLorentzVector")
 
-        for j in range(len(jets[0])):
-            part = jets[i][j]
-            if (not mask_bool or mask[i][j]):
-                vec = LorentzVector()
-                vec.setptetaphim(part[2], part[0], part[1], 0)
-                jetv += vec
+    sum_vecs = vecs.sum(axis=1)
 
-        jf.append([jetv.mass, jetv.pt])
-    return np.array(jf)
+    jf = np.concatenate((sum_vecs.mass, sum_vecs.pt), axis=1)
+
+    return jf
 
 
 def unnorm_data(args, jets, real=True, rem_zero=True):
@@ -329,12 +347,32 @@ def unnorm_data(args, jets, real=True, rem_zero=True):
         jets = jets[:, :, :3]
         jets = jets / args.norm
         jets[:, :, 2] += 0.5
-        jets *= args.maxepp
+        jets *= args.maxepp[:3]
 
     if not real and rem_zero:
         for i in range(len(jets)):
             for j in range(args.num_hits):
                 if jets[i][j][2] < 0:
                     jets[i][j][2] = 0
+                if mask is not None and not mask[i][j]:
+                    for k in range(3):
+                        jets[i][j][k] = 0
 
     return jets, mask
+
+
+def efp(args, jets, mask=None, real=True):
+    efpset = ef.EFPSet(('n==', 4), ('d==', 4), ('p==', 1), measure='hadr', beta=1, normed=None, coords='ptyphim')
+
+    efp_format = np.concatenate((np.expand_dims(jets[:, :, 2], 2), jets[:, :, :2], np.zeros((jets.shape[0], jets.shape[1], 1))), axis=2)
+
+    if not real and args.mask:
+        for i in range(jets.shape[0]):
+            for j in range(args.num_hits):
+                if not mask[i][j]:
+                    for k in range(4):
+                        efp_format[i][j][k] = 0
+
+    logging.info("Batch Computing")
+
+    return efpset.batch_compute(efp_format)

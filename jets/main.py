@@ -11,13 +11,16 @@ from tqdm import tqdm
 
 import logging
 
+from guppy import hpy
+h = hpy()
+
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    torch.manual_seed(4)
     torch.autograd.set_detect_anomaly(True)
 
     args, tqdm_out = setup.init()
+    torch.manual_seed(args.seed)
     # args = setup.init()
     args.device = device
     logging.info("Args initalized")
@@ -107,19 +110,19 @@ def main():
 
     def train():
         if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, mu2, sigma2))
+
+        logging.info(h.heap())
+
         if(args.start_epoch == 0 and args.save_zero):
             if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
             else: gen_out = None
-            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], args.name, 0, losses, X_loaded=X_loaded, gen_out=gen_out)
+            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], 0, losses, X_loaded=X_loaded, gen_out=gen_out)
+            del(gen_out)
+
+        logging.info(h.heap())
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
-            # Dr_loss = 0
-            # Df_loss = 0
-            # G_loss = 0
-            # D_loss = 0
-            # gp_loss = 0
-            # epoch_loss = {'Dr': 0, 'Df': 0, 'D': 0, 'G': 0}
             D_losses = ['Dr', 'Df', 'D']
             if args.gp: D_losses.append('gp')
             epoch_loss = {'G': 0}
@@ -129,18 +132,14 @@ def main():
 
             bar = tqdm(enumerate(X_loaded), total=lenX, mininterval=0.1, desc="Epoch {}".format(i + 1))
             for batch_ndx, data in bar:
-                if args.clabels: labels = data[1].to(args.device)
+                if args.clabels or args.mask_c: labels = data[1].to(args.device)
                 else: labels = None
 
                 data = data[0].to(args.device)
 
                 if args.num_critic > 1 or (batch_ndx == 0 or (batch_ndx - 1) % args.num_gen == 0):
-                    D_loss_items = train_D(data, labels=labels, epoch=i, print_output=(batch_ndx == lenX / args.batch_size))  # print outputs for the last iteration of each epoch
+                    D_loss_items = train_D(data, labels=labels, epoch=i, print_output=(batch_ndx == lenX - 1))  # print outputs for the last iteration of each epoch
                     for key in D_losses: epoch_loss[key] += D_loss_items[key]
-                    # D_loss += D_loss_items['D']
-                    # Dr_loss += D_loss_items['Dr']
-                    # Df_loss += D_loss_items['Df']
-                    # if(args.gp): epoch_loss['gp'] += D_loss_items['gp']
 
                 if args.num_critic == 1 or (batch_ndx - 1) % args.num_critic == 0:
                     epoch_loss['G'] += train_G(data, labels=labels, epoch=i)
@@ -149,26 +148,17 @@ def main():
                     if(batch_ndx == 10):
                         return
 
+                if args.break_zero:
+                    if(batch_ndx == 0):
+                        break
+
             logging.info("Epoch {} Training Over".format(i + 1))
 
             for key in D_losses: losses[key].append(epoch_loss[key] / (lenX / args.num_gen))
             losses['G'].append(epoch_loss['G'] / (lenX / args.num_critic))
             for key in epoch_loss.keys(): logging.info("{} loss: {:.3f}".format(key, losses[key][-1]))
 
-            # losses['D'].append(D_loss / (lenX / args.num_gen))
-            # losses['Dr'].append(Dr_loss / (lenX / args.num_gen))
-            # losses['Df'].append(Df_loss / (lenX / args.num_gen))
-            # losses['G'].append(G_loss / (lenX / args.num_critic))
-            # if(args.gp): losses['gp'].append(gp_loss / (lenX / args.num_gen))
-
-            # logging.info("d loss: " + str(losses['D'][-1]))
-            # logging.info("g loss: " + str(losses['G'][-1]))
-            # logging.info("dr loss: " + str(losses['Dr'][-1]))
-            # logging.info("df loss: " + str(losses['Df'][-1]))
-            #
-            # if(args.gp): logging.info("gp loss: " + str(losses['gp'][-1]))
-
-            if((i + 1) % 5 == 0):
+            if((i + 1) % args.save_model_epochs == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
                 # if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
@@ -179,7 +169,10 @@ def main():
             if((i + 1) % args.save_epochs == 0):
                 if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
                 else: gen_out = None
-                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], args.name, i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
+                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
+                del(gen_out)
+
+            logging.info(h.heap())
 
     train()
 

@@ -16,13 +16,14 @@ import numpy as np
 
 import logging
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
     # meta
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
-    parser.add_argument("--dataset", type=str, default="jets", help="dataset to use", choices=['jets', 'sparse-mnist', 'superpixels'])
+    parser.add_argument("--dataset", type=str, default="jets", help="dataset to use", choices=['jets', 'jets-lagan', 'sparse-mnist', 'superpixels'])
 
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.85, help="ratio of train/test split")
@@ -43,11 +44,16 @@ def parse_args():
 
     utils.add_bool_arg(parser, "save-zero", "save the initial figure", default=False)
     utils.add_bool_arg(parser, "no-save-zero-or", "override --n save-zero default", default=False)
-    parser.add_argument("--save-epochs", type=int, default=5, help="save outputs per how many epochs")
+    parser.add_argument("--save-epochs", type=int, default=0, help="save outputs per how many epochs")
+    parser.add_argument("--save-model-epochs", type=int, default=0, help="save models per how many epochs")
 
     utils.add_bool_arg(parser, "debug", "debug mode", default=False)
+    utils.add_bool_arg(parser, "break-zero", "break after 1 iteration", default=False)
+    utils.add_bool_arg(parser, "low-samples", "small number of samples for debugging", default=False)
 
-    parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't'])
+    utils.add_bool_arg(parser, "const-ylim", "const ylim in plots", default=False)
+
+    parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't', 'w', 'z', 'q', 'sig', 'bg'])
 
     utils.add_bool_arg(parser, "real-only", "use jets with ony real particles", default=False)
 
@@ -55,6 +61,8 @@ def parse_args():
 
     parser.add_argument("--log-file", type=str, default="", help='log file name - default is name of file in outs/ ; "stdout" prints to console')
     parser.add_argument("--log", type=str, default="INFO", help="log level", choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
+
+    parser.add_argument("--seed", type=int, default=4, help="torch seed")
 
     # architecture
 
@@ -69,7 +77,7 @@ def parse_args():
     parser.add_argument("--hidden-node-size", type=int, default=32, help="hidden vector size of each node (incl node feature size)")
     parser.add_argument("--latent-node-size", type=int, default=0, help="latent vector size of each node - 0 means same as hidden node size")
 
-    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and detach", choices=[0, 1, 2])
+    parser.add_argument("--clabels", type=int, default=0, help="0 - no clabels, 1 - clabels with pt only, 2 - clabels with pt and eta", choices=[0, 1, 2])
     utils.add_bool_arg(parser, "clabels-fl", "use conditional labels in first layer", default=True)
     utils.add_bool_arg(parser, "clabels-hl", "use conditional labels in hidden layers", default=True)
 
@@ -93,7 +101,10 @@ def parse_args():
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
 
     utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
-    utils.add_bool_arg(parser, "fcg", "use a fully connected graph", default=True)
+
+    utils.add_bool_arg(parser, "fully-connected", "use a fully connected graph", default=True)
+    parser.add_argument("--num-knn", type=int, default=10, help="# of nearest nodes to connect to (if not fully connected)")
+    utils.add_bool_arg(parser, "self-loops", "use self loops in graph - always true for fully connected", default=True)
 
     parser.add_argument("--glorot", type=float, default=0, help="gain of glorot - if zero then glorot not used")
 
@@ -101,18 +112,25 @@ def parse_args():
     # utils.add_bool_arg(parser, "dearlysigmoid", "use early sigmoid in d", default=False)
 
     utils.add_bool_arg(parser, "mask-feat", "add mask as fourth feature", default=False)
+    utils.add_bool_arg(parser, "mask-feat-bin", "binary fourth feature", default=False)
     utils.add_bool_arg(parser, "mask-weights", "weight D nodes by mask", default=False)
     utils.add_bool_arg(parser, "mask-manual", "manually mask generated nodes with pT less than cutoff", default=False)
     utils.add_bool_arg(parser, "mask-exp", "exponentially decaying or binary mask; relevant only if mask-manual is true", default=False)
     utils.add_bool_arg(parser, "mask-real-only", "only use masking for real jets", default=False)
     utils.add_bool_arg(parser, "mask-learn", "learn mask from latent vars only use during gen", default=False)
     utils.add_bool_arg(parser, "mask-learn-bin", "binary or continuous learnt mask", default=True)
+    utils.add_bool_arg(parser, "mask-learn-sep", "learn mask from separate noise vector", default=False)
+    utils.add_bool_arg(parser, "mask-disc-sep", "separate disc network for # particles", default=False)
     utils.add_bool_arg(parser, "mask-fnd-np", "use num masked particles as an additional arg in D (dea will automatically be set true)", default=False)
+    utils.add_bool_arg(parser, "mask-c", "conditional mask", default=False)
+    utils.add_bool_arg(parser, "mask-fne-np", "pass num particles as features into fn and fe", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
+
+    utils.add_bool_arg(parser, "noise-padding", "use Gaussian noise instead of zero-padding for fake particles", default=False)
 
     # optimization
 
-    parser.add_argument("--optimizer", type=str, default="rmsprop", help="optimizer - options are adam, rmsprop, adadelta or acgd")
+    parser.add_argument("--optimizer", type=str, default="rmsprop", help="pick optimizer", choices=['adam', 'rmsprop', 'adadelta', 'agcd'])
     parser.add_argument("--loss", type=str, default="ls", help="loss to use - options are og, ls, w, hinge", choices=['og', 'ls', 'w', 'hinge'])
 
     parser.add_argument("--lr-disc", type=float, default=3e-5, help="learning rate discriminator")
@@ -207,6 +225,10 @@ def check_args(args):
         logging.error("latent node size can't be less than 2 - exiting")
         sys.exit()
 
+    if args.debug:
+        # args.save_zero = True
+        args.low_samples = True
+
     if args.multi_gpu and args.loss != 'ls':
         logging.warning("multi gpu not implemented for non-mse loss")
         args.multi_gpu = False
@@ -219,21 +241,47 @@ def check_args(args):
 
     if(args.batch_size == 0):
         if args.multi_gpu:
-            if args.num_hits == 30:
+            if args.num_hits <= 30:
                 args.batch_size = 128
-            elif args.num_hits == 100:
+            else:
                 args.batch_size = 32
         else:
-            if args.num_hits == 30:
-                args.batch_size = 256
-            elif args.num_hits == 100:
-                args.batch_size = 32
+            if args.fully_connected:
+                if args.num_hits <= 30:
+                    args.batch_size = 256
+                else:
+                    args.batch_size = 32
+            else:
+                if args.num_hits <= 30 or args.num_knn <= 10:
+                    args.batch_size = 320
+                else:
+                    if args.num_knn <= 20:
+                        args.batch_size = 160
+                    elif args.num_knn <= 30:
+                        args.batch_size = 100
+                    else:
+                        args.batch_size = 32
+
+
 
     if(args.n):
-        if not args.no_save_zero_or: args.save_zero = True
+        if not (args.no_save_zero_or or args.num_hits == 100): args.save_zero = True
 
     if(args.lx):
         if not args.no_save_zero_or: args.save_zero = True
+
+    if args.save_epochs == 0:
+        if args.num_hits <= 30:
+            args.save_epochs = 5
+        else: args.save_epochs = 1
+
+    if args.save_model_epochs == 0:
+        if args.num_hits <= 30:
+            args.save_model_epochs = 5
+        else: args.save_model_epochs = 1
+
+    if args.dataset == 'jets-lagan':
+        args.mask_c = True
 
     if args.mask_fnd_np:
         logging.info("setting dea true due to mask-fnd-np arg")
@@ -245,14 +293,27 @@ def check_args(args):
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
-    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only: args.mask = True
+    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c or args.mask_learn_sep: args.mask = True
     else: args.mask = False
+
+    if args.noise_padding and not args.mask:
+        logging.error("noise padding only works with masking - exiting")
+        sys.exit()
 
     if args.mask_feat: args.node_feat_size += 1
 
     if args.mask_learn:
         if args.fmg == [0]:
             args.fmg = []
+
+    if args.low_samples:
+        args.w1_tot_samples = 1000
+        args.w1_num_samples = [10, 100]
+        args.num_samples = 1000
+
+    if args.dataset == 'jets-lagan' and args.jets == 'g':
+        args.jets = 'sig'
+
 
     return args
 
@@ -281,10 +342,15 @@ def init_model_dirs(args):
         if args.name != "test" and not args.load_model and not args.override_load_check:
             logging.error("Name already used - exiting")
             sys.exit()
-    else:
-        mkdir(args.losses_path + args.name)
-        mkdir(args.models_path + args.name)
-        mkdir(args.figs_path + args.name)
+
+    try: mkdir(args.losses_path + args.name)
+    except FileExistsError: logging.debug("losses dir exists")
+
+    try: mkdir(args.models_path + args.name)
+    except FileExistsError: logging.debug("models dir exists")
+
+    try: mkdir(args.figs_path + args.name)
+    except FileExistsError: logging.debug("figs dir exists")
 
     return args
 
@@ -305,6 +371,8 @@ def init_logging(args):
 
     tqdm_out = utils.TqdmToLogger(logging.getLogger(), level=level)
     # print("print test")
+
+    logging.getLogger('matplotlib.font_manager').setLevel(logging.WARNING)
 
     return args, tqdm_out
 
@@ -345,6 +413,9 @@ def load_args(args):
 
 def init():
     args = parse_args()
+    if args.debug:
+        args.log = 'DEBUG'
+        args.log_file = 'stdout'
     args = init_project_dirs(args)
     args, tqdm_out = init_logging(args)
     # args = init_logging(args)
@@ -430,12 +501,12 @@ def losses(args):
                         losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt')
                         if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0)
                         if losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0)
+                        # remove
+                        losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'm'][:, :2]
+                        losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'std'][:, :2]
+                        # ---
                         losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
                         losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].tolist()[:int(args.start_epoch / args.save_epochs) + 1]
-                        # losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'm.txt').tolist()[:args.start_epoch]
-                        # losses['w1j_' + str(args.w1_num_samples[k]) + 'std'] = np.loadtxt(args.losses_path + args.name + "/w1j_" + str(args.w1_num_samples[k]) + 'std.txt').tolist()[:args.start_epoch]
-                        # if losses['w1j_' + str(args.w1_num_samples[k]) + 'm'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'], 0).tolist()[:args.start_epoch]
-                        # if losses['wj1_' + str(args.w1_num_samples[k]) + 'std'].ndim == 1: np.expand_dims(losses['w1j_' + str(args.w1_num_samples[k]) + 'std'], 0).tolist()[:args.start_epoch]
                 except:
                     for k in range(len(args.w1_num_samples)):
                         losses['w1j_' + str(args.w1_num_samples[k]) + 'm'] = []

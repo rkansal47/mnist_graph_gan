@@ -117,3 +117,49 @@ for i in range(3):
 # plt.legend()
 plt.savefig(dir + 'losses/7/logw1.pdf', bbox_inches='tight')
 plt.show()
+
+
+
+rng.choice(100000, size=10)
+
+np.array(gen_masses)[rng.choice(100000, size=10)]
+
+gen_masses = np.array(gen_masses)
+real_masses = np.array(real_masses)
+
+
+num_samples = np.array([100, 1000, 10000])
+num_batches = np.array(100000 / num_samples, dtype=int)
+
+real_means = []
+real_stds = []
+gen_means = []
+gen_stds = []
+
+N = 100000
+
+for k in range(len(num_samples)):
+    print("Num Samples: " + str(num_samples[k]))
+    gen_w1s = []
+    real_w1s = []
+    for j in tqdm(range(num_batches[k])):
+        gen_sample = gen_masses[rng.choice(N, size=num_samples[k])]
+        sample = real_masses[rng.choice(N, size=num_samples[k])]
+
+        gen_w1s.append(wasserstein_distance(gen_sample, sample))
+
+        # sample1 = real_masses[rng.choice(N, size=num_samples[k])]
+        # sample2 = real_masses[rng.choice(N, size=num_samples[k])]
+        #
+        # real_w1s.append(wasserstein_distance(sample1, sample2))
+
+    # real_means.append(np.mean(np.array(real_w1s), axis=0))
+    # real_stds.append(np.std(np.array(real_w1s), axis=0))
+    gen_means.append(np.mean(np.array(gen_w1s), axis=0))
+    gen_stds.append(np.std(np.array(gen_w1s), axis=0))
+
+
+real_means
+real_stds
+gen_means
+gen_stds
