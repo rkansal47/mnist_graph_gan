@@ -28,8 +28,8 @@ h = hpy()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 92
-epoch = 1065
+model = 149
+epoch = 1650
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -69,18 +69,19 @@ dir = './'
 
 args = utils.objectview({'datasets_path': dir + 'datasets/', 'figs_path': dir + 'figs/' + str(model), 'node_feat_size': 3, 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 1, 'jets': 'g', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': False, 'mask_feat': False})
 
-args = eval(open("./args/" + "92_t30_mask_learn_bin_lrx2.txt").read())
+args = eval(open("./args/" + "149_t30_mask_c_lrx2.txt").read())
 args['device'] = device
 args['datasets_path'] = dir + 'datasets/'
-args['mask_feat'] = False
-args['mask_learn'] = False
-args['mask_c'] = False
+# args['mask_feat'] = False
+# args['mask_learn'] = False
+# args['mask_c'] = False
 args['figs_path'] = dir + 'figs/' + str(model) + '/' + str(epoch)
 args = utils.objectview(args)
 
 args
 
 X = JetsDataset(args)
+
 
 labels = X[:][1]
 # X_loaded = DataLoader(X, shuffle=True, batch_size=32, pin_memory=True)
@@ -95,14 +96,21 @@ num_samples = 100000
 G = Graph_GAN(True, args)
 G.load_state_dict(torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device))
 
+importlib.reload(utils)
+
+G.eval()
+gen_out = utils.gen_multi_batch(args, G, num_samples, labels=labels, use_tqdm=True)
+
+labels
+
 G.eval()
 if args.clabels:
-    gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
+    gen_out = utils.gen(args, G, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
     for i in tqdm(range(int(num_samples / batch_size))):
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[128 * (i + 1):128 * (i + 2)]).cpu().detach().numpy()), 0)
     gen_out = gen_out[:num_samples]
 else:
-    gen_out = utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()
+    gen_out = utils.gen(args, G, num_samples=batch_size).cpu().detach().numpy()
     for i in tqdm(range(int(num_samples / batch_size))):
         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
     gen_out = gen_out[:num_samples]
@@ -120,11 +128,11 @@ gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out, real=False)
 # gen_out_rn = gen_out_rn / args.norm
 # # gen_out_rn[:, :, 2] += 0.5
 # gen_out_rn *= args.maxepp
-
-for i in range(num_samples):
-    for j in range(args.num_hits):
-        if gen_out_rn[i][j][2] < 0:
-            gen_out_rn[i][j][2] = 0
+#
+# for i in range(num_samples):
+#     for j in range(args.num_hits):
+#         if gen_out_rn[i][j][2] < 0:
+#             gen_out_rn[i][j][2] = 0
 
 print(X_rn.shape)
 print(gen_out_rn.shape)
@@ -146,6 +154,9 @@ gen_out_rn
 
 importlib.reload(save_outputs)
 %matplotlib inline
+
+plt.rcParams.update({'font.size': 16})
+plt.style.use(hep.style.CMS)
 save_outputs.plot_jet_mass_pt(args, realjf, genjf, '_jets_mass_pt', show=True)
 
 importlib.reload(save_outputs)
@@ -156,7 +167,7 @@ h.heap()
 
 importlib.reload(save_outputs)
 %matplotlib inline
-save_outputs.plot_part_feats(args, X_rn, mask_real, gen_out_rn, mask_gen, 'p')
+save_outputs.plot_part_feats(args, X_rn, mask_real, gen_out_rn, mask_gen, 'p', show=True)
 
 h.heap()
 

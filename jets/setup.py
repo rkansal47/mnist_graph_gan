@@ -23,7 +23,7 @@ def parse_args():
     # meta
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
-    parser.add_argument("--dataset", type=str, default="jets", help="dataset to use", choices=['jets', 'sparse-mnist', 'superpixels'])
+    parser.add_argument("--dataset", type=str, default="jets", help="dataset to use", choices=['jets', 'jets-lagan', 'sparse-mnist', 'superpixels'])
 
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.85, help="ratio of train/test split")
@@ -53,7 +53,7 @@ def parse_args():
 
     utils.add_bool_arg(parser, "const-ylim", "const ylim in plots", default=False)
 
-    parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't', 'w', 'z', 'q'])
+    parser.add_argument("--jets", type=str, default="g", help="jet type", choices=['g', 't', 'w', 'z', 'q', 'sig', 'bg'])
 
     utils.add_bool_arg(parser, "real-only", "use jets with ony real particles", default=False)
 
@@ -280,6 +280,9 @@ def check_args(args):
             args.save_model_epochs = 5
         else: args.save_model_epochs = 1
 
+    if args.dataset == 'jets-lagan':
+        args.mask_c = True
+
     if args.mask_fnd_np:
         logging.info("setting dea true due to mask-fnd-np arg")
         args.dea = True
@@ -308,6 +311,8 @@ def check_args(args):
         args.w1_num_samples = [10, 100]
         args.num_samples = 1000
 
+    if args.dataset == 'jets-lagan' and args.jets == 'g':
+        args.jets = 'sig'
 
 
     return args

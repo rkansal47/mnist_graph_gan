@@ -23,15 +23,21 @@ def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None,
         bin = np.arange(-500, 500, 10)
         pbins = [bin, bin, bin]
     elif args.coords == 'polarrel':
-        plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
-        if args.jets == 'g' or args.jets == 'q' or args.jets == 'w' or args.jets == 'z':
-            if args.num_hits == 100:
-                pbins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
-            else:
-                pbins = [np.linspace(-0.3, 0.3, 100), np.linspace(-0.3, 0.3, 100), np.linspace(0, 0.2, 100)]
-                ylims = [3e5, 3e5, 3e5]
-        elif args.jets == 't':
-            pbins = [np.linspace(-0.5, 0.5, 100), np.linspace(-0.5, 0.5, 100), np.linspace(0, 0.2, 100)]
+        if args.dataset == 'jets':
+            plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
+            if args.jets == 'g' or args.jets == 'q' or args.jets == 'w' or args.jets == 'z':
+                if args.num_hits == 100:
+                    pbins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
+                else:
+                    pbins = [np.linspace(-0.3, 0.3, 100), np.linspace(-0.3, 0.3, 100), np.linspace(0, 0.2, 100)]
+                    ylims = [3e5, 3e5, 3e5]
+            elif args.jets == 't':
+                pbins = [np.linspace(-0.5, 0.5, 100), np.linspace(-0.5, 0.5, 100), np.linspace(0, 0.2, 100)]
+        elif args.dataset == 'jets-lagan':
+            plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
+            pbins = [np.linspace(-1.25, 1.25, 25 + 1), np.linspace(-1.25, 1.25, 25 + 1), np.linspace(0, 1, 51)]
+
+
     elif args.coords == 'polarrelabspt':
         plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
         pbins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 400, 4)]
@@ -159,8 +165,14 @@ def plot_jet_feats(args, realjf, genjf, realefp, genefp, name, losses=None, show
 
 
 def plot_jet_mass_pt(args, realjf, genjf, name, show=False):
-    binsm = np.linspace(0, 0.225, 101)
-    binspt = np.linspace(0.5, 1.2, 101)
+    if args.dataset == 'jets':
+        jlabels = ['Jet Relative Mass', 'Jet Relative $p_T$']
+        binsm = np.linspace(0, 0.225, 101)
+        binspt = np.linspace(0.5, 1.2, 101)
+    elif args.dataset == 'jets-lagan':
+        jlabels = ['Jet Mass (GeV)', 'Jet $p_T$ (GeV)']
+        binsm = np.linspace(40, 120, 51)
+        binspt = np.linspace(220, 340, 51)
 
     fig = plt.figure(figsize=(16, 8))
 
@@ -169,7 +181,7 @@ def plot_jet_mass_pt(args, realjf, genjf, name, show=False):
     # plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
     _ = plt.hist(realjf[:, 0], bins=binsm, histtype='step', label='Real', color='red')
     _ = plt.hist(genjf[:, 0], bins=binsm, histtype='step', label='Generated', color='blue')
-    plt.xlabel('Jet Relative Mass')
+    plt.xlabel(jlabels[0])
     plt.ylabel('Jets')
     plt.legend(loc=1, prop={'size': 18})
 
@@ -178,7 +190,7 @@ def plot_jet_mass_pt(args, realjf, genjf, name, show=False):
     plt.ticklabel_format(axis='x', scilimits=(0, 0), useMathText=True)
     _ = plt.hist(realjf[:, 1], bins=binspt, histtype='step', label='Real', color='red')
     _ = plt.hist(genjf[:, 1], bins=binspt, histtype='step', label='Generated', color='blue')
-    plt.xlabel('Jet Relative $p_T$')
+    plt.xlabel(jlabels[1])
     plt.ylabel('Jets')
     plt.legend(loc=1, prop={'size': 18})
 

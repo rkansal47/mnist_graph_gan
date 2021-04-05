@@ -155,10 +155,14 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     return gen_data
 
 
-def gen_multi_batch(args, G, num_samples, noise=None, labels=None, X_loaded=None):
-    gen_out = gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()
-    for i in range(int(num_samples / args.batch_size)):
-        gen_out = np.concatenate((gen_out, gen(args, G, num_samples=args.batch_size, X_loaded=X_loaded).cpu().detach().numpy()), 0)
+def gen_multi_batch(args, G, num_samples, noise=None, labels=None, X_loaded=None, use_tqdm=False):
+    gen_out = gen(args, G, num_samples=args.batch_size, labels=None if labels is None else labels[:args.batch_size], X_loaded=X_loaded).cpu().detach().numpy()
+    if use_tqdm:
+        for i in tqdm.tqdm(range(int(num_samples / args.batch_size))):
+            gen_out = np.concatenate((gen_out, gen(args, G, num_samples=args.batch_size, labels=None if labels is None else labels[args.batch_size * (i + 1):args.batch_size * (i + 2)], X_loaded=X_loaded).cpu().detach().numpy()), 0)
+    else:
+        for i in range(int(num_samples / args.batch_size)):
+            gen_out = np.concatenate((gen_out, gen(args, G, num_samples=args.batch_size, labels=None if labels is None else labels[args.batch_size * (i + 1):args.batch_size * (i + 2)], X_loaded=X_loaded).cpu().detach().numpy()), 0)
     gen_out = gen_out[:num_samples]
 
     return gen_out
