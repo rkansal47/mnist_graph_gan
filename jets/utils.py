@@ -139,8 +139,11 @@ class objectview(object):
 def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
     if(noise is None):
-        extra_noise_p = int(hasattr(args, 'mask_learn_sep') and args.mask_learn_sep)
-        noise = dist.sample((num_samples, args.num_hits + extra_noise_p, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
+        if args.model == 'mpgan':
+            extra_noise_p = int(hasattr(args, 'mask_learn_sep') and args.mask_learn_sep)
+            noise = dist.sample((num_samples, args.num_hits + extra_noise_p, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
+        elif args.model == 'rgan':
+            noise = dist.sample((num_samples, args.rgang_fc[0]))
     else: num_samples = noise.size(0)
 
     if (args.clabels or args.mask_c) and labels is None:
