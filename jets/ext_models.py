@@ -109,7 +109,7 @@ class GraphCNNGANG(nn.Module):
         batch = torch.cumsum(zeros, 0) - 1
 
         for i in range(len(self.layers)):
-            edge_index = knn_graph(x, 1, batch)
+            edge_index = knn_graph(x, self.args.num_knn, batch)
             edge_attr = x[edge_index[0]] - x[edge_index[1]]
             x = F.leaky_relu(self.bn_layers[i](self.layers[i](x, edge_index, edge_attr)), negative_slope=self.args.leaky_relu_alpha)
 

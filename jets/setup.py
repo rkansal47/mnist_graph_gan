@@ -359,6 +359,8 @@ def check_args(args):
 
         args.leaky_relu_alpha = 0.2
 
+        args.num_knn = 20
+
     return args
 
 
