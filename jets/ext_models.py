@@ -112,6 +112,6 @@ class GraphCNNGANG(nn.Module):
             edge_index = knn_graph(x, self.args.num_knn, batch)
             edge_attr = x[edge_index[0]] - x[edge_index[1]]
             x = self.bn_layers[i](self.layers[i](x, edge_index, edge_attr))
-            if i < len(self.layers) - 1: x = F.leaky_relu(x, negative_slope=self.args.leaky_relu_alpha))
+            if i < (len(self.layers) - 1): x = F.leaky_relu(x, negative_slope=self.args.leaky_relu_alpha)
 
         return x.reshape(batch_size, self.args.num_hits, self.args.node_feat_size)
