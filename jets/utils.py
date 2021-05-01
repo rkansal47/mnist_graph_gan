@@ -332,7 +332,7 @@ def jet_features(jets, mask_bool=False, mask=None):
 
     sum_vecs = vecs.sum(axis=1)
 
-    jf = np.concatenate((sum_vecs.mass, sum_vecs.pt), axis=1)
+    jf = np.nan_to_num(np.array(np.concatenate((sum_vecs.mass, sum_vecs.pt), axis=1)))
 
     return jf
 

@@ -236,6 +236,54 @@ for j in range(1000):
     w1s.append(w1)
     w1sr.append(w1r)
 
+Gsample
+
+genjf
+
+gen_out_rn
+
+genjf_sample
+
+ak.nan_to_num(genjf_sample)
+
+G_rand_sample
+
+np.where(np.sum(gen_out_rn[:, :, 2] > 1, axis=1) > 0)
+
+gen_out_rn[211]
+genjf[:, 0]
+
+jets = gen_out_rn[211:212]
+
+vecs = ak.zip({
+        "pt": jets[:, :, 2:3],
+        "eta": jets[:, :, 0:1],
+        "phi": jets[:, :, 1:2],
+        "mass": ak.full_like(jets[:, :, 2:3], 0),
+        }, with_name="PtEtaPhiMLorentzVector")
+
+vecs
+
+sum_vecs = vecs.sum(axis=1)
+
+sum_vecs.mass
+
+utils.jet_features(Gsample[9:10])
+
+utils.jet_features(gen_out_rn[211:212])
+
+gen_out_rn[8:9]
+
+gen_out_rn[8]
+
+Gsample[9]
+
+Xsample[0]
+genjf_sample
+Gsample[0]
+
+
+
 
 w1s
 w1js
