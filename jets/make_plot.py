@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import utils
+from torch.utils.data import DataLoader
 from jets_dataset import JetsDataset
 from torch.distributions.normal import Normal
 import mplhep as hep
@@ -83,6 +84,13 @@ args = utils.objectview(args)
 args
 
 X = JetsDataset(args)
+loadX = DataLoader(X, batch_size=128)
+
+len(loadX)
+
+len(X) / 128
+
+
 
 
 labels = X[:][1]

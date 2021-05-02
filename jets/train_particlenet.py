@@ -49,7 +49,10 @@ def parse_args():
 
     parser.add_argument("--num-epochs", type=int, default=1000, help="number of epochs to train")
     parser.add_argument("--batch-size", type=int, default=384, help="batch size")
+    parser.add_argument("--optimizer", type=str, default="adamw", help="pick optimizer", choices=['adam', 'rmsprop', 'adamw'])
     parser.add_argument('--lr', type=float, default=3e-4)
+
+    utils.add_bool_arg(parser, "scheduler", "use one cycle LR scheduler", default=True)
     parser.add_argument('--lr-decay', type=float, default=0.1)
     parser.add_argument('--cycle-up-num-epochs', type=int, default=8)
     parser.add_argument('--cycle-cooldown-num-epochs', type=int, default=4)
@@ -131,20 +134,26 @@ def main(args):
 
     if args.load_model: C = torch.load(args.model_path + args.name + "/C_" + str(args.start_epoch) + ".pt").to(device)
 
-    C_optimizer = torch.optim.AdamW(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    if args.optimizer == 'adamw':
+        C_optimizer = torch.optim.AdamW(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif args.optimizer == 'adam':
+        C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif args.optimizer == 'rmsprop':
+        C_optimizer =torch.optim.RMSprop(C.parameters(), lr=args.lr)
 
-    steps_per_epoch = len(train_loader)
-    cycle_last_epoch = -1 if not args.load_model else (args.start_epoch * steps_per_epoch) - 1
-    cycle_total_epochs = (2 * args.cycle_up_num_epochs) + args.cycle_cooldown_num_epochs
+    if args.scheduler:
+        steps_per_epoch = len(train_loader)
+        cycle_last_epoch = -1 if not args.load_model else (args.start_epoch * steps_per_epoch) - 1
+        cycle_total_epochs = (2 * args.cycle_up_num_epochs) + args.cycle_cooldown_num_epochs
 
-    C_scheduler = torch.optim.lr_scheduler.OneCycleLR(C_optimizer,
-                                                        max_lr=args.cycle_max_lr,
-                                                        pct_start=(args.cycle_up_num_epochs / cycle_total_epochs),
-                                                        epochs=cycle_total_epochs,
-                                                        steps_per_epoch=steps_per_epoch,
-                                                        final_div_factor=args.cycle_final_lr / args.lr,
-                                                        anneal_strategy='linear',
-                                                        last_epoch=cycle_last_epoch)
+        C_scheduler = torch.optim.lr_scheduler.OneCycleLR(C_optimizer,
+                                                            max_lr=args.cycle_max_lr,
+                                                            pct_start=(args.cycle_up_num_epochs / cycle_total_epochs),
+                                                            epochs=cycle_total_epochs,
+                                                            steps_per_epoch=steps_per_epoch,
+                                                            final_div_factor=args.cycle_final_lr / args.lr,
+                                                            anneal_strategy='linear',
+                                                            last_epoch=cycle_last_epoch)
 
     loss = torch.nn.CrossEntropyLoss().to(args.device)
 
@@ -214,7 +223,7 @@ def main(args):
         logging.info("training")
         for batch_ndx, (x, y) in tqdm(enumerate(train_loader), total=len(train_loader)):
             C_loss += train_C(x.to(device), y.to(device))
-            C_scheduler.step()
+            if args.scheduler: C_scheduler.step()
 
         train_losses.append(C_loss / len(train_loader))
 
