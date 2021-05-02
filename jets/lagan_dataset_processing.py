@@ -7,27 +7,32 @@ import utils
 
 lagan_data = h5py.File('datasets/jet-images_Mass60-100_pT250-300_R1.25_Pix25.hdf5', 'r')
 
+print('data loaded')
 
-X_pre = np.array(lagan_data['image'])
+
+X = np.array(lagan_data['image'])
 imrange = np.linspace(-1.2, 1.2, num=25)
 xs, ys = np.meshgrid(imrange, imrange)
 
 xs = xs.reshape(-1)
 ys = ys.reshape(-1)
 
-X = np.array(list(map(lambda x: np.array([xs, ys, x]).T, X_pre.reshape(-1, 25 * 25))))
-Xsorted = np.array(list(map(lambda x: x[x[:, 2].argsort()][-200:], X)))
+X = np.array(list(map(lambda x: np.array([xs, ys, x]).T, X.reshape(-1, 25 * 25))))
+X = np.array(list(map(lambda x: x[x[:, 2].argsort()][-200:], X)))
 
+print('sorted')
 
-Xsorted[Xsorted[:, :, 2] == 0] = [0, 0, 0]
+X[X[:, :, 2] == 0] = [0, 0, 0]
 
-mask = (Xsorted[:, :, 2] != 0)
+mask = (X[:, :, 2] != 0)
 
-Xmask = np.concatenate((Xsorted, mask.reshape(-1, 200, 1)), axis=2)
+X = np.concatenate((X, mask.reshape(-1, 200, 1)), axis=2)
 
-torchX = torch.tensor(Xmask)
+torchX = torch.tensor(X)
 
 signal = np.array(lagan_data['signal'])
+
+print('signal')
 
 torch.save(torchX[signal == 1], 'datasets/lagan_signal.pt')
 torch.save(torchX[signal == 0], 'datasets/lagan_background.pt')
