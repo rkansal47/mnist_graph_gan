@@ -124,7 +124,7 @@ def main(args):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
-    C = ParticleNet(args.num_hits, args.node_feat_size, num_classes=5, device=device)
+    C = ParticleNet(args.num_hits, args.node_feat_size, num_classes=5, device=device).to(args.device)
 
     if args.load_model: C = torch.load(args.model_path + args.name + "/C_" + str(args.start_epoch) + ".pt").to(device)
 
@@ -143,7 +143,7 @@ def main(args):
                                                         anneal_strategy='linear',
                                                         last_epoch=cycle_last_epoch)
 
-    loss = torch.nn.CrossEntropyLoss()
+    loss = torch.nn.CrossEntropyLoss().to(args.device)
 
     train_losses = []
     test_losses = []
@@ -186,6 +186,7 @@ def main(args):
             for batch_ndx, (x, y) in tqdm(enumerate(test_loader), total=len(test_loader)):
                 logging.debug(f"x[0]: {x[0]}, y: {y}")
                 output = C(x.to(device))
+                y = y.to(device)
                 test_loss += loss(output, y).item()
                 pred = output.max(1, keepdim=True)[1]
                 logging.debug(f"pred: {pred}, output: {output}")
