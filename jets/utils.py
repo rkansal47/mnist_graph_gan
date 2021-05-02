@@ -139,8 +139,11 @@ class objectview(object):
 def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
     if(noise is None):
-        extra_noise_p = int(hasattr(args, 'mask_learn_sep') and args.mask_learn_sep)
-        noise = dist.sample((num_samples, args.num_hits + extra_noise_p, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
+        if args.model == 'mpgan':
+            extra_noise_p = int(hasattr(args, 'mask_learn_sep') and args.mask_learn_sep)
+            noise = dist.sample((num_samples, args.num_hits + extra_noise_p, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
+        elif args.model == 'rgan' or args.model == 'graphcnngan':
+            noise = dist.sample((num_samples, args.latent_dim))
     else: num_samples = noise.size(0)
 
     if (args.clabels or args.mask_c) and labels is None:
@@ -329,7 +332,7 @@ def jet_features(jets, mask_bool=False, mask=None):
 
     sum_vecs = vecs.sum(axis=1)
 
-    jf = np.concatenate((sum_vecs.mass, sum_vecs.pt), axis=1)
+    jf = np.nan_to_num(np.array(np.concatenate((sum_vecs.mass, sum_vecs.pt), axis=1)))
 
     return jf
 
@@ -359,6 +362,43 @@ def unnorm_data(args, jets, real=True, rem_zero=True):
                         jets[i][j][k] = 0
 
     return jets, mask
+
+
+
+# transform my format to torch_geometric's
+def tg_transform(args, X):
+    batch_size = X.size(0)
+
+    pos = X[:, :, :2]
+
+    x1 = pos.repeat(1, 1, args.num_hits).reshape(batch_size, args.num_hits * args.num_hits, 2)
+    x2 = pos.repeat(1, args.num_hits, 1)
+
+    diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
+
+    # diff = x2-x1
+    # diff = diff[diff_norms < args.cutoff]
+
+    norms = diff_norms.reshape(batch_size, args.num_hits, args.num_hits)
+    neighborhood = torch.nonzero(norms < args.cutoff, as_tuple=False)
+    # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
+
+    neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
+    unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
+    # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
+    edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * args.num_hits).view(-1, 1)).transpose(0, 1)
+
+    x = X[:, :, 2].reshape(batch_size * args.num_hits, 1) + 0.5
+    pos = 28 * pos.reshape(batch_size * args.num_hits, 2) + 14
+
+    row, col = edge_index
+    edge_attr = (pos[col] - pos[row]) / (2 * 28 * args.cutoff) + 0.5
+
+    zeros = torch.zeros(batch_size * args.num_hits, dtype=int).to(args.device)
+    zeros[torch.arange(batch_size) * args.num_hits] = 1
+    batch = torch.cumsum(zeros, 0) - 1
+
+    return Batch(batch=batch, x=x, edge_index=edge_index.contiguous(), edge_attr=edge_attr, y=None, pos=pos)
 
 
 def efp(args, jets, mask=None, real=True):

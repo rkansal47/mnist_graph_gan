@@ -8,6 +8,7 @@ from os.path import exists, dirname, realpath
 import torch
 
 from model import Graph_GAN
+from ext_models import rGANG, rGAND, GraphCNNGANG
 from copy import deepcopy
 
 import torch.optim as optim
@@ -27,6 +28,8 @@ def parse_args():
 
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.85, help="ratio of train/test split")
+
+    parser.add_argument("--model", type=str, default="mpgan", help="model to run", choices=['mpgan', 'rgan', 'graphcnngan'])
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=True)
     utils.add_bool_arg(parser, "override-load-check", "override check for whether name has already been used", default=False)
@@ -184,6 +187,17 @@ def parse_args():
 
     parser.add_argument("--jf", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
 
+
+    # ext models
+
+    parser.add_argument("--latent-dim", type=int, default=128, help="")
+
+    parser.add_argument("--rgang-fc", type=int, nargs='+', default=[64, 128, 512, 1024], help='rGAN generator layer node sizes')
+    parser.add_argument("--rgand-sfc", type=int, nargs='*', default=0, help='rGAN discriminator layer node sizes')
+    parser.add_argument("--rgand-fc", type=int, nargs='*', default=0, help='rGAN discriminator layer node sizes')
+
+    parser.add_argument("--graphcnng-layers", type=int, nargs='+', default=[32, 24, 16, 8], help='GraphCNN-GAN generator layer node sizes')
+
     args = parser.parse_args()
 
     return args
@@ -240,28 +254,28 @@ def check_args(args):
         args.save_zero = False
 
     if(args.batch_size == 0):
-        if args.multi_gpu:
-            if args.num_hits <= 30:
-                args.batch_size = 128
-            else:
-                args.batch_size = 32
-        else:
-            if args.fully_connected:
+        if args.model == 'mpgan':
+            if args.multi_gpu:
                 if args.num_hits <= 30:
-                    args.batch_size = 256
+                    args.batch_size = 128
                 else:
                     args.batch_size = 32
             else:
-                if args.num_hits <= 30 or args.num_knn <= 10:
-                    args.batch_size = 320
-                else:
-                    if args.num_knn <= 20:
-                        args.batch_size = 160
-                    elif args.num_knn <= 30:
-                        args.batch_size = 100
+                if args.fully_connected:
+                    if args.num_hits <= 30:
+                        args.batch_size = 256
                     else:
                         args.batch_size = 32
-
+                else:
+                    if args.num_hits <= 30 or args.num_knn <= 10:
+                        args.batch_size = 320
+                    else:
+                        if args.num_knn <= 20:
+                            args.batch_size = 160
+                        elif args.num_knn <= 30:
+                            args.batch_size = 100
+                        else:
+                            args.batch_size = 32
 
 
     if(args.n):
@@ -314,6 +328,38 @@ def check_args(args):
     if args.dataset == 'jets-lagan' and args.jets == 'g':
         args.jets = 'sig'
 
+    if args.model == 'rgan':
+        args.optimizer = 'adam'
+        args.beta1 = 0.5
+        args.lr_disc = 0.0001
+        args.lr_gen = 0.0001
+        args.batch_size = 50
+        args.num_epochs = 2000
+        args.loss = 'w'
+        args.gp = 10
+        args.num_critic = 5
+
+        if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 256, 512]
+        if args.rgand_fc == 0: args.rgand_fc = [128, 64]
+
+        args.leaky_relu_alpha = 0.2
+
+    if args.model == 'graphcnngan':
+        args.optimizer = 'rmsprop'
+        args.lr_disc = 0.0001
+        args.lr_gen = 0.0001
+        args.batch_size = 50
+        args.num_epochs = 1000
+        args.loss = 'w'
+        args.gp = 10
+        args.num_critic = 5
+
+        if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
+        if args.rgand_fc == 0: args.rgand_fc = [128, 64]
+
+        args.leaky_relu_alpha = 0.2
+
+        args.num_knn = 20
 
     return args
 
@@ -426,8 +472,15 @@ def init():
 
 
 def models(args):
-    G = Graph_GAN(gen=True, args=deepcopy(args))
-    D = Graph_GAN(gen=False, args=deepcopy(args))
+    if args.model == 'mpgan':
+        G = Graph_GAN(gen=True, args=deepcopy(args))
+        D = Graph_GAN(gen=False, args=deepcopy(args))
+    elif args.model == 'rgan':
+        G = rGANG(args=deepcopy(args))
+        D = rGAND(args=deepcopy(args))
+    elif args.model == 'graphcnngan':
+        G = GraphCNNGANG(args=deepcopy(args))
+        D = rGAND(args=deepcopy(args))
 
     if(args.load_model):
         try:

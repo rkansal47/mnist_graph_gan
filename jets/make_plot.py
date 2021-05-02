@@ -13,8 +13,10 @@ import energyflow.utils as ut
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from model import Graph_GAN
+from ext_models import GraphCNNGANG
 import importlib
 import save_outputs
+import math
 # plt.switch_backend('macosx')
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
@@ -28,8 +30,8 @@ h = hpy()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = 149
-epoch = 1650
+model = 179
+epoch = 5
 name = str(model) + '_' + str(epoch)
 figpath = "figs/" + str(model) + '/' + name
 
@@ -64,12 +66,12 @@ np.argsort(np.linalg.norm(w1m[:, :3], axis=1))[:20] * 5
 
 batch_size = 128
 normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
-dir = './'
-# dir = '/graphganvol/mnist_graph_gan/jets/'
 
+
+dir = './'
 args = utils.objectview({'datasets_path': dir + 'datasets/', 'figs_path': dir + 'figs/' + str(model), 'node_feat_size': 3, 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 1, 'jets': 'g', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': False, 'mask_feat': False})
 
-args = eval(open("./args/" + "149_t30_mask_c_lrx2.txt").read())
+args = eval(open("./args/" + "179_t30_graphcnngan_knn_20.txt").read())
 args['device'] = device
 args['datasets_path'] = dir + 'datasets/'
 # args['mask_feat'] = False
@@ -90,10 +92,11 @@ N = len(X)
 
 rng = np.random.default_rng()
 
-num_samples = 100000
+num_samples = 1000
 
 # G = torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device)
-G = Graph_GAN(True, args)
+# G = Graph_GAN(True, args)
+G = GraphCNNGANG(args)
 G.load_state_dict(torch.load('./models/' + str(model) + '/G_' + str(epoch) + '.pt', map_location=device))
 
 importlib.reload(utils)
@@ -103,20 +106,20 @@ gen_out = utils.gen_multi_batch(args, G, num_samples, labels=labels, use_tqdm=Tr
 
 labels
 
-G.eval()
-if args.clabels:
-    gen_out = utils.gen(args, G, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
-    for i in tqdm(range(int(num_samples / batch_size))):
-        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[128 * (i + 1):128 * (i + 2)]).cpu().detach().numpy()), 0)
-    gen_out = gen_out[:num_samples]
-else:
-    gen_out = utils.gen(args, G, num_samples=batch_size).cpu().detach().numpy()
-    for i in tqdm(range(int(num_samples / batch_size))):
-        gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
-    gen_out = gen_out[:num_samples]
-
-model
-name
+# G.eval()
+# if args.clabels:
+#     gen_out = utils.gen(args, G, num_samples=batch_size, labels=labels[:128]).cpu().detach().numpy()
+#     for i in tqdm(range(int(num_samples / batch_size))):
+#         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size, labels=labels[128 * (i + 1):128 * (i + 2)]).cpu().detach().numpy()), 0)
+#     gen_out = gen_out[:num_samples]
+# else:
+#     gen_out = utils.gen(args, G, num_samples=batch_size).cpu().detach().numpy()
+#     for i in tqdm(range(int(num_samples / batch_size))):
+#         gen_out = np.concatenate((gen_out, utils.gen(args, G, dist=normal_dist, num_samples=batch_size).cpu().detach().numpy()), 0)
+#     gen_out = gen_out[:num_samples]
+#
+# model
+# name
 # np.save('./models/' + str(model) + '/' + name + "_gen_out", gen_out)
 
 gen_out = np.load('./models/' + str(model) + '/' + name + "_gen_out.npy")
@@ -144,8 +147,12 @@ print(gen_out_rn[0][:10])
 realjf = utils.jet_features(X_rn, args.mask, mask_real)
 genjf = utils.jet_features(gen_out_rn, args.mask, mask_gen)
 
+genjf
+
 real_masses = realjf[:, 0]
 gen_masses = genjf[:, 0]
+
+gen_masses
 
 len(real_masses)
 len(gen_masses)
@@ -202,6 +209,11 @@ for j in range(1000):
     w1jf = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
     w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
 
+    if math.isnan(w1jf[0]):
+        print("nan")
+        print(genjf_sample)
+        break
+
     w1jfr = [wasserstein_distance(realjf_sample[:, i], realjf_sample2[:, i]) for i in range(2)]
     w1jefpr = [wasserstein_distance(realefp_sample[:, i], realefp_sample2[:, i]) for i in range(5)]
 
@@ -225,10 +237,7 @@ for j in range(1000):
     w1sr.append(w1r)
 
 
-w1s
-w1js
 
-w1jsr
 
 np.mean(np.array(w1js)[:, 0])
 
