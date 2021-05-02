@@ -81,6 +81,7 @@ def init(args):
 
     args = utils.objectview(args_dict)
     args.datasets_path = args.dir_path + '/datasets/'
+    args.outs_path = args.dir_path + '/outs/'
 
     prev_models = [f[:-4] for f in listdir(args.cargs_path)]  # removing txt part
 
