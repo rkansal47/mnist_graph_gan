@@ -83,6 +83,8 @@ def init(args):
     args.datasets_path = args.dir_path + '/datasets/'
     args.outs_path = args.dir_path + '/outs/'
 
+    setup.init_logging(args)
+
     prev_models = [f[:-4] for f in listdir(args.cargs_path)]  # removing txt part
 
     if (args.name in prev_models):
@@ -225,5 +227,4 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
-    setup.init_logging(args)
     main(args)
