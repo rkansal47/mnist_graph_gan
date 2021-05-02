@@ -1,10 +1,13 @@
+import logging
+
 import torch
 from torch import nn
 
-import torch_geometric
-from torch_geometric.nn.conv import MessagePassing
 from torch_geometric.nn import EdgeConv, global_mean_pool
 from torch_cluster import knn_graph
+
+import numpy as np
+
 
 class ParticleNetEdgeNet(nn.Module):
     def __init__(self, in_size, layer_size):
@@ -12,7 +15,7 @@ class ParticleNetEdgeNet(nn.Module):
 
         layers = []
 
-        layers.append(nn.Linear(in_size, layer_size))
+        layers.append(nn.Linear(in_size * 2, layer_size))
         layers.append(nn.BatchNorm1d(layer_size))
         layers.append(nn.ReLU())
 
@@ -31,36 +34,40 @@ class ParticleNetEdgeNet(nn.Module):
 
 
 class ParticleNet(nn.Module):
-    def __init__(self, args):
+    def __init__(self, num_hits, node_feat_size, num_classes=5, device=torch.device('cpu')):
         super(ParticleNet, self).__init__()
-        self.args = args
+        self.num_hits = num_hits
+        self.node_feat_size = node_feat_size
+        self.num_classes = num_classes
+        self.device = device
+
         self.k = 16
         self.num_edge_convs = 3
         self.kernel_sizes = [64, 128, 256]
         self.fc_size = 256
-        self.num_classes = 5
         self.dropout = 0.1
-        self.num_features = 3
 
         self.edge_nets = nn.ModuleList()
         self.edge_convs = nn.ModuleList()
 
-        self.edge_nets.append(ParticleNetEdgeNet(self.num_features, self.kernel_sizes[0]))
+        self.kernel_sizes.insert(0, self.node_feat_size)
+        self.output_sizes = np.cumsum(self.kernel_sizes)
+
+        self.edge_nets.append(ParticleNetEdgeNet(self.node_feat_size, self.kernel_sizes[1]))
         self.edge_convs.append(EdgeConv(self.edge_nets[-1], aggr='mean'))
 
-        for i in range(self.num_edge_convs - 1):
-            self.edge_nets.append(ParticleNetEdgeNet(self.kernel_sizes[i + 1], self.kernel_sizes[i + 1]))
+        for i in range(1, self.num_edge_convs):
+            self.edge_nets.append(ParticleNetEdgeNet(self.output_sizes[i], self.kernel_sizes[i + 1]))  # adding kernel sizes because of skip connections
             self.edge_convs.append(EdgeConv(self.edge_nets[-1], aggr='mean'))
 
-        self.fc1 = nn.Sequential(nn.Linear(self.kernel_sizes[-1], self.fc_size),
+        self.fc1 = nn.Sequential(nn.Linear(self.output_sizes[-1], self.fc_size),
                                 nn.ReLU(),
                                 nn.Dropout(p=self.dropout))
 
-
         self.fc2 = nn.Linear(self.fc_size, self.num_classes)
 
-        logging.info("edge nets: ")
-        logging.info(self.edge_nets)
+        # logging.info("edge nets: ")
+        # logging.info(self.edge_nets)
 
         logging.info("edge_convs: ")
         logging.info(self.edge_convs)
@@ -73,17 +80,15 @@ class ParticleNet(nn.Module):
 
 
     def forward(self, x, ret_activations=False):
-        x = F.leaky_relu(self.dense(x), negative_slope=self.args.leaky_relu_alpha)
-
         batch_size = x.size(0)
-        x = x.reshape(batch_size * self.args.num_hits, self.num_features)
-        zeros = torch.zeros(batch_size * self.args.num_hits, dtype=int).to(self.args.device)
-        zeros[torch.arange(batch_size) * self.args.num_hits] = 1
+        x = x.reshape(batch_size * self.num_hits, self.node_feat_size)
+        zeros = torch.zeros(batch_size * self.num_hits, dtype=int).to(self.device)
+        zeros[torch.arange(batch_size) * self.num_hits] = 1
         batch = torch.cumsum(zeros, 0) - 1
 
         for i in range(self.num_edge_convs):
-            edge_index = knn_graph(x, self.k, batch[:, :2]) if i == 0 else edge_index = knn_graph(x, self.k, batch)  # using only angular coords for knn in first block
-            x = torch.cat((self.edge_convs[i](x), x), dim=1)  # concatenating with original features i.e. skip connection
+            edge_index = knn_graph(x[:, :2], self.k, batch) if i == 0 else knn_graph(x, self.k, batch)  # using only angular coords for knn in first edgeconv block
+            x = torch.cat((self.edge_convs[i](x, edge_index), x), dim=1)  # concatenating with original features i.e. skip connection
 
         x = global_mean_pool(x, batch)
         x = self.fc1(x)

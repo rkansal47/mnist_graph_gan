@@ -66,9 +66,9 @@ np.argsort(np.linalg.norm(w1m[:, :3], axis=1))[:20] * 5
 
 batch_size = 128
 normal_dist = Normal(torch.tensor(0.).to(device), torch.tensor(0.2).to(device))
-dir = './'
-# dir = '/graphganvol/mnist_graph_gan/jets/'
 
+
+dir = './'
 args = utils.objectview({'datasets_path': dir + 'datasets/', 'figs_path': dir + 'figs/' + str(model), 'node_feat_size': 3, 'num_hits': 30, 'coords': 'polarrel', 'latent_node_size': 32, 'clabels': 1, 'jets': 'g', 'norm': 1, 'mask': False, 'mask_manual': False, 'real_only': False, 'mask_feat': False})
 
 args = eval(open("./args/" + "179_t30_graphcnngan_knn_20.txt").read())
@@ -236,59 +236,8 @@ for j in range(1000):
     w1s.append(w1)
     w1sr.append(w1r)
 
-Gsample
-
-genjf
-
-gen_out_rn
-
-genjf_sample
-
-ak.nan_to_num(genjf_sample)
-
-G_rand_sample
-
-np.where(np.sum(gen_out_rn[:, :, 2] > 1, axis=1) > 0)
-
-gen_out_rn[211]
-genjf[:, 0]
-
-jets = gen_out_rn[211:212]
-
-vecs = ak.zip({
-        "pt": jets[:, :, 2:3],
-        "eta": jets[:, :, 0:1],
-        "phi": jets[:, :, 1:2],
-        "mass": ak.full_like(jets[:, :, 2:3], 0),
-        }, with_name="PtEtaPhiMLorentzVector")
-
-vecs
-
-sum_vecs = vecs.sum(axis=1)
-
-sum_vecs.mass
-
-utils.jet_features(Gsample[9:10])
-
-utils.jet_features(gen_out_rn[211:212])
-
-gen_out_rn[8:9]
-
-gen_out_rn[8]
-
-Gsample[9]
-
-Xsample[0]
-genjf_sample
-Gsample[0]
 
 
-
-
-w1s
-w1js
-
-w1jsr
 
 np.mean(np.array(w1js)[:, 0])
 
