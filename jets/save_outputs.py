@@ -270,10 +270,11 @@ def plot_eval(args, losses, name, epoch, show=False):
 
     x = x[-len(losses['mmd']):]
     paxis = 3 if args.jf else 2
-    metrics = {'mmd': (1, 'MMD'), 'coverage': (2, 'Coverage')}
+    metrics = {'mmd': (1, 'LogMMD'), 'coverage': (2, 'Coverage')}
     for key, (i, label) in metrics.items():
         fig.add_subplot(paxis, 3, i + (paxis - 1) * 3)
-        plt.plot(x, np.array(losses[key]))
+        if key == 'coverage': plt.plot(x, np.array(losses[key]))
+        else: plt.plot(x, np.log10(np.array(losses[key])))
         plt.xlabel('Epoch')
         plt.ylabel(label)
 
