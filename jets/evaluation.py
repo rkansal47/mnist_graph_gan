@@ -20,6 +20,8 @@ from os import path
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import wasserstein_distance
 
+from energyflow.emd import emds
+
 import logging
 
 cutoff = 0.32178
@@ -195,13 +197,13 @@ def calc_w1(args, X, G, losses, X_loaded=None):
 
         logging.info("Obtained gen jet features")
 
-        # realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
-        #
-        # logging.info("Obtained Real EFPs")
-        #
-        # genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
-        #
-        # logging.info("Obtained Gen EFPs")
+        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+
+        logging.info("Obtained Real EFPs")
+
+        genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
+
+        logging.info("Obtained Gen EFPs")
 
     num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
@@ -233,14 +235,14 @@ def calc_w1(args, X, G, losses, X_loaded=None):
                 realjf_sample = realjf[X_rand_sample]
                 genjf_sample = genjf[G_rand_sample]
 
-                # realefp_sample = realefp[X_rand_sample]
-                # genefp_sample = genefp[X_rand_sample]
+                realefp_sample = realefp[X_rand_sample]
+                genefp_sample = genefp[X_rand_sample]
 
                 w1jf = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
-                # w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
+                w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
 
-                # w1js.append([i for t in (w1jf, w1jefp) for i in t])
-                w1js.append(w1jf)
+                w1js.append([i for t in (w1jf, w1jefp) for i in t])
+                # w1js.append(w1jf)
 
         losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))
         losses['w1_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1s), axis=0))
@@ -250,3 +252,31 @@ def calc_w1(args, X, G, losses, X_loaded=None):
             losses['w1j_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1js), axis=0))
 
     return gen_out
+
+
+def calc_cov_mmd(args, X, gen_out, losses, X_loaded=None):
+    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
+    gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
+
+    # converting into EFP format
+    X_rn = np.concatenate((np.expand_dims(X_rn[:, :, 2], 2), X_rn[:, :, :2], np.zeros((X_rn.shape[0], X_rn.shape[1], 1))), axis=2)
+    gen_out_rn = np.concatenate((np.expand_dims(gen_out_rn[:, :, 2], 2), gen_out_rn[:, :, :2], np.zeros((gen_out_rn.shape[0], gen_out_rn.shape[1], 1))), axis=2)
+
+    logging.info("Calculating coverage and MMD")
+    covs = []
+    mmds = []
+
+    for j in range(args.cov_mmd_num_batches):
+        G_rand_sample = rng.choice(args.w1_tot_samples, size=args.cov_mmd_num_samples)
+        X_rand_sample = rng.choice(args.w1_tot_samples, size=args.cov_mmd_num_samples)
+
+        Gsample = gen_out_rn[G_rand_sample]
+        Xsample = X_rn[X_rand_sample]
+
+        dists = emds(Gsample, Xsample)
+
+        mmds.append(np.mean(np.min(dists, axis=0)))
+        covs.append(np.unique(np.argmin(dists, axis=1)).size / args.cov_mmd_num_samples)
+
+    losses['coverage'].append(np.mean(np.array(covs)))
+    losses['mmd'].append(np.mean(np.array(mmds)))

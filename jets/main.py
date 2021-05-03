@@ -25,8 +25,11 @@ def main():
     args.device = device
     logging.info("Args initalized")
 
-    X = JetsDataset(args)
+    X = JetsDataset(args, train=True)
     X_loaded = DataLoader(X, shuffle=True, batch_size=args.batch_size, pin_memory=True)
+
+    X_test = JetsDataset(args, train=False)
+    X_test_loaded = DataLoader(X_test, batch_size=args.batch_size, pin_memory=True)
     logging.info("Data loaded")
 
     G, D = setup.models(args)
@@ -114,9 +117,11 @@ def main():
         logging.info(h.heap())
 
         if(args.start_epoch == 0 and args.save_zero):
-            if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
+            if args.eval:
+                gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
+                evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
             else: gen_out = None
-            save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], 0, losses, X_loaded=X_loaded, gen_out=gen_out)
+            save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], 0, losses, X_loaded=X_test_loaded, gen_out=gen_out)
             del(gen_out)
 
         logging.info(h.heap())
@@ -161,15 +166,17 @@ def main():
             if((i + 1) % args.save_model_epochs == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
-                # if args.w1: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
+                # if args.eval: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
 
             if(args.fid and (i + 1) % 1 == 0):
                 losses['fid'].append(evaluation.get_fid(args, C, G, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
-                if args.w1: gen_out = evaluation.calc_w1(args, X[:][0], G, losses, X_loaded=X_loaded)
+                if args.eval:
+                    gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
+                    evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
                 else: gen_out = None
-                save_outputs.save_sample_outputs(args, D, G, X[:args.num_samples][0], i + 1, losses, X_loaded=X_loaded, gen_out=gen_out)
+                save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], i + 1, losses, X_loaded=X_test_loaded, gen_out=gen_out)
                 del(gen_out)
 
             logging.info(h.heap())

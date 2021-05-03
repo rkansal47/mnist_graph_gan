@@ -139,7 +139,7 @@ def main(args):
     elif args.optimizer == 'adam':
         C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     elif args.optimizer == 'rmsprop':
-        C_optimizer =torch.optim.RMSprop(C.parameters(), lr=args.lr)
+        C_optimizer = torch.optim.RMSprop(C.parameters(), lr=args.lr)
 
     if args.scheduler:
         steps_per_epoch = len(train_loader)

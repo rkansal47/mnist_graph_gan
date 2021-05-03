@@ -364,47 +364,55 @@ def unnorm_data(args, jets, real=True, rem_zero=True):
     return jets, mask
 
 
-
 # transform my format to torch_geometric's
-def tg_transform(args, X):
-    batch_size = X.size(0)
+# def tg_transform(args, X):
+#     batch_size = X.size(0)
+#
+#     pos = X[:, :, :2]
+#
+#     x1 = pos.repeat(1, 1, args.num_hits).reshape(batch_size, args.num_hits * args.num_hits, 2)
+#     x2 = pos.repeat(1, args.num_hits, 1)
+#
+#     diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
+#
+#     # diff = x2-x1
+#     # diff = diff[diff_norms < args.cutoff]
+#
+#     norms = diff_norms.reshape(batch_size, args.num_hits, args.num_hits)
+#     neighborhood = torch.nonzero(norms < args.cutoff, as_tuple=False)
+#     # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
+#
+#     neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
+#     unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
+#     # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
+#     edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * args.num_hits).view(-1, 1)).transpose(0, 1)
+#
+#     x = X[:, :, 2].reshape(batch_size * args.num_hits, 1) + 0.5
+#     pos = 28 * pos.reshape(batch_size * args.num_hits, 2) + 14
+#
+#     row, col = edge_index
+#     edge_attr = (pos[col] - pos[row]) / (2 * 28 * args.cutoff) + 0.5
+#
+#     zeros = torch.zeros(batch_size * args.num_hits, dtype=int).to(args.device)
+#     zeros[torch.arange(batch_size) * args.num_hits] = 1
+#     batch = torch.cumsum(zeros, 0) - 1
+#
+#     return Batch(batch=batch, x=x, edge_index=edge_index.contiguous(), edge_attr=edge_attr, y=None, pos=pos)
 
-    pos = X[:, :, :2]
 
-    x1 = pos.repeat(1, 1, args.num_hits).reshape(batch_size, args.num_hits * args.num_hits, 2)
-    x2 = pos.repeat(1, args.num_hits, 1)
-
-    diff_norms = torch.norm(x2 - x1 + 1e-12, dim=2)
-
-    # diff = x2-x1
-    # diff = diff[diff_norms < args.cutoff]
-
-    norms = diff_norms.reshape(batch_size, args.num_hits, args.num_hits)
-    neighborhood = torch.nonzero(norms < args.cutoff, as_tuple=False)
-    # diff = diff[neighborhood[:, 1] != neighborhood[:, 2]]
-
-    neighborhood = neighborhood[neighborhood[:, 1] != neighborhood[:, 2]]  # remove self-loops
-    unique, counts = torch.unique(neighborhood[:, 0], return_counts=True)
-    # edge_slices = torch.cat((torch.tensor([0]).to(device), counts.cumsum(0)))
-    edge_index = (neighborhood[:, 1:] + (neighborhood[:, 0] * args.num_hits).view(-1, 1)).transpose(0, 1)
-
-    x = X[:, :, 2].reshape(batch_size * args.num_hits, 1) + 0.5
-    pos = 28 * pos.reshape(batch_size * args.num_hits, 2) + 14
-
-    row, col = edge_index
-    edge_attr = (pos[col] - pos[row]) / (2 * 28 * args.cutoff) + 0.5
-
-    zeros = torch.zeros(batch_size * args.num_hits, dtype=int).to(args.device)
-    zeros[torch.arange(batch_size) * args.num_hits] = 1
-    batch = torch.cumsum(zeros, 0) - 1
-
-    return Batch(batch=batch, x=x, edge_index=edge_index.contiguous(), edge_attr=edge_attr, y=None, pos=pos)
+# convert our format (eta, phi, pt) into that of the energyflow library (pt, y, phi)
+def ef_format(jets):
+    pt = np.expand_dims(jets[:, :, 2], 2)
+    eta = np.expand_dims(jets[:, :, 0], 2)
+    phi = np.expand_dims(jets[:, :, 1], 2)
+    # for mass = 0, y = eta
+    return np.concatenate((pt, eta, phi, np.zeros((jets.shape[0], jets.shape[1], 1))), axis=2)
 
 
 def efp(args, jets, mask=None, real=True):
     efpset = ef.EFPSet(('n==', 4), ('d==', 4), ('p==', 1), measure='hadr', beta=1, normed=None, coords='ptyphim')
 
-    efp_format = np.concatenate((np.expand_dims(jets[:, :, 2], 2), jets[:, :, :2], np.zeros((jets.shape[0], jets.shape[1], 1))), axis=2)
+    efp_format = ef_format(jets)
 
     if not real and args.mask:
         for i in range(jets.shape[0]):

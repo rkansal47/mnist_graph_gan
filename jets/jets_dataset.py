@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import logging
 
 class JetsDataset(Dataset):
-    def __init__(self, args):
+    def __init__(self, args, train=True):
         if args.dataset == 'jets':
             mask = '_mask' if args.mask else ''
             if args.real_only: dataset = torch.load(args.datasets_path + 'all_t_jets_30p_polarrel_30only.pt')
@@ -41,7 +41,6 @@ class JetsDataset(Dataset):
             args.pt_cutoff = torch.unique(self.X[:, :, 2], sorted=True)[1]  # smallest particle pT after 0
             logging.debug("Cutoff: " + str(args.pt_cutoff))
 
-
         if args.clabels == 1:
             args.maxjf = [torch.max(torch.abs(jet_features))]
             jet_features /= args.maxjf[0]
@@ -58,7 +57,6 @@ class JetsDataset(Dataset):
 
             if args.clabels: self.jet_features = torch.cat((self.jet_features, num_particles), dim=1)
             else: self.jet_features = num_particles
-
 
         if hasattr(args, 'noise_padding') and args.noise_padding:
             logging.debug("pre-noise padded dataset: \n {}".format(dataset[:2, -10:]))
@@ -77,6 +75,10 @@ class JetsDataset(Dataset):
 
             logging.debug("noise padded dataset: \n {}".format(dataset[:2, -10:]))
 
+
+        tcut = int(len(self.X) * args.ttsplit)
+        self.X = self.X[:tcut] if train else self.X[tcut:]
+        self.jet_features = self.jet_features[:tcut] if train else self.jet_features[tcut:]
         logging.info("Dataset shape: " + str(self.X.shape))
 
     def __len__(self):
