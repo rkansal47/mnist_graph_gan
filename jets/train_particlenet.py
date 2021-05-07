@@ -297,7 +297,7 @@ def main(args):
                 logging.debug(f"pred: {pred}, output: {output}")
 
                 y_outs.append(output.cpu().numpy())
-                y_true.append(y)
+                y_true.append(y.cpu())
                 correct += pred.eq(y.view_as(pred)).sum()
 
         test_loss /= len(test_loader)
