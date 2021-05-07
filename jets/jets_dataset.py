@@ -89,7 +89,7 @@ class JetsDataset(Dataset):
 
 
 class JetsClassifierDataset(Dataset):
-    def __init__(self, args, train=True):
+    def __init__(self, args, train=True, lim=None):
         mask = '_mask' if args.mask else ''
 
         jet_types = ['g', 't', 'q', 'w', 'z']
@@ -98,12 +98,14 @@ class JetsClassifierDataset(Dataset):
         Xtemp = torch.load(args.datasets_path + 'all_' + jet_types[0] + '_jets_150p_polarrel' + mask + '.pt').float()[:, :args.num_hits, :]
         tcut = int(len(Xtemp) * 0.7)
         X = Xtemp[:tcut] if train else Xtemp[tcut:]
+        if lim is not None: X = X[:lim]
         Y = torch.zeros(len(X), dtype=int) + classidx[0]
 
         for jet_type, idx in zip(jet_types[1:], classidx[1:]):
             Xtemp =  torch.load(args.datasets_path + 'all_' + jet_type + '_jets_150p_polarrel' + mask + '.pt').float()[:, :args.num_hits, :]
             tcut = int(len(Xtemp) * 0.7)
             Xtemp = Xtemp[:tcut] if train else Xtemp[tcut:]
+            if lim is not None: Xtemp = Xtemp[:lim]
             X = torch.cat((X, Xtemp), dim=0)
             Y = torch.cat((Y, torch.zeros(len(Xtemp), dtype=int) + idx), dim=0)
 

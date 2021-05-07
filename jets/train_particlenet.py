@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 
-from os import listdir, mkdir
+from os import listdir, mkdir, remove
 from os.path import exists, dirname, realpath
 
 import sys
@@ -169,8 +169,11 @@ def main(args):
         ax2.plot(test_losses)
         ax2.set_title('testing')
 
-        plt.savefig(args.closses_path + args.name + "/" + str(epoch) + ".png")
+        plt.savefig(args.closses_path + args.name + "/" + str(epoch) + ".pdf")
         plt.close()
+
+        try: remove(args.closses_path + args.name + "/" + str(epoch - 1) + ".pdf")
+        except: logging.info("couldn't remove loss file")
 
     def save_model(epoch):
         torch.save(C.state_dict(), args.cmodels_path + args.name + "/C_" + str(epoch) + ".pt")
