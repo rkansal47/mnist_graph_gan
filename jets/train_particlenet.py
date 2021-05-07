@@ -283,7 +283,6 @@ def main(args):
         C.eval()
         test_loss = 0
         correct = 0
-        y_true = []
         y_outs = []
         logging.info("testing")
         with torch.no_grad():
@@ -297,23 +296,23 @@ def main(args):
                 logging.debug(f"pred: {pred}, output: {output}")
 
                 y_outs.append(output.cpu().numpy())
-                y_true.append(y.cpu())
                 correct += pred.eq(y.view_as(pred)).sum()
 
         test_loss /= len(test_loader)
         test_losses.append(test_loss)
 
-        y_true = np.array([y.numpy() for y in y_true]).reshape(-1)
-        y_outs = np.array(y_outs).reshape(-1, 5)
+        y_outs = np.concatenate(y_outs)
+        logging.debug(f"y_outs {y_outs}")
+        logging.debug(f"y_true {test_dataset[:][1].numpy()}")
 
-        cm = confusion_matrix(y_true, y_outs.argmax(axis=1))
+        cm = confusion_matrix(test_dataset[:][1].numpy(), y_outs.argmax(axis=1))
         plot_confusion_matrix(cm, ['g', 't', 'q', 'W', 'Z'], args.closses_path, epoch)
 
         fpr = dict()
         tpr = dict()
         roc_auc = dict()
         for i in range(5):
-            fpr[i], tpr[i], _ = roc_curve(y_true == i, y_outs[:, i])
+            fpr[i], tpr[i], _ = roc_curve(test_dataset[:][1].numpy() == i, y_outs[:, i])
             roc_auc[i] = auc(fpr[i], tpr[i])
 
 
