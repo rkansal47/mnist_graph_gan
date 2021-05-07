@@ -116,7 +116,6 @@ with torch.no_grad():
 y_true = [y.numpy() for y in y_true]
 y_true = np.array(y_true).squeeze(1)
 
-np.array(y_outs).squeeze(1).shape
 y_outs = np.array(y_outs).squeeze(1)
 
 print(f"accuracy = {correct / 5000}")

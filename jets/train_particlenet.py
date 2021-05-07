@@ -1,6 +1,7 @@
 import logging
 
 import torch
+import numpy as np
 
 from jets_dataset import JetsClassifierDataset
 from torch.utils.data import DataLoader
@@ -16,7 +17,7 @@ from tqdm import tqdm
 from os import listdir, mkdir, remove
 from os.path import exists, dirname, realpath
 
-import sys
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 
 plt.switch_backend('agg')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -129,7 +130,7 @@ def main(args):
     args = init(args)
 
     train_dataset = JetsClassifierDataset(args, train=True)
-    test_dataset = JetsClassifierDataset(args, train=False)
+    test_dataset = JetsClassifierDataset(args, train=False, lim=10)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
@@ -184,6 +185,83 @@ def main(args):
         try: remove(args.closses_path + args.name + "/" + str(epoch - 1) + ".pdf")
         except: logging.info("couldn't remove loss file")
 
+
+    def plot_confusion_matrix(cm, target_names,
+                              dir_path, epoch,
+                              title='Confusion matrix',
+                              cmap=None,
+                              normalize=True):
+        """
+        given a sklearn confusion matrix (cm), make a nice plot
+        Arguments
+        ---------
+        cm:           confusion matrix from sklearn.metrics.confusion_matrix
+        target_names: given classification classes such as [0, 1, 2]
+                      the class names, for example: ['high', 'medium', 'low']
+        title:        the text to display at the top of the matrix
+        cmap:         the gradient of the values displayed from matplotlib.pyplot.cm
+                      see http://matplotlib.org/examples/color/colormaps_reference.html
+                      plt.get_cmap('jet') or plt.cm.Blues
+        normalize:    If False, plot the raw numbers
+                      If True, plot the proportions
+        Usage
+        -----
+        plot_confusion_matrix(cm           = cm,                  # confusion matrix created by
+                                                                  # sklearn.metrics.confusion_matrix
+                              normalize    = True,                # show proportions
+                              target_names = y_labels_vals,       # list of names of the classes
+                              title        = best_estimator_name) # title of graph
+        Citiation
+        ---------
+        http://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
+        """
+
+        import itertools
+
+        accuracy = np.trace(cm) / float(np.sum(cm))
+        misclass = 1 - accuracy
+
+        if cmap is None:
+            cmap = plt.get_cmap('Blues')
+
+        if normalize:
+            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        cm[np.isnan(cm)] = 0.0
+
+        fig = plt.figure(figsize=(5, 4))
+        ax = plt.axes()
+        plt.imshow(cm, interpolation='nearest', cmap=cmap)
+        plt.title(title + 'at epoch' + str(epoch))
+        plt.colorbar()
+
+        if target_names is not None:
+            tick_marks = np.arange(len(target_names))
+            plt.xticks(tick_marks, target_names, rotation=45)
+            plt.yticks(tick_marks, target_names)
+
+        thresh = cm.max() / 1.5 if normalize else cm.max() / 2
+        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+            if normalize:
+                plt.text(j, i, "{:0.2f}".format(cm[i, j]),
+                         horizontalalignment="center",
+                         color="white" if cm[i, j] > thresh else "black")
+            else:
+                plt.text(j, i, "{:,}".format(cm[i, j]),
+                         horizontalalignment="center",
+                         color="white" if cm[i, j] > thresh else "black")
+
+
+        plt.ylabel('True label')
+        plt.xlim(-1, len(target_names))
+        plt.ylim(-1, len(target_names))
+        plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
+        plt.tight_layout()
+
+        plt.savefig(f"{dir_path}/{args.name}/{epoch}_cm.pdf")
+        plt.close(fig)
+
+        return fig, ax
+
     def save_model(epoch):
         torch.save(C.state_dict(), args.cmodels_path + args.name + "/C_" + str(epoch) + ".pt")
 
@@ -205,20 +283,53 @@ def main(args):
         C.eval()
         test_loss = 0
         correct = 0
+        y_true = []
+        y_outs = []
         logging.info("testing")
         with torch.no_grad():
             for batch_ndx, (x, y) in tqdm(enumerate(test_loader), total=len(test_loader)):
                 logging.debug(f"x[0]: {x[0]}, y: {y}")
-                x = x.transpose(1, 2)
+                if args.model == 'JEDINet': x = x.transpose(1, 2)
                 output = C(x.to(device))
                 y = y.to(device)
                 test_loss += loss(output, y).item()
                 pred = output.max(1, keepdim=True)[1]
                 logging.debug(f"pred: {pred}, output: {output}")
+
+                y_outs.append(output.cpu().numpy())
+                y_true.append(y)
                 correct += pred.eq(y.view_as(pred)).sum()
 
         test_loss /= len(test_loader)
         test_losses.append(test_loss)
+
+        y_true = np.array([y.numpy() for y in y_true]).reshape(-1)
+        y_outs = np.array(y_outs).reshape(-1, 5)
+
+        cm = confusion_matrix(y_true, y_outs.argmax(axis=1))
+        plot_confusion_matrix(cm, ['g', 't', 'q', 'W', 'Z'], args.closses_path, epoch)
+
+        fpr = dict()
+        tpr = dict()
+        roc_auc = dict()
+        for i in range(5):
+            fpr[i], tpr[i], _ = roc_curve(y_true == i, y_outs[:, i])
+            roc_auc[i] = auc(fpr[i], tpr[i])
+
+
+        f = open(f"{args.closses_path}/{args.name}/{epoch}_roc_auc.txt", "w")
+        f.write(str(roc_auc))
+        f.close()
+
+
+        f = open(f"{args.closses_path}/{args.name}/{epoch}_tpr.txt", "w")
+        f.write(str(tpr))
+        f.close()
+
+
+        f = open(f"{args.closses_path}/{args.name}/{epoch}_fpr.txt", "w")
+        f.write(str(fpr))
+        f.close()
 
         logging.info('test')
 
@@ -235,7 +346,7 @@ def main(args):
         test(i)
         logging.info("training")
         for batch_ndx, (x, y) in tqdm(enumerate(train_loader), total=len(train_loader)):
-            x = x.transpose(1, 2)
+            if args.model == 'JEDINet': x = x.transpose(1, 2)
             C_loss += train_C(x.to(device), y.to(device))
             if args.scheduler: C_scheduler.step()
 
