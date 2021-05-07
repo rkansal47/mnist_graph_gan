@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import utils, setup
 
 from particlenet import ParticleNet
+from jedinet import JEDINet
 
 import matplotlib.pyplot as plt
 
@@ -38,6 +39,8 @@ def parse_args():
     parser.add_argument("--log-file", type=str, default="", help='log file name - default is name of file in outs/ ; "stdout" prints to console')
     parser.add_argument("--log", type=str, default="INFO", help="log level", choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
 
+    parser.add_argument("--model", type=str, default="ParticleNet", help="classifier to train", choices=['ParticleNet', 'JEDINet'])
+
     parser.add_argument("--dir-path", type=str, default=dir_path, help="path where dataset and output will be stored")
     utils.add_bool_arg(parser, "n", "run on nautilus cluster", default=False)
 
@@ -52,7 +55,7 @@ def parse_args():
     parser.add_argument("--optimizer", type=str, default="adamw", help="pick optimizer", choices=['adam', 'rmsprop', 'adamw'])
     parser.add_argument('--lr', type=float, default=3e-4)
 
-    utils.add_bool_arg(parser, "scheduler", "use one cycle LR scheduler", default=True)
+    utils.add_bool_arg(parser, "scheduler", "use one cycle LR scheduler", default=False)
     parser.add_argument('--lr-decay', type=float, default=0.1)
     parser.add_argument('--cycle-up-num-epochs', type=int, default=8)
     parser.add_argument('--cycle-cooldown-num-epochs', type=int, default=4)
@@ -130,14 +133,20 @@ def main(args):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
 
-    C = ParticleNet(args.num_hits, args.node_feat_size, num_classes=5, device=device).to(args.device)
+    if args.model == 'ParticleNet':
+        C = ParticleNet(args.num_hits, args.node_feat_size, num_classes=5, device=device).to(args.device)
+    else:
+        C = JEDINet(device)
+        args.lr = 1e-4
+        args.optimizer = 'adam'
+        args.batch_size = 100
 
     if args.load_model: C = torch.load(args.model_path + args.name + "/C_" + str(args.start_epoch) + ".pt").to(device)
 
     if args.optimizer == 'adamw':
         C_optimizer = torch.optim.AdamW(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     elif args.optimizer == 'adam':
-        C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        C_optimizer = torch.optim.Adam(C.parameters(), lr=args.lr)
     elif args.optimizer == 'rmsprop':
         C_optimizer = torch.optim.RMSprop(C.parameters(), lr=args.lr)
 
@@ -200,6 +209,7 @@ def main(args):
         with torch.no_grad():
             for batch_ndx, (x, y) in tqdm(enumerate(test_loader), total=len(test_loader)):
                 logging.debug(f"x[0]: {x[0]}, y: {y}")
+                x = x.transpose(1, 2)
                 output = C(x.to(device))
                 y = y.to(device)
                 test_loss += loss(output, y).item()
@@ -225,6 +235,7 @@ def main(args):
         test(i)
         logging.info("training")
         for batch_ndx, (x, y) in tqdm(enumerate(train_loader), total=len(train_loader)):
+            x = x.transpose(1, 2)
             C_loss += train_C(x.to(device), y.to(device))
             if args.scheduler: C_scheduler.step()
 
