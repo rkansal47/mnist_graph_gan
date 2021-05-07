@@ -11,7 +11,7 @@ from jets_dataset import JetsClassifierDataset
 
 
 dir_path = "/graphganvol/mnist_graph_gan/jets/"
-
+device = torch.device('cuda')
 
 def plot_confusion_matrix(cm, target_names,
                           fname, epoch,
@@ -92,11 +92,14 @@ def plot_confusion_matrix(cm, target_names,
 
 args = utils.objectview({'mask': False, 'datasets_path': dir_path + 'datasets/', 'node_feat_size': 3, 'num_hits': 30})
 
-test_dataset = JetsClassifierDataset(args, train=False, lim=1000)
+test_dataset = JetsClassifierDataset(args, train=False)
+
+print("dataset loaded")
+
 test_loaded = DataLoader(test_dataset)
 
-C = ParticleNet(args.num_hits, args.node_feat_size, num_classes=5)
-C.load_state_dict(torch.load(dir_path + 'particlenet/cmodels/5/C_18.pt', map_location=torch.device('cpu')))
+C = ParticleNet(args.num_hits, args.node_feat_size, num_classes=5, device=device).to(device)
+C.load_state_dict(torch.load(dir_path + 'particlenet/cmodels/c5_pnet_adam/C_18.pt', map_location=device))
 
 C.eval()
 correct = 0
@@ -104,9 +107,9 @@ y_true = []
 y_outs = []
 with torch.no_grad():
     for batch_ndx, (x, y) in tqdm(enumerate(test_loaded), total=len(test_loaded)):
-        output = C(x)
-        pred = output.max(1, keepdim=True)[1]
-        y_outs.append(output.numpy())
+        output = C(x.to(device))
+        pred = output.max(1, keepdim=True)[1].cpu()
+        y_outs.append(output.cpu().numpy())
         y_true.append(y)
         correct += pred.eq(y.view_as(pred)).sum()
 
