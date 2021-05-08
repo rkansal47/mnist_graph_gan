@@ -112,8 +112,6 @@ def main():
         return G_loss.item()
 
     def train():
-        if(args.fid): losses['fid'].append(evaluation.get_fid(args, C, G, mu2, sigma2))
-
         logging.info(h.heap())
 
         if(args.start_epoch == 0 and args.save_zero):
