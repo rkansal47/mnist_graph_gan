@@ -21,8 +21,8 @@ class Graph_GAN(nn.Module):
         if self.G: self.args.dea = False
 
 
-        if self.G: first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
-        else: first_layer_node_size = self.args.node_feat_size
+        if self.G: self.first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
+        else: self.first_layer_node_size = self.args.node_feat_size
 
         if not self.args.fe1: self.args.fe1 = self.args.fe.copy()
         self.args.fn1 = self.args.fn.copy()
@@ -42,6 +42,7 @@ class Graph_GAN(nn.Module):
 
         anc += int(self.args.int_diffs)
 
+        if args.lfc and self.G: self.lfc = nn.Linear(self.lfc_latent_size, self.num_hits * self.first_layer_node_size)
 
         # edge and node networks
         # both are ModuleLists of ModuleLists
@@ -57,7 +58,7 @@ class Graph_GAN(nn.Module):
 
         # building first MP layer networks:
 
-        self.args.fe1_in_size = 2 * first_layer_node_size + anc + self.args.clabels_first_layer + self.args.mask_fne_np
+        self.args.fe1_in_size = 2 * self.first_layer_node_size + anc + self.args.clabels_first_layer + self.args.mask_fne_np
         self.args.fe1.insert(0, self.args.fe1_in_size)
         self.args.fe1_out_size = self.args.fe1[-1]
 
@@ -72,7 +73,7 @@ class Graph_GAN(nn.Module):
         if self.args.batch_norm: self.bne.append(bne)
 
 
-        self.args.fn1.insert(0, self.args.fe1_out_size + first_layer_node_size + self.args.clabels_first_layer + self.args.mask_fne_np)
+        self.args.fn1.insert(0, self.args.fe1_out_size + self.first_layer_node_size + self.args.clabels_first_layer + self.args.mask_fne_np)
         self.args.fn1.append(self.args.hidden_node_size)
 
         fn_iter = nn.ModuleList()
@@ -135,7 +136,7 @@ class Graph_GAN(nn.Module):
         # initial gen mask FCN
 
         if self.G and (hasattr(self.args, 'mask_learn') and self.args.mask_learn) or (hasattr(self.args, 'mask_learn_sep') and self.args.mask_learn_sep):
-            self.args.fmg.insert(0, first_layer_node_size)
+            self.args.fmg.insert(0, self.first_layer_node_size)
             self.args.fmg.append(1 if self.args.mask_learn else self.args.num_hits)
 
             self.fmg = nn.ModuleList()
@@ -185,6 +186,9 @@ class Graph_GAN(nn.Module):
 
     def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
+
+        if self.G and self.args.lfc: x = self.lfc(x).reshape(batch_size, self.args.num_hits, self.first_layer_node_size)
+
         try:
             mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn or self.args.mask_c or self.args.mask_learn_sep)) \
                         or (self.G and (self.args.mask_learn or self.args.mask_c or self.args.mask_learn_sep)) \

@@ -40,7 +40,7 @@ def main():
 
     losses = setup.losses(args)
 
-    if args.fid: C, mu2, sigma2 = evaluation.load(args, X_loaded)
+    if args.fpnd: C, mu2, sigma2 = evaluation.load(args, X_test_loaded)
 
     Y_real = torch.ones(args.batch_size, 1).to(args.device)
     Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
@@ -119,6 +119,7 @@ def main():
         if(args.start_epoch == 0 and args.save_zero):
             if args.eval:
                 gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
+                if args.hasattr('fpnd') and args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
                 evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
             else: gen_out = None
             save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], 0, losses, X_loaded=X_test_loaded, gen_out=gen_out)
@@ -166,14 +167,11 @@ def main():
             if((i + 1) % args.save_model_epochs == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
-                # if args.eval: evaluation.calc_w1(args, X[:][0], G, normal_dist, losses, X_loaded=X_loaded)
-
-            if(args.fid and (i + 1) % 1 == 0):
-                losses['fid'].append(evaluation.get_fid(args, C, G, mu2, sigma2))
 
             if((i + 1) % args.save_epochs == 0):
                 if args.eval:
                     gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
+                    if args.hasattr('fpnd') and args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
                     evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
                 else: gen_out = None
                 save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], i + 1, losses, X_loaded=X_test_loaded, gen_out=gen_out)

@@ -24,7 +24,7 @@ def parse_args():
     # meta
 
     parser.add_argument("--name", type=str, default="test", help="name or tag for model; will be appended with other info")
-    parser.add_argument("--dataset", type=str, default="jets", help="dataset to use", choices=['jets', 'jets-lagan', 'sparse-mnist', 'superpixels'])
+    parser.add_argument("--dataset", type=str, default="jets", help="dataset to use", choices=['jets', 'jets-lagan'])
 
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.7, help="ratio of train/test split")
@@ -88,7 +88,6 @@ def parse_args():
     parser.add_argument("--fe1g", type=int, nargs='*', default=0, help="hidden and output gen fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe1d", type=int, nargs='*', default=0, help="hidden and output disc fe layers e.g. 64 128 in the first iteration - 0 means same as fe")
     parser.add_argument("--fe", type=int, nargs='+', default=[96, 160, 192], help="hidden and output fe layers e.g. 64 128")
-    parser.add_argument("--fnd", type=int, nargs='*', default=[128, 64], help="hidden disc output layers e.g. 128 128")
     parser.add_argument("--fmg", type=int, nargs='*', default=[64], help="mask network layers e.g. 64; input 0 for no intermediate layers")
     parser.add_argument("--mp-iters-gen", type=int, default=0, help="number of message passing iterations in the generator")
     parser.add_argument("--mp-iters-disc", type=int, default=0, help="number of message passing iterations in the discriminator (if applicable)")
@@ -104,6 +103,10 @@ def parse_args():
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
 
     utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
+    parser.add_argument("--fnd", type=int, nargs='*', default=[], help="hidden disc output layers e.g. 128 64")
+
+    utils.add_bool_arg(parser, "lfc", "use a fully connected network to go from noise vector to initial graph", default=False)
+    parser.add_argument("--lfc-latent-size", type=int, default=128, help="size of lfc latent vector")
 
     utils.add_bool_arg(parser, "fully-connected", "use a fully connected graph", default=True)
     parser.add_argument("--num-knn", type=int, default=10, help="# of nearest nodes to connect to (if not fully connected)")
@@ -176,9 +179,9 @@ def parse_args():
 
     # evaluation
 
-    utils.add_bool_arg(parser, "fid", "calc fid", default=False)
-    parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
-    parser.add_argument("--fid-batch-size", type=int, default=32, help="batch size when generating samples for fid eval")
+    utils.add_bool_arg(parser, "fpnd", "calc fpnd", default=True)
+    # parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
+    parser.add_argument("--fpnd-batch-size", type=int, default=256, help="batch size when generating samples for fpnd eval")
     parser.add_argument("--gpu-batch", type=int, default=50, help="")
 
     utils.add_bool_arg(parser, "eval", "calculate the evaluation metrics: W1, FNPD, coverage, mmd", default=True)
@@ -534,14 +537,13 @@ def losses(args):
     losses = {}
 
     keys = ['D', 'Dr', 'Df', 'G']
-    if args.fid: keys.append('fid')
     if args.gp: keys.append('gp')
 
     for key in keys:
         losses[key] = np.loadtxt(args.losses_path + args.name + "/" + key + ".txt").tolist()[:args.start_epoch] if args.load_model else []
 
     if args.eval:
-        ekeys = ['mmd', 'coverage']
+        ekeys = ['fpnd', 'mmd', 'coverage']
         for k in range(len(args.w1_num_samples)):
             ekeys.append(f'w1_{args.w1_num_samples[k]}m')
             ekeys.append(f'w1_{args.w1_num_samples[k]}std')
