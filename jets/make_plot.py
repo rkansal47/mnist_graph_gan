@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import utils
+from torch.utils.data import DataLoader
 from jets_dataset import JetsDataset
 from torch.distributions.normal import Normal
 import mplhep as hep
@@ -17,6 +18,7 @@ from ext_models import GraphCNNGANG
 import importlib
 import save_outputs
 import math
+from energyflow.emd import emds
 # plt.switch_backend('macosx')
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
@@ -83,6 +85,13 @@ args = utils.objectview(args)
 args
 
 X = JetsDataset(args)
+loadX = DataLoader(X, batch_size=128)
+
+len(loadX)
+
+len(X) / 128
+
+
 
 
 labels = X[:][1]
@@ -183,6 +192,28 @@ importlib.reload(utils)
 realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
 genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
 save_outputs.plot_jet_feats(args, realjf, genjf, realefp, genefp, 'j', show=True)
+
+
+
+Gsample = utils.ef_format(gen_out_rn[:10])
+Xsample = utils.ef_format(X_rn[:10])
+
+Gsample
+
+dists = emds(Gsample, Xsample)
+
+dists
+
+mmd = np.mean(np.min(dists, axis=0))
+
+cov = np.unique(np.argmin(dists, axis=1)).size / 10
+
+mmd = np.mean(np.min(dists, axis=1))
+
+mmd.append(np.mean(np.min(dists, axis=1)))
+covs.append()
+
+
 
 
 w1s = []

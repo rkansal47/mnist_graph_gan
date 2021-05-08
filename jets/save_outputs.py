@@ -225,7 +225,7 @@ def plot_losses(args, losses, name, show=False):
     else: plt.close()
 
 
-def plot_w1(args, losses, name, epoch, show=False):
+def plot_eval(args, losses, name, epoch, show=False):
     if args.coords == 'cartesian': plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
     elif args.coords == 'polarrel': plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
     elif args.coords == 'polarrelabspt': plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
@@ -234,12 +234,12 @@ def plot_w1(args, losses, name, epoch, show=False):
 
     x = np.arange(0, epoch + 1, args.save_epochs)[-len(losses['w1_' + str(args.w1_num_samples[0]) + 'm']):]
 
-    if args.jf: fig = plt.figure(figsize=(30, 16))
-    else: fig = plt.figure(figsize=(30, 7))
+    if args.jf: fig = plt.figure(figsize=(30, 24))
+    else: fig = plt.figure(figsize=(30, 16))
 
     for i in range(3):
-        if args.jf: fig.add_subplot(2, 3, i + 1)
-        else: fig.add_subplot(1, 3, i + 1)
+        if args.jf: fig.add_subplot(3, 3, i + 1)
+        else: fig.add_subplot(2, 3, i + 1)
 
         for k in range(len(args.w1_num_samples)):
             plt.plot(x, np.log10(np.array(losses['w1_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
@@ -254,19 +254,29 @@ def plot_w1(args, losses, name, epoch, show=False):
         x = np.arange(0, epoch + 1, args.save_epochs)[-len(losses['w1j_' + str(args.w1_num_samples[0]) + 'm']):]
 
         for i in range(2):
-            fig.add_subplot(2, 3, i + 4)
+            fig.add_subplot(3, 3, i + 4)
             for k in range(len(args.w1_num_samples)):
                 plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
             plt.legend(loc=1)
             plt.xlabel('Epoch')
             plt.ylabel(jlabels[i] + ' Log$W_1$')
 
-        # fig.add_subplot(2, 3, 6)
-        # for i in range(5):
-        #     plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'])[:, i + 2]), label='EFP ' + str(i + 1), color=colors[i])
-        # plt.legend(loc=1)
-        # plt.xlabel('Epoch')
-        # plt.ylabel('Jet EFPs Log$W_1$')
+        fig.add_subplot(3, 3, 6)
+        for i in range(5):
+            plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'])[:, i + 2]), label='EFP ' + str(i + 1), color=colors[i])
+        plt.legend(loc=1)
+        plt.xlabel('Epoch')
+        plt.ylabel('Jet EFPs Log$W_1$')
+
+    x = x[-len(losses['mmd']):]
+    paxis = 3 if args.jf else 2
+    metrics = {'mmd': (1, 'LogMMD'), 'coverage': (2, 'Coverage')}
+    for key, (i, label) in metrics.items():
+        fig.add_subplot(paxis, 3, i + (paxis - 1) * 3)
+        if key == 'coverage': plt.plot(x, np.array(losses[key]))
+        else: plt.plot(x, np.log10(np.array(losses[key])))
+        plt.xlabel('Epoch')
+        plt.ylabel(label)
 
     plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     if show: plt.show()
@@ -304,15 +314,16 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
         realjf = utils.jet_features(X_rn, mask=mask_real)
         genjf = utils.jet_features(gen_out, mask=mask_gen)
 
-        # realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
-        # genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
+        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+        genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
 
-        # plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
-        plot_jet_mass_pt(args, realjf, genjf, name + 'j')
+        plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
+        plot_jet_mass_pt(args, realjf, genjf, name + 'mpt')
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)
-    if args.w1 and len(losses['w1_' + str(args.w1_num_samples[-1]) + 'm']) > 1: plot_w1(args, losses, name + '_w1', epoch)
+    if args.eval and len(losses['w1_' + str(args.w1_num_samples[-1]) + 'm']) > 1:
+        plot_eval(args, losses, name + '_eval', epoch)
 
     # save losses and remove earlier ones
     for key in losses: np.savetxt(args.losses_path + args.name + "/" + key + '.txt', losses[key])
@@ -320,13 +331,7 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
     try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
     except: logging.info("couldn't remove loss file")
 
-    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1.pdf")
-    except: logging.info("couldn't remove loss file")
-
-    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_w1j.pdf")
-    except: logging.info("couldn't remove loss file")
-
-    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_fid.pdf")
+    try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + "_eval.pdf")
     except: logging.info("couldn't remove loss file")
 
     logging.info("saved figs")
