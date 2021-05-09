@@ -26,8 +26,8 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
 
     C.eval()
     for i, jet in tqdm(enumerate(X_loaded), total=len(X_loaded)):
-        if(i == 0): activations = C(jet[0].to(args.device), ret_activations=True).cpu().detach()
-        else: activations = torch.cat((C(jet[0].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+        if(i == 0): activations = C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach()
+        else: activations = torch.cat((C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
 
     activations = activations.numpy()
 
@@ -174,9 +174,13 @@ def get_fpnd(args, C, gen_out, mu2, sigma2):
 
     logging.info("Getting ParticleNet Acivations")
     C.eval()
-    for i, gen_jet in tqdm(enumerate(gen_out_loaded), total=len(gen_out_loaded)):
-        if(i == 0): activations = C(gen_jet[0].to(args.device), ret_activations=True).cpu().detach()
-        else: activations = torch.cat((C(gen_jet[0].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+    for i, gen_jets in tqdm(enumerate(gen_out_loaded), total=len(gen_out_loaded)):
+        gen_jets = gen_jets[0]
+        if args.mask:
+            mask = gen_jets[:, :, 3:4] >= 0
+            gen_jets = (gen_jets * mask)[:, :, :3]
+        if(i == 0): activations = C(gen_jets.to(args.device), ret_activations=True).cpu().detach()
+        else: activations = torch.cat((C(gen_jets.to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
 
     activations = activations.numpy()
 
