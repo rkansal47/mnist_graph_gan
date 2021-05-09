@@ -117,7 +117,7 @@ def main():
         if(args.start_epoch == 0 and args.save_zero):
             if args.eval:
                 gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
-                if args.hasattr('fpnd') and args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
+                if args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
                 evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
             else: gen_out = None
             save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], 0, losses, X_loaded=X_test_loaded, gen_out=gen_out)
@@ -169,7 +169,7 @@ def main():
             if((i + 1) % args.save_epochs == 0):
                 if args.eval:
                     gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
-                    if args.hasattr('fpnd') and args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
+                    if args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
                     evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
                 else: gen_out = None
                 save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], i + 1, losses, X_loaded=X_test_loaded, gen_out=gen_out)

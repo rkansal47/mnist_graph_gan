@@ -169,6 +169,10 @@ class Graph_GAN(nn.Module):
                 for i in range(len(self.fmg)):
                     self.fmg[i] = SpectralNorm(self.fmg[i])
 
+        if(self.args.lfc):
+            logging.info("lfcn: ")
+            logging.info(self.lfc)
+
         logging.info("fe: ")
         logging.info(self.fe)
 
@@ -187,7 +191,11 @@ class Graph_GAN(nn.Module):
     def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
 
-        if self.G and self.args.lfc: x = self.lfc(x).reshape(batch_size, self.args.num_hits, self.first_layer_node_size)
+        logging.debug(f"x: {x}")
+
+        if self.G and self.args.lfc:
+            x = self.lfc(x).reshape(batch_size, self.args.num_hits, self.first_layer_node_size)
+            logging.debug(f"LFC'd x: {x}")
 
         try:
             mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn or self.args.mask_c or self.args.mask_learn_sep)) \

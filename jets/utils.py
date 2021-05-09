@@ -141,10 +141,10 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     if(noise is None):
         if args.model == 'mpgan':
             if args.lfc:
+                noise = dist.sample((num_samples, args.lfc_latent_size))
+            else:
                 extra_noise_p = int(hasattr(args, 'mask_learn_sep') and args.mask_learn_sep)
                 noise = dist.sample((num_samples, args.num_hits + extra_noise_p, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
-            else:
-                noise = dist.sample((num_samples, args.lfc_latent_size))
         elif args.model == 'rgan' or args.model == 'graphcnngan':
             noise = dist.sample((num_samples, args.latent_dim))
     else: num_samples = noise.size(0)

@@ -114,4 +114,6 @@ class GraphCNNGANG(nn.Module):
             x = self.bn_layers[i](self.layers[i](x, edge_index, edge_attr))
             if i < (len(self.layers) - 1): x = F.leaky_relu(x, negative_slope=self.args.leaky_relu_alpha)
 
+        if self.args.graphcnng_tanh: x = F.tanh(x)
+
         return x.reshape(batch_size, self.args.num_hits, self.args.node_feat_size)

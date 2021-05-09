@@ -185,10 +185,11 @@ def parse_args():
     parser.add_argument("--gpu-batch", type=int, default=50, help="")
 
     utils.add_bool_arg(parser, "eval", "calculate the evaluation metrics: W1, FNPD, coverage, mmd", default=True)
-    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
-    parser.add_argument("--w1-tot-samples", type=int, default=50000, help='tot # of jets to generate to sample from')
+    parser.add_argument("--eval-tot-samples", type=int, default=50000, help='tot # of jets to generate to sample from')
 
-    parser.add_argument("--cov-mmd-num-samples", type=int, default=100, help='# of samples to use for calculating coverage and MMD')
+    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
+
+    parser.add_argument("--cov-mmd-num-samples", type=int, default=100, help='size of samples to use for calculating coverage and MMD')
     parser.add_argument("--cov-mmd-num-batches", type=int, default=10, help='# of batches to average coverage and MMD over')
 
     parser.add_argument("--jf", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
@@ -203,7 +204,8 @@ def parse_args():
     parser.add_argument("--rgand-fc", type=int, nargs='*', default=0, help='rGAN discriminator layer node sizes')
 
     parser.add_argument("--graphcnng-layers", type=int, nargs='+', default=[32, 24, 16, 8], help='GraphCNN-GAN generator layer node sizes')
-
+    utils.add_bool_arg(parser, "--graphcnng-tanh", "use tanh activation for final graphcnn generator output", default=False)
+    
     args = parser.parse_args()
 
     return args
@@ -327,7 +329,7 @@ def check_args(args):
             args.fmg = []
 
     if args.low_samples:
-        args.w1_tot_samples = 1000
+        args.eval_tot_samples = 1000
         args.w1_num_samples = [10, 100]
         args.num_samples = 1000
 
