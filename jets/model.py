@@ -19,6 +19,7 @@ class Graph_GAN(nn.Module):
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
         self.args.fe1 = self.args.fe1g if self.G else self.args.fe1d
         if self.G: self.args.dea = False
+        if self.D: self.args.lfc = False
 
 
         if self.G: self.first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
@@ -42,7 +43,7 @@ class Graph_GAN(nn.Module):
 
         anc += int(self.args.int_diffs)
 
-        if args.lfc and self.G: self.lfc = nn.Linear(self.lfc_latent_size, self.num_hits * self.first_layer_node_size)
+        if args.lfc: self.lfc = nn.Linear(self.args.lfc_latent_size, self.args.num_hits * self.first_layer_node_size)
 
         # edge and node networks
         # both are ModuleLists of ModuleLists
@@ -193,7 +194,7 @@ class Graph_GAN(nn.Module):
 
         logging.debug(f"x: {x}")
 
-        if self.G and self.args.lfc:
+        if self.args.lfc:
             x = self.lfc(x).reshape(batch_size, self.args.num_hits, self.first_layer_node_size)
             logging.debug(f"LFC'd x: {x}")
 

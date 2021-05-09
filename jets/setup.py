@@ -204,8 +204,8 @@ def parse_args():
     parser.add_argument("--rgand-fc", type=int, nargs='*', default=0, help='rGAN discriminator layer node sizes')
 
     parser.add_argument("--graphcnng-layers", type=int, nargs='+', default=[32, 24, 16, 8], help='GraphCNN-GAN generator layer node sizes')
-    utils.add_bool_arg(parser, "--graphcnng-tanh", "use tanh activation for final graphcnn generator output", default=False)
-    
+    utils.add_bool_arg(parser, "graphcnng-tanh", "use tanh activation for final graphcnn generator output", default=False)
+
     args = parser.parse_args()
 
     return args
