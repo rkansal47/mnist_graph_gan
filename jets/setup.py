@@ -96,6 +96,7 @@ def parse_args():
 
     utils.add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
     utils.add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
+    utils.add_bool_arg(parser, "all-ef", "use all node features for edge distance", default=True)
     # utils.add_bool_arg(parser, "scalar-diffs", "use scalar diff (as opposed to vector)", default=True)
     utils.add_bool_arg(parser, "deltar", "use delta r as an edge feature", default=True)
     utils.add_bool_arg(parser, "deltacoords", "use delta coords as edge features", default=False)
@@ -245,6 +246,10 @@ def check_args(args):
 
     if(args.latent_node_size and args.latent_node_size < 3):
         logging.error("latent node size can't be less than 2 - exiting")
+        sys.exit()
+
+    if(args.all_ef and args.deltacoords):
+        logging.error("all ef + delta coords not supported yet - exiting")
         sys.exit()
 
     if args.debug:

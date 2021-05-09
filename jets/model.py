@@ -257,7 +257,7 @@ class Graph_GAN(nn.Module):
             if self.args.mask_fne_np: fe_in_size -= 1
 
             # message passing
-            A, A_mask = self.getA(x, batch_size, fe_in_size, mask_bool, mask)
+            A, A_mask = self.getA(x, i, batch_size, fe_in_size, mask_bool, mask)
 
             # logging.debug('A \n {} \n A_mask \n {}'.format(A[:2, :10], A_mask[:2, :10]))
 
@@ -343,18 +343,19 @@ class Graph_GAN(nn.Module):
 
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
 
-    def getA(self, x, batch_size, fe_in_size, mask_bool, mask):
+    def getA(self, x, i, batch_size, fe_in_size, mask_bool, mask):
         node_size = x.size(2)
         num_coords = 3 if self.args.coords == 'cartesian' else 2
 
         A_mask = None
 
-        if hasattr(self.args, 'fully_connected') and self.args.fully_connected:
+        if self.args.fully_connected:
             x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
             x2 = x.repeat(1, self.args.num_hits, 1)
 
-            if(self.args.pos_diffs):
-                diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
+            if self.args.pos_diffs:
+                if self.args.all_ef and not (self.D and i == 0): diffs = x2 - x1  # for first iteration of D message passing use only physical coords
+                else: diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
                 dists = torch.norm(diffs + 1e-12, dim=2).unsqueeze(2)
 
                 if self.args.deltar and self.args.deltacoords:

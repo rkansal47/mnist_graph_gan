@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import logging
 
+
 class JetsDataset(Dataset):
     def __init__(self, args, train=True):
         if args.dataset == 'jets':
