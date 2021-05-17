@@ -117,3 +117,95 @@ class GraphCNNGANG(nn.Module):
         if self.args.graphcnng_tanh: x = F.tanh(x)
 
         return x.reshape(batch_size, self.args.num_hits, self.args.node_feat_size)
+
+
+from torch.nn.modules.utils import _pair
+
+# from https://discuss.pytorch.org/t/locally-connected-layers/26979
+class LocallyConnected2d(nn.Module):
+    def __init__(self, in_channels, out_channels, output_size, kernel_size, stride, bias=True):
+        super(LocallyConnected2d, self).__init__()
+        output_size = _pair(output_size)
+        self.weight = nn.Parameter(
+            torch.randn(1, out_channels, in_channels, output_size[0], output_size[1], kernel_size**2)
+        )
+        if bias:
+            self.bias = nn.Parameter(
+                torch.randn(1, out_channels, output_size[0], output_size[1])
+            )
+        else:
+            self.register_parameter('bias', None)
+        self.kernel_size = _pair(kernel_size)
+        self.stride = _pair(stride)
+
+    def forward(self, x):
+        _, c, h, w = x.size()
+        kh, kw = self.kernel_size
+        dh, dw = self.stride
+        x = x.unfold(2, kh, dh).unfold(3, kw, dw)
+        x = x.contiguous().view(*x.size()[:-2], -1)
+        # Sum in in_channel and kernel_size dims
+        out = (x.unsqueeze(1) * self.weight).sum([2, -1])
+        if self.bias is not None:
+            out += self.bias
+        return out
+
+
+class LAGAND(nn.Module):
+    def __init__(self, args):
+        super(LAGAND, self).__init__()
+        self.args = args
+
+        self.model = nn.Sequential(
+            nn.Conv2d(1, 32, 5, padding=1),
+            nn.LeakyReLU(),
+            nn.Dropout(p=0.5),
+
+        )
+
+
+        self.dense = nn.Linear(self.args.latent_dim, self.args.num_hits * self.args.graphcnng_layers[0])
+
+        self.layers = nn.ModuleList()
+        self.edge_weights = nn.ModuleList()
+        self.bn_layers = nn.ModuleList()
+        for i in range(len(self.args.graphcnng_layers) - 1):
+            self.edge_weights.append(nn.Linear(self.args.graphcnng_layers[i], self.args.graphcnng_layers[i] * self.args.graphcnng_layers[i + 1]))
+            self.layers.append(NNConv(self.args.graphcnng_layers[i], self.args.graphcnng_layers[i + 1], self.edge_weights[i], aggr='mean', root_weight=True, bias=True))
+            self.bn_layers.append(torch_geometric.nn.BatchNorm(self.args.graphcnng_layers[i + 1]))
+
+        self.edge_weights.append(nn.Linear(self.args.graphcnng_layers[-1], self.args.graphcnng_layers[-1] * self.args.node_feat_size))
+        self.layers.append(NNConv(self.args.graphcnng_layers[-1], self.args.node_feat_size, self.edge_weights[-1], aggr='mean', root_weight=True, bias=True))
+        self.bn_layers.append(torch_geometric.nn.BatchNorm(self.args.node_feat_size))
+
+        logging.info("dense: ")
+        logging.info(self.dense)
+
+        logging.info("edge_weights: ")
+        logging.info(self.edge_weights)
+
+        logging.info("layers: ")
+        logging.info(self.layers)
+
+        logging.info("bn layers: ")
+        logging.info(self.bn_layers)
+
+
+    def forward(self, x, labels=None, epoch=None):
+        x = F.leaky_relu(self.dense(x), negative_slope=self.args.leaky_relu_alpha)
+
+        batch_size = x.size(0)
+        x = x.reshape(batch_size * self.args.num_hits, self.args.graphcnng_layers[0])
+        zeros = torch.zeros(batch_size * self.args.num_hits, dtype=int).to(self.args.device)
+        zeros[torch.arange(batch_size) * self.args.num_hits] = 1
+        batch = torch.cumsum(zeros, 0) - 1
+
+        for i in range(len(self.layers)):
+            edge_index = knn_graph(x, self.args.num_knn, batch)
+            edge_attr = x[edge_index[0]] - x[edge_index[1]]
+            x = self.bn_layers[i](self.layers[i](x, edge_index, edge_attr))
+            if i < (len(self.layers) - 1): x = F.leaky_relu(x, negative_slope=self.args.leaky_relu_alpha)
+
+        if self.args.graphcnng_tanh: x = F.tanh(x)
+
+        return x.reshape(batch_size, self.args.num_hits, self.args.node_feat_size)
