@@ -9,8 +9,8 @@ import numpy as np
 
 import sys
 
-dir_path = '/graphganvol/datasets/jets/150p/train/'
-# dir_path = '/Users/raghav/Documents/Work/CERN/datasets/'
+# dir_path = '/graphganvol/datasets/jets/150p/train/'
+dir_path = '/Users/raghav/Documents/Work/CERN/datasets/'
 
 rootfiles = [dir_path + f for f in listdir(dir_path) if isfile(join(dir_path, f))]
 
@@ -60,4 +60,3 @@ for f in rootfiles:
 
     torch.save(torch.tensor(jetpfs), './datasets/all_' + jet_type + '_jets_150p_polarrel.pt')
     torch.save(torch.tensor(jetjfs), './datasets/all_' + jet_type + '_jets_150p_jetptetamass.pt')
-

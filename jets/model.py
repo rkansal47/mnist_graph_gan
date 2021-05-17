@@ -19,6 +19,7 @@ class Graph_GAN(nn.Module):
         self.args.mp_iters = self.args.mp_iters_gen if self.G else self.args.mp_iters_disc
         self.args.fe1 = self.args.fe1g if self.G else self.args.fe1d
         if self.G: self.args.dea = False
+        if self.D: self.args.lfc = False
 
 
         if self.G: self.first_layer_node_size = self.args.latent_node_size if self.args.latent_node_size else self.args.hidden_node_size
@@ -42,7 +43,7 @@ class Graph_GAN(nn.Module):
 
         anc += int(self.args.int_diffs)
 
-        if args.lfc and self.G: self.lfc = nn.Linear(self.lfc_latent_size, self.num_hits * self.first_layer_node_size)
+        if args.lfc: self.lfc = nn.Linear(self.args.lfc_latent_size, self.args.num_hits * self.first_layer_node_size)
 
         # edge and node networks
         # both are ModuleLists of ModuleLists
@@ -169,6 +170,10 @@ class Graph_GAN(nn.Module):
                 for i in range(len(self.fmg)):
                     self.fmg[i] = SpectralNorm(self.fmg[i])
 
+        if(self.args.lfc):
+            logging.info("lfcn: ")
+            logging.info(self.lfc)
+
         logging.info("fe: ")
         logging.info(self.fe)
 
@@ -187,7 +192,11 @@ class Graph_GAN(nn.Module):
     def forward(self, x, labels=None, epoch=0):
         batch_size = x.shape[0]
 
-        if self.G and self.args.lfc: x = self.lfc(x).reshape(batch_size, self.args.num_hits, self.first_layer_node_size)
+        logging.debug(f"x: {x}")
+
+        if self.args.lfc:
+            x = self.lfc(x).reshape(batch_size, self.args.num_hits, self.first_layer_node_size)
+            logging.debug(f"LFC'd x: {x}")
 
         try:
             mask_bool = (self.D and (self.args.mask_manual or self.args.mask_real_only or self.args.mask_learn or self.args.mask_c or self.args.mask_learn_sep)) \
@@ -248,7 +257,7 @@ class Graph_GAN(nn.Module):
             if self.args.mask_fne_np: fe_in_size -= 1
 
             # message passing
-            A, A_mask = self.getA(x, batch_size, fe_in_size, mask_bool, mask)
+            A, A_mask = self.getA(x, i, batch_size, fe_in_size, mask_bool, mask)
 
             # logging.debug('A \n {} \n A_mask \n {}'.format(A[:2, :10], A_mask[:2, :10]))
 
@@ -334,18 +343,19 @@ class Graph_GAN(nn.Module):
 
             return x if (self.args.loss == 'w' or self.args.loss == 'hinge') else torch.sigmoid(x)
 
-    def getA(self, x, batch_size, fe_in_size, mask_bool, mask):
+    def getA(self, x, i, batch_size, fe_in_size, mask_bool, mask):
         node_size = x.size(2)
         num_coords = 3 if self.args.coords == 'cartesian' else 2
 
         A_mask = None
 
-        if hasattr(self.args, 'fully_connected') and self.args.fully_connected:
+        if self.args.fully_connected:
             x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
             x2 = x.repeat(1, self.args.num_hits, 1)
 
-            if(self.args.pos_diffs):
-                diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
+            if self.args.pos_diffs:
+                if self.args.all_ef and not (self.D and i == 0): diffs = x2 - x1  # for first iteration of D message passing use only physical coords
+                else: diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
                 dists = torch.norm(diffs + 1e-12, dim=2).unsqueeze(2)
 
                 if self.args.deltar and self.args.deltacoords:

@@ -26,8 +26,8 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
 
     C.eval()
     for i, jet in tqdm(enumerate(X_loaded), total=len(X_loaded)):
-        if(i == 0): activations = C(jet[0].to(args.device), ret_activations=True).cpu().detach()
-        else: activations = torch.cat((C(jet[0].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+        if(i == 0): activations = C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach()
+        else: activations = torch.cat((C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
 
     activations = activations.numpy()
 
@@ -92,12 +92,12 @@ def calc_w1(args, X, G, losses, X_loaded=None):
     logging.info("Evaluating 1-WD")
 
     G.eval()
-    gen_out = utils.gen_multi_batch(args, G, args.w1_tot_samples, X_loaded=X_loaded)
+    gen_out = utils.gen_multi_batch(args, G, args.eval_tot_samples, X_loaded=X_loaded)
 
     logging.info("Generated Data")
 
-    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
-    gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
+    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.eval_tot_samples], real=True)
+    gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.eval_tot_samples], real=False)
 
     logging.info("Unnormed data")
 
@@ -118,15 +118,15 @@ def calc_w1(args, X, G, losses, X_loaded=None):
 
         logging.info("Obtained Gen EFPs")
 
-    num_batches = np.array(args.w1_tot_samples / np.array(args.w1_num_samples), dtype=int)
+    num_batches = np.array(args.eval_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
     for k in range(len(args.w1_num_samples)):
         logging.info("Num Samples: " + str(args.w1_num_samples[k]))
         w1s = []
         if args.jf: w1js = []
         for j in range(num_batches[k]):
-            G_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
-            X_rand_sample = rng.choice(args.w1_tot_samples, size=args.w1_num_samples[k])
+            G_rand_sample = rng.choice(args.eval_tot_samples, size=args.w1_num_samples[k])
+            X_rand_sample = rng.choice(args.eval_tot_samples, size=args.w1_num_samples[k])
 
             Gsample = gen_out_rn[G_rand_sample]
             Xsample = X_rn[X_rand_sample]
@@ -174,9 +174,13 @@ def get_fpnd(args, C, gen_out, mu2, sigma2):
 
     logging.info("Getting ParticleNet Acivations")
     C.eval()
-    for i, gen_jet in tqdm(enumerate(gen_out_loaded), total=len(gen_out_loaded)):
-        if(i == 0): activations = C(gen_jet[0].to(args.device), ret_activations=True).cpu().detach()
-        else: activations = torch.cat((C(gen_jet[0].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+    for i, gen_jets in tqdm(enumerate(gen_out_loaded), total=len(gen_out_loaded)):
+        gen_jets = gen_jets[0]
+        if args.mask:
+            mask = gen_jets[:, :, 3:4] >= 0
+            gen_jets = (gen_jets * mask)[:, :, :3]
+        if(i == 0): activations = C(gen_jets.to(args.device), ret_activations=True).cpu().detach()
+        else: activations = torch.cat((C(gen_jets.to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
 
     activations = activations.numpy()
 
@@ -190,8 +194,8 @@ def get_fpnd(args, C, gen_out, mu2, sigma2):
 
 
 def calc_cov_mmd(args, X, gen_out, losses, X_loaded=None):
-    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.w1_tot_samples], real=True)
-    gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.w1_tot_samples], real=False)
+    X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.eval_tot_samples], real=True)
+    gen_out_rn, mask_gen = utils.unnorm_data(args, gen_out[:args.eval_tot_samples], real=False)
 
     # converting into EFP format
     X_rn = np.concatenate((np.expand_dims(X_rn[:, :, 2], 2), X_rn[:, :, :2], np.zeros((X_rn.shape[0], X_rn.shape[1], 1))), axis=2)
@@ -202,8 +206,8 @@ def calc_cov_mmd(args, X, gen_out, losses, X_loaded=None):
     mmds = []
 
     for j in range(args.cov_mmd_num_batches):
-        G_rand_sample = rng.choice(args.w1_tot_samples, size=args.cov_mmd_num_samples)
-        X_rand_sample = rng.choice(args.w1_tot_samples, size=args.cov_mmd_num_samples)
+        G_rand_sample = rng.choice(args.eval_tot_samples, size=args.cov_mmd_num_samples)
+        X_rand_sample = rng.choice(args.eval_tot_samples, size=args.cov_mmd_num_samples)
 
         Gsample = gen_out_rn[G_rand_sample]
         Xsample = X_rn[X_rand_sample]

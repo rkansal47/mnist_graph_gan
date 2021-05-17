@@ -278,6 +278,11 @@ def plot_eval(args, losses, name, epoch, show=False):
         plt.xlabel('Epoch')
         plt.ylabel(label)
 
+    fig.add_subplot(paxis, 3, (paxis) * 3)
+    plt.plot(x, np.log10(np.array(losses['fpnd'])))
+    plt.xlabel('Epoch')
+    plt.ylabel('LogFPND')
+
     plt.savefig(args.losses_path + name + ".pdf", bbox_inches='tight')
     if show: plt.show()
     else: plt.close()
@@ -291,9 +296,9 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
     if gen_out is None:
         logging.info("gen out none")
         gen_out = utils.gen_multi_batch(args, G, args.num_samples, X_loaded=X_loaded)
-    elif args.w1_tot_samples < args.num_samples:
+    elif args.eval_tot_samples < args.num_samples:
         logging.info("gen out not large enough: size {}".format(len(gen_out)))
-        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.w1_tot_samples, X_loaded=X_loaded)), 0)
+        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.eval_tot_samples, X_loaded=X_loaded)), 0)
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
     gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.num_samples], real=False)
