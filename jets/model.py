@@ -370,14 +370,17 @@ class Graph_GAN(nn.Module):
                 A = torch.cat((x1, x2), 2).view(batch_size * self.args.num_hits * self.args.num_hits, fe_in_size)
 
         else:
-            x1 = x[:, :, :num_coords].repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, num_coords)
+            x1 = x.repeat(1, 1, self.args.num_hits).view(batch_size, self.args.num_hits * self.args.num_hits, node_size)
+
             if mask_bool:
                 mul = 1e4  # multiply masked particles by this so they are not selected as a nearest neighbour
-                x2 = (((1 - mul) * mask + mul) * x[:, :, :num_coords]).repeat(1, self.args.num_hits, 1)
+                x2 = (((1 - mul) * mask + mul) * x).repeat(1, self.args.num_hits, 1)
             else:
-                x2 = x[:, :, :num_coords].repeat(1, self.args.num_hits, 1)
+                x2 = x.repeat(1, self.args.num_hits, 1)
 
-            diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
+            if (self.args.all_ef or not self.args.pos_diffs) and not (self.D and i == 0): diffs = x2 - x1  # for first iteration of D message passing use only physical coords
+            else: diffs = x2[:, :, :num_coords] - x1[:, :, :num_coords]
+
             dists = torch.norm(diffs + 1e-12, dim=2).reshape(batch_size, self.args.num_hits, self.args.num_hits)
 
             sorted = torch.sort(dists, dim=2)
@@ -399,8 +402,10 @@ class Graph_GAN(nn.Module):
             else:
                 x2_knn = torch.gather(x, 1, sorted.repeat(1, 1, node_size))
 
-            A = torch.cat((x1_knn, x2_knn, dists), dim=2)
-
+            if self.args.pos_diffs:
+                A = torch.cat((x1_knn, x2_knn, dists), dim=2)
+            else:
+                A = torch.cat((x1_knn, x2_knn), dim=2)
             # logging.debug("A \n {} \n".format(A[0]))
 
         return A, A_mask

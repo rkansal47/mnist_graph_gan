@@ -6,9 +6,10 @@ import logging
 class JetsDataset(Dataset):
     def __init__(self, args, train=True):
         if args.dataset == 'jets':
-            mask = '_mask' if args.mask else ''
             if args.real_only: dataset = torch.load(args.datasets_path + 'all_t_jets_30p_polarrel_30only.pt')
-            else: dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + mask + '.pt').float()[:, :args.num_hits, :]
+            else:
+                dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + '_mask.pt').float()[:, :args.num_hits, :]
+                if not args.mask: dataset = dataset[:, :, :args.node_feat_size]
 
             jet_features = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_jetptetamass.pt').float()[:, :args.clabels]
         elif args.dataset == 'jets-lagan':
