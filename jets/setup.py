@@ -201,7 +201,7 @@ def parse_args():
 
     parser.add_argument("--latent-dim", type=int, default=128, help="")
 
-    parser.add_argument("--rgang-fc", type=int, nargs='+', default=[64, 128, 512, 1024], help='rGAN generator layer node sizes')
+    parser.add_argument("--rgang-fc", type=int, nargs='+', default=[64, 128], help='rGAN generator layer node sizes')
     parser.add_argument("--rgand-sfc", type=int, nargs='*', default=0, help='rGAN discriminator convolutional layer node sizes')
     parser.add_argument("--rgand-fc", type=int, nargs='*', default=0, help='rGAN discriminator layer node sizes')
 
