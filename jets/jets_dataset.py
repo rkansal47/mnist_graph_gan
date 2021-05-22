@@ -131,3 +131,46 @@ class JetsClassifierDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.Y[idx]
+
+
+class JetsMassRegressionDataset(Dataset):
+    def __init__(self, args, G, train=True):
+        mask = '_mask' if args.mask else ''
+
+        jet_types = ['g', 't', 'q', 'w', 'z']
+        classidx = list(range(5))
+
+        Xtemp = torch.load(args.datasets_path + 'all_' + jet_types[0] + '_jets_150p_polarrel' + mask + '.pt').float()[:, :args.num_hits, :]
+        tcut = int(len(Xtemp) * 0.7)
+        X = Xtemp[:tcut] if train else Xtemp[tcut:]
+        if lim is not None: X = X[:lim]
+        Y = torch.zeros(len(X), dtype=int) + classidx[0]
+
+        for jet_type, idx in zip(jet_types[1:], classidx[1:]):
+            Xtemp =  torch.load(args.datasets_path + 'all_' + jet_type + '_jets_150p_polarrel' + mask + '.pt').float()[:, :args.num_hits, :]
+            tcut = int(len(Xtemp) * 0.7)
+            Xtemp = Xtemp[:tcut] if train else Xtemp[tcut:]
+            if lim is not None: Xtemp = Xtemp[:lim]
+            X = torch.cat((X, Xtemp), dim=0)
+            Y = torch.cat((Y, torch.zeros(len(Xtemp), dtype=int) + idx), dim=0)
+
+        args.maxepp = [float(torch.max(torch.abs(X[:, :, i]))) for i in range(3)]
+        if args.mask: args.maxepp.append(1.0)
+
+        logging.debug("Max Vals: " + str(args.maxepp))
+        for i in range(args.node_feat_size):
+            X[:, :, i] /= args.maxepp[i]
+
+        X[:, :, 2] -= 0.5     # pT is normalized between -0.5 and 0.5 so the peak pT lies in linear region of tanh
+        # dataset *= args.norm
+        self.X = X
+        self.Y = Y
+
+        logging.info("X shape: " + str(self.X.shape))
+        logging.info("Y shape: " + str(self.Y.shape))
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx]
