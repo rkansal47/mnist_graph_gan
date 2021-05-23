@@ -108,8 +108,10 @@ class GraphCNNGANG(nn.Module):
         zeros[torch.arange(batch_size) * self.args.num_hits] = 1
         batch = torch.cumsum(zeros, 0) - 1
 
+        loop = self.args.num_knn == self.args.num_hits
+
         for i in range(len(self.layers)):
-            edge_index = knn_graph(x, self.args.num_knn, batch)
+            edge_index = knn_graph(x, self.args.num_knn, batch, loop)
             edge_attr = x[edge_index[0]] - x[edge_index[1]]
             x = self.bn_layers[i](self.layers[i](x, edge_index, edge_attr))
             if i < (len(self.layers) - 1): x = F.leaky_relu(x, negative_slope=self.args.leaky_relu_alpha)
@@ -117,6 +119,7 @@ class GraphCNNGANG(nn.Module):
         if self.args.graphcnng_tanh: x = F.tanh(x)
 
         return x.reshape(batch_size, self.args.num_hits, self.args.node_feat_size)
+
 
 
 from torch.nn.modules.utils import _pair

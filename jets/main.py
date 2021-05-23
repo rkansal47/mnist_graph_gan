@@ -17,7 +17,7 @@ h = hpy()
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    torch.autograd.set_detect_anomaly(True)
+    torch.autograd.set_detect_anomaly(False)
 
     args, tqdm_out = setup.init()
     torch.manual_seed(args.seed)
