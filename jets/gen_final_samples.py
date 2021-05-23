@@ -29,7 +29,7 @@ for dir in dirs:
 
     X = JetsDataset(args)
 
-    labels = X[:][1]
+    labels = X[:][1].to(device)
 
     model_name = dir.split('_')[0]
     print(model_name)
