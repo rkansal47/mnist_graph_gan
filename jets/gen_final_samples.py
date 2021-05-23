@@ -9,7 +9,6 @@ import os
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
 dirs = os.listdir('final_models')
 if '.DS_Store' in dirs: del dirs[0]
 
@@ -36,11 +35,11 @@ for dir in dirs:
     print(model_name)
 
     if model_name == 'fc':
-        G = rGANG(args)
+        G = rGANG(args).to(device)
     elif model_name == 'graphcnn':
-        G = GraphCNNGANG(args)
+        G = GraphCNNGANG(args).to(device)
     elif model_name == 'mp':
-        G = Graph_GAN(True, args)
+        G = Graph_GAN(True, args).to(device)
 
     G.load_state_dict(torch.load(path + G_file, map_location=device))
 
