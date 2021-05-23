@@ -33,8 +33,9 @@ for i in range(200, 251):
     score_arr.append(w1pstd[min_epoch])
 
     w1efp = np.mean(w1j[:, 2:], 1)
-    w1efp = np.linalg.norm(w1j[:, 2:], axis=1) / 5
+    w1efpstd = np.linalg.norm(w1j[:, 2:], axis=1) / 5
     score_arr.append(w1efp[min_epoch])
+    score_arr.append(w1efpstd[min_epoch])
 
     for key in loss_keys:
         try: score_arr.append(np.loadtxt(loss_dir + key + '.txt')[min_epoch])
