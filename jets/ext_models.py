@@ -121,6 +121,49 @@ class GraphCNNGANG(nn.Module):
         return x.reshape(batch_size, self.args.num_hits, self.args.node_feat_size)
 
 
+class PointNetMixD(nn.Module):
+    def __init__(self, args):
+        super(PointNetMixD, self).__init__()
+        self.args = args
+
+        self.args.pointnetd_pointfc.insert(0, self.args.node_feat_size)
+
+        self.args.pointnetd_fc.insert(0, self.args.pointnetd_pointfc[-1] * 2)
+        self.args.pointnetd_fc.append(1)
+
+        layers = []
+
+        for i in range(len(self.args.pointnetd_pointfc) - 1):
+            layers.append(nn.Linear(self.args.pointnetd_pointfc[i], self.args.pointnetd_pointfc[i + 1]))
+            layers.append(nn.LeakyReLU(negative_slope=args.leaky_relu_alpha))
+
+        self.pointfc = nn.Sequential(*layers)
+
+        layers = []
+
+        for i in range(len(self.args.pointnetd_fc) - 1):
+            layers.append(nn.Linear(self.args.pointnetd_fc[i], self.args.pointnetd_fc[i + 1]))
+            if i < len(self.args.pointnetd_fc) - 2: layers.append(nn.LeakyReLU(negative_slope=args.leaky_relu_alpha))
+
+        layers.append(nn.Sigmoid())
+        self.fc = nn.Sequential(*layers)
+
+
+        logging.info("point fc: ")
+        logging.info(self.pointfc)
+
+        logging.info("fc: ")
+        logging.info(self.fc)
+
+
+    def forward(self, x, labels=None, epoch=None):
+        batch_size = x.size(0)
+        x = self.pointfc(x.view(batch_size * self.args.num_hits, self.args.node_feat_size)).view(batch_size, self.args.num_hits, self.args.pointnetd_pointfc[-1])
+        x = torch.cat((torch.max(x, dim=1)[0], torch.mean(x, dim=1)), dim=1)
+        return self.fc(x)
+
+
+
 
 from torch.nn.modules.utils import _pair
 

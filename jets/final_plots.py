@@ -56,11 +56,7 @@ for dataset in samples_dict.keys():
     X_rn, mask_real = utils.unnorm_data(args, X[:num_samples].cpu().detach().numpy(), real=True)
     samples_dict[dataset]['Real'] = (X_rn, mask_real)
 
-line_opts = {'Real': {'color': 'red', 'linewidth': 2, 'linestyle': 'dashed'},
-                'FC': {'color': 'green', 'linewidth': 2, 'linestyle': 'dashed'},
-                'GraphCNN': {'color': 'orange', 'linewidth': 2, 'linestyle': 'dashed'},
-                'MP': {'color': 'blue', 'linewidth': 2, 'linestyle': 'dashed'},
-            }
+
 
 
 efps = {}
@@ -76,6 +72,11 @@ for dataset in samples_dict.keys():
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
+line_opts = {'Real': {'color': 'red', 'linewidth': 2, 'linestyle': 'solid'},
+                'FC': {'color': 'green', 'linewidth': 2, 'linestyle': 'dashdot'},
+                'GraphCNN': {'color': 'orange', 'linewidth': 2, 'linestyle': 'dotted'},
+                'MP': {'color': 'blue', 'linewidth': 2, 'linestyle': 'dashed'},
+            }
 
 fig = plt.figure(figsize=(36, 24))
 i = 0
