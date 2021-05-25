@@ -126,6 +126,8 @@ class PointNetMixD(nn.Module):
         super(PointNetMixD, self).__init__()
         self.args = args
 
+        if self.args.mask: self.args.node_feat_size += 1
+
         self.args.pointnetd_pointfc.insert(0, self.args.node_feat_size)
 
         self.args.pointnetd_fc.insert(0, self.args.pointnetd_pointfc[-1] * 2)
