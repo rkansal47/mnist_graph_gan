@@ -10,10 +10,11 @@ import os
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 dirs = os.listdir('final_models')
-if '.DS_Store' in dirs: del dirs[0]
+# if '.DS_Store' in dirs: del dirs[0]
 
 for dir in dirs:
     print(dir)
+    if dir == '.DS_Store': continue
 
     path = 'final_models/' + dir + '/'
     files = os.listdir(path)
@@ -27,22 +28,26 @@ for dir in dirs:
     args['datasets_path'] = 'datasets/'
     args = utils.objectview(args)
 
-    X = JetsDataset(args)
-
-    labels = X[:][1].to(device)
 
     model_name = dir.split('_')[0]
     print(model_name)
 
-    if model_name == 'fc':
+    if model_name == 'fcpnet':
         G = rGANG(args).to(device)
-    elif model_name == 'graphcnn':
+    elif model_name == 'graphcnnpnet':
         G = GraphCNNGANG(args).to(device)
-    elif model_name == 'mp':
+    elif model_name == 'mppnet':
         G = Graph_GAN(True, args).to(device)
+    else: continue
 
+    X = JetsDataset(args)
+
+    labels = X[:][1].to(device)
+
+    print(G)
+    print(path + G_file)
     G.load_state_dict(torch.load(path + G_file, map_location=device))
 
     G.eval()
-    gen_out = utils.gen_multi_batch(args, G, 100000, labels=labels, use_tqdm=True)
+    gen_out = utils.gen_multi_batch(args, G, 10, labels=labels, use_tqdm=True)
     np.save(path + "samples.npy", gen_out)

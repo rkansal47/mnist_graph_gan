@@ -11,7 +11,7 @@ loss_keys = ['fpnd', 'coverage', 'mmd']
 scores = []
 names = []
 
-for i in range(200, 251):
+for i in range(263, 269):
     name = loss_map[str(i)]
     names.append(name)
     score_arr = []
