@@ -82,10 +82,10 @@ for dataset in samples_dict.keys():
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
-line_opts = {'Real': {'color': 'red', 'linewidth': 2, 'linestyle': 'solid'},
-                'FC': {'color': 'green', 'linewidth': 2, 'linestyle': 'dashdot'},
-                'GraphCNN': {'color': 'orange', 'linewidth': 2, 'linestyle': 'dotted'},
-                'MP': {'color': 'blue', 'linewidth': 2, 'linestyle': 'dashed'},
+line_opts = {'Real': {'color': 'red', 'linewidth': 3, 'linestyle': 'solid'},
+                'FC': {'color': 'green', 'linewidth': 3, 'linestyle': 'dashdot'},
+                'GraphCNN': {'color': 'brown', 'linewidth': 3, 'linestyle': 'dashed'},
+                'MP': {'color': 'blue', 'linewidth': 3, 'linestyle': 'dashed'},
                 # 'MPPNET': {'color': 'purple', 'linewidth': 2, 'linestyle': (0, (5, 10))},
             }
 
@@ -99,11 +99,11 @@ for dataset in samples_dict.keys():
     elif dataset == 't':
         efpbins = np.linspace(0, 0.0045, 51)
         pbins = [np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
-        ylims = [0.35e5, 0.7e5, 0, 0.35e4]
+        ylims = [0.35e5, 0.8e5, 0, 0.35e4]
     else:
         efpbins = np.linspace(0, 0.002, 51)
-        pbins = [np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.2, 101)]
-        ylims = [1.5e5, 1.8e5, 0, 2e4]
+        pbins = [np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.15, 101)]
+        ylims = [2e5, 2.2e5, 0, 2.5e4]
 
     mbins = np.linspace(0, 0.225, 51)
 
