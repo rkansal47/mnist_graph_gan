@@ -27,7 +27,8 @@ models = [
 
 model_list = os.listdir('models')
 for model in models:
-    if not model[2][:-1] in model_list: continue
+    model[2] = model[2][:-1]
+    if not model[2] in model_list: continue
     os.makedirs('./final_models/' + model[0])
     shutil.copy(f"models/{model[2]}/G_{model[1]}.pt", f'./final_models/{model[0]}/')
     shutil.copy(f"models/{model[2]}/D_{model[1]}.pt", f'./final_models/{model[0]}/')
