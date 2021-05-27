@@ -40,12 +40,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #     args['datasets_path'] = 'datasets/'
 #     args = utils.objectview(args)
 #
-#     if model[0][:2] == 'fc':
-#         G = rGANG(args).to(device)
-#     elif model[0][:2] == 'gr':
-#         G = GraphCNNGANG(args).to(device)
-#     elif model[0][:2] == 'mp':
-#         G = Graph_GAN(True, args).to(device)
+    # if model[0][:2] == 'fc':
+    #     G = rGANG(args).to(device)
+    # elif model[0][:2] == 'gr':
+    #     G = GraphCNNGANG(args).to(device)
+    # elif model[0][:2] == 'mp':
+    #     G = Graph_GAN(True, args).to(device)
 #
 #     X = JetsDataset(args)
 #
