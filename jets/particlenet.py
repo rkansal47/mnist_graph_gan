@@ -60,9 +60,7 @@ class ParticleNet(nn.Module):
             self.edge_nets.append(ParticleNetEdgeNet(self.output_sizes[i], self.kernel_sizes[i + 1]))  # adding kernel sizes because of skip connections
             self.edge_convs.append(EdgeConv(self.edge_nets[-1], aggr='mean'))
 
-        self.fc1 = nn.Sequential(nn.Linear(self.output_sizes[-1], self.fc_size),
-                                nn.ReLU(),
-                                nn.Dropout(p=self.dropout))
+        self.fc1 = nn.Sequential(nn.Linear(self.output_sizes[-1], self.fc_size))
 
         self.fc2 = nn.Linear(self.fc_size, self.num_classes)
 
@@ -94,5 +92,6 @@ class ParticleNet(nn.Module):
         x = self.fc1(x)
 
         if ret_activations: return x    # for Frechet ParticleNet Distance
+
 
         return self.fc2(x)  # no softmax because pytorch cross entropy loss includes softmax
