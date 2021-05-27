@@ -159,8 +159,10 @@ class PointNetMixD(nn.Module):
     def forward(self, x, labels=None, epoch=None):
         batch_size = x.size(0)
         if self.args.mask:
+            x[:, :, 2] += 0.5
             mask = x[:, :, 3:4] >= 0
             x = (x * mask)[:, :, :3]
+            x[:, :, 2] -= 0.5
         x = self.pointfc(x.view(batch_size * self.args.num_hits, self.args.node_feat_size)).view(batch_size, self.args.num_hits, self.args.pointnetd_pointfc[-1])
         x = torch.cat((torch.max(x, dim=1)[0], torch.mean(x, dim=1)), dim=1)
         return self.fc(x)
