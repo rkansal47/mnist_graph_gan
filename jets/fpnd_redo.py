@@ -12,8 +12,62 @@ dirs = os.listdir('final_models')
 
 num_samples = 50000
 
+args_txt = {'g': 'args/218_g30_mask_c_dea_no_pos_diffs.txt', 't': 'args/206_t30_mask_c_lrx2_dea_no_pos_diffs.txt', 'q': 'args/230_q30_mask_c_lrx05_dea_no_pos_diffs.txt'}
+
+
 samples_dict = {'g': {}, 't': {}, 'q': {}}
 fpnds = {}
+
+
+for dataset in samples_dict.keys():
+    print(dataset)
+    args = eval(open(args_txt[dataset]).read())
+    args['device'] = torch.device('cuda')
+    args['datasets_path'] = './datasets/'
+    args['fpnd_batch_size'] = 512
+    args['evaluation_path'] = './evaluation/'
+    args = utils.objectview(args)
+    C, mu2, sigma2 = evaluation.load(args)
+
+    X = JetsDataset(args, train=False)
+    rng = np.random.default_rng()
+
+    X_loaded = DataLoader(TensorDataset(torch.tensor(X[:50000][0])), batch_size=256)
+
+    C.eval()
+    for i, gen_jets in tqdm(enumerate(X_loaded), total=len(X_loaded)):
+        gen_jets = gen_jets[0]
+        if args.mask:
+            mask = gen_jets[:, :, 3:4] >= 0
+            gen_jets = (gen_jets * mask)[:, :, :3]
+        if(i == 0): activations = C(gen_jets.to(args.device), ret_activations=True).cpu().detach()
+        else: activations = torch.cat((C(gen_jets.to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+
+    activations = activations.numpy()
+
+    mu = np.mean(activations, axis=0)
+    sigma = np.cov(activations, rowvar=False)
+
+    np.savetxt('evaluation/' + dataset + "mu2.txt", mu)
+    np.savetxt('evaluation/' + dataset + "sigma2.txt", sigma)
+
+
+    for i, gen_jets in tqdm(enumerate(X_loaded), total=len(X_loaded)):
+        gen_jets = gen_jets[0]
+        if args.mask:
+            mask = gen_jets[:, :, 3:4] >= 0
+            gen_jets = (gen_jets * mask)[:, :, :3]
+        if(i == 0): activations = C(gen_jets.to(args.device), ret_activations=True, relu_activations=True).cpu().detach()
+        else: activations = torch.cat((C(gen_jets.to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+
+    activations = activations.numpy()
+
+    mu = np.mean(activations, axis=0)
+    sigma = np.cov(activations, rowvar=False)
+
+    np.savetxt('evaluation/' + dataset + "mu2.txt", mu)
+    np.savetxt('evaluation/' + dataset + "sigma2.txt", sigma)
+
 
 
 for dir in dirs:
@@ -82,8 +136,6 @@ del(C)
 #         samples_dict[dataset][key] = samples * masks
 
 
-
-args_txt = {'g': 'args/218_g30_mask_c_dea_no_pos_diffs.txt', 't': 'args/206_t30_mask_c_lrx2_dea_no_pos_diffs.txt', 'q': 'args/230_q30_mask_c_lrx05_dea_no_pos_diffs.txt'}
 
 
 activations_dict = {}

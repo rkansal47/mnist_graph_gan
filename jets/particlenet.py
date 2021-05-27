@@ -7,7 +7,7 @@ from torch_geometric.nn import EdgeConv, global_mean_pool
 from torch_cluster import knn_graph
 
 import numpy as np
-
+import torch.nn.functional as F
 
 class ParticleNetEdgeNet(nn.Module):
     def __init__(self, in_size, layer_size):
@@ -62,6 +62,8 @@ class ParticleNet(nn.Module):
 
         self.fc1 = nn.Sequential(nn.Linear(self.output_sizes[-1], self.fc_size))
 
+        self.dropout_layer = nn.Dropout(p=self.dropout)
+
         self.fc2 = nn.Linear(self.fc_size, self.num_classes)
 
         # logging.info("edge nets: ")
@@ -77,7 +79,7 @@ class ParticleNet(nn.Module):
         logging.info(self.fc2)
 
 
-    def forward(self, x, ret_activations=False):
+    def forward(self, x, ret_activations=False, relu_activations=False):
         batch_size = x.size(0)
         x = x.reshape(batch_size * self.num_hits, self.node_feat_size)
         zeros = torch.zeros(batch_size * self.num_hits, dtype=int).to(self.device)
@@ -91,7 +93,9 @@ class ParticleNet(nn.Module):
         x = global_mean_pool(x, batch)
         x = self.fc1(x)
 
-        if ret_activations: return x    # for Frechet ParticleNet Distance
-
+        if ret_activations:
+            if relu_activations: return F.ReLU(x)
+            else: return x    # for Frechet ParticleNet Distance
+        else: x = self.dropout_layer(F.ReLU(x))
 
         return self.fc2(x)  # no softmax because pytorch cross entropy loss includes softmax
