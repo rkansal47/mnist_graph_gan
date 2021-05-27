@@ -40,10 +40,6 @@ for model in models:
     args['datasets_path'] = 'datasets/'
     args = utils.objectview(args)
 
-
-    model_name = dir.split('_')[0]
-    print(model_name)
-
     if model[0][:2] == 'fc':
         G = rGANG(args).to(device)
     elif model[0][:2] == 'gr':
