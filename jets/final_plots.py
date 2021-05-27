@@ -24,6 +24,15 @@ for dir in dirs:
     print(dir)
     if dir == '.DS_Store': continue
 
+    model_name = dir.split('_')[0]
+
+    if not (model_name == 'fcpnet' or model_name == 'graphcnnpnet' or model_name == 'mp' or model_name == 'mppnet'):
+        continue
+
+    if not (model_name == 'mppnet'):
+        continue
+
+
     samples = np.load('final_models/' + dir + '/samples.npy')[:num_samples]
 
     path = 'final_models/' + dir + '/'
@@ -39,15 +48,16 @@ for dir in dirs:
 
     gen_out_rn, mask_gen = utils.unnorm_data(args, samples, real=False)
 
-    model_name = dir.split('_')[0]
     dataset = dir.split('_')[1]
 
-    if model_name == 'fc':
+    if model_name == 'fcpnet':
         samples_dict[dataset]['FC'] = (gen_out_rn, mask_gen)
-    elif model_name == 'graphcnn':
+    elif model_name == 'graphcnnpnet':
         samples_dict[dataset]['GraphCNN'] = (gen_out_rn, mask_gen)
     elif model_name == 'mp':
         samples_dict[dataset]['MP'] = (gen_out_rn, mask_gen)
+    elif model_name == 'mppnet':
+        samples_dict[dataset]['MPPNET'] = (gen_out_rn, mask_gen)
 
 for dataset in samples_dict.keys():
     args = utils.objectview({'datasets_path': 'datasets/', 'ttsplit': 0.7, 'node_feat_size': 3, 'num_hits': 30, 'coords': 'polarrel', 'dataset': 'jets', 'clabels': 0, 'jets': dataset, 'norm': 1, 'mask': True, 'real_only': False})
@@ -56,8 +66,7 @@ for dataset in samples_dict.keys():
     X_rn, mask_real = utils.unnorm_data(args, X[:num_samples].cpu().detach().numpy(), real=True)
     samples_dict[dataset]['Real'] = (X_rn, mask_real)
 
-
-
+samples_dict
 
 efps = {}
 for dataset in samples_dict.keys():
@@ -65,6 +74,7 @@ for dataset in samples_dict.keys():
     for key in line_opts.keys():
         samples, mask = samples_dict[dataset][key]
         efps[dataset][key] = utils.efp(utils.objectview({'mask': key == 'Real' or key == 'MP', 'num_hits': 30}), samples, mask, key == 'Real')[:, 0]
+
 
 
 %matplotlib inline
@@ -76,6 +86,7 @@ line_opts = {'Real': {'color': 'red', 'linewidth': 2, 'linestyle': 'solid'},
                 'FC': {'color': 'green', 'linewidth': 2, 'linestyle': 'dashdot'},
                 'GraphCNN': {'color': 'orange', 'linewidth': 2, 'linestyle': 'dotted'},
                 'MP': {'color': 'blue', 'linewidth': 2, 'linestyle': 'dashed'},
+                # 'MPPNET': {'color': 'purple', 'linewidth': 2, 'linestyle': (0, (5, 10))},
             }
 
 fig = plt.figure(figsize=(36, 24))

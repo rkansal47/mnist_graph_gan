@@ -40,7 +40,7 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
     return mu, sigma
 
 
-def load(args, X_loaded):
+def load(args, X_loaded=None):
     C = ParticleNet(args.num_hits, args.node_feat_size, device=args.device).to(args.device)
     C.load_state_dict(torch.load(args.evaluation_path + "C_state_dict.pt", map_location=args.device))
 
