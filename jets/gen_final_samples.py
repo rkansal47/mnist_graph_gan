@@ -34,8 +34,6 @@ for model in models:
     shutil.copy(f"models/{model[2]}/D_{model[1]}.pt", f'./final_models/{model[0]}/')
     shutil.copy(f"args/{model[2]}.txt", f'./final_models/{model[0]}/')
 
-    path = 'final_models/' + dir + '/'
-
     args = eval(open(f"args/{model[2]}.txt").read())
     args['device'] = device
     args['batch_size'] = 1024
