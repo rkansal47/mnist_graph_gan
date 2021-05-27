@@ -94,8 +94,8 @@ class ParticleNet(nn.Module):
         x = self.fc1(x)
 
         if ret_activations:
-            if relu_activations: return F.ReLU(x)
+            if relu_activations: return F.relu(x)
             else: return x    # for Frechet ParticleNet Distance
-        else: x = self.dropout_layer(F.ReLU(x))
+        else: x = self.dropout_layer(F.relu(x))
 
         return self.fc2(x)  # no softmax because pytorch cross entropy loss includes softmax
