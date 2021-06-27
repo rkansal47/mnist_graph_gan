@@ -261,12 +261,13 @@ def plot_eval(args, losses, name, epoch, show=False):
             plt.xlabel('Epoch')
             plt.ylabel(jlabels[i] + ' Log$W_1$')
 
-        fig.add_subplot(3, 3, 6)
-        for i in range(5):
-            plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'])[:, i + 2]), label='EFP ' + str(i + 1), color=colors[i])
-        plt.legend(loc=1)
-        plt.xlabel('Epoch')
-        plt.ylabel('Jet EFPs Log$W_1$')
+        if args.efp:
+            fig.add_subplot(3, 3, 6)
+            for i in range(5):
+                plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'])[:, i + 2]), label='EFP ' + str(i + 1), color=colors[i])
+            plt.legend(loc=1)
+            plt.xlabel('Epoch')
+            plt.ylabel('Jet EFPs Log$W_1$')
 
     x = x[-len(losses['mmd']):]
     paxis = 3 if args.jf else 2
@@ -307,22 +308,17 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
 
     name = args.name + "/" + str(epoch)
 
-    # logging.info("pre part feats")
-    # logging.info(h.heap())
-
     plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name + 'p', losses)
-
-    # logging.info("post part feats")
-    # logging.info(h.heap())
 
     if args.jf:
         realjf = utils.jet_features(X_rn, mask=mask_real)
         genjf = utils.jet_features(gen_out, mask=mask_gen)
 
-        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
-        genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
+        if args.efp:
+            realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+            genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
+            plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
 
-        plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
         plot_jet_mass_pt(args, realjf, genjf, name + 'mpt')
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)

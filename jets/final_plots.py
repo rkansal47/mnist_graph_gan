@@ -26,10 +26,10 @@ for dir in dirs:
 
     model_name = dir.split('_')[0]
 
-    if not (model_name == 'fcpnet' or model_name == 'graphcnnpnet' or model_name == 'mp' or model_name == 'mppnet'):
-        continue
+    # if not (model_name == 'fcpnet' or model_name == 'graphcnnpnet' or model_name == 'mp' or model_name == 'mppnet'):
+    #     continue
 
-    if not (model_name == 'mppnet'):
+    if not (model_name == 'mp'):
         continue
 
 
@@ -83,11 +83,22 @@ plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
 line_opts = {'Real': {'color': 'red', 'linewidth': 3, 'linestyle': 'solid'},
-                'FC': {'color': 'green', 'linewidth': 3, 'linestyle': 'dashdot'},
-                'GraphCNN': {'color': 'brown', 'linewidth': 3, 'linestyle': 'dashed'},
-                'MP': {'color': 'blue', 'linewidth': 3, 'linestyle': 'dashed'},
+                # 'FC': {'color': 'green', 'linewidth': 3, 'linestyle': 'dashdot'},
+                # 'GraphCNN': {'color': 'brown', 'linewidth': 3, 'linestyle': 'dashed'},
+                # 'MP': {'color': 'blue', 'linewidth': 3, 'linestyle': 'dashed'},
+                'Generated': {'color': 'blue', 'linewidth': 3, 'linestyle': 'dashed'},
                 # 'MPPNET': {'color': 'purple', 'linewidth': 2, 'linestyle': (0, (5, 10))},
             }
+
+for key in samples_dict:
+    samples_dict[key]['Generated'] = samples_dict[key]['MP']
+    del(samples_dict[key]['MP'])
+
+for key in samples_dict:
+    efps[key]['Generated'] = efps[key]['MP']
+    # del(samples_dict[key]['MP'])
+
+
 
 fig = plt.figure(figsize=(36, 24))
 i = 0
@@ -103,7 +114,7 @@ for dataset in samples_dict.keys():
     else:
         efpbins = np.linspace(0, 0.002, 51)
         pbins = [np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.15, 101)]
-        ylims = [2e5, 2.2e5, 0, 2.5e4]
+        ylims = [2e5, 2.2e5, 0, 2.2e4]
 
     mbins = np.linspace(0, 0.225, 51)
 
@@ -114,15 +125,15 @@ for dataset in samples_dict.keys():
 
     for key in line_opts.keys():
         samples, mask = samples_dict[dataset][key]
-        if key == 'MP' or key == 'Real':
+        if key == 'MP' or key == 'Generated' or key == 'Real':
             parts = samples[mask]
         else:
             parts = samples.reshape(-1, 3)
 
         _ = plt.hist(parts[:, 0], pbins[0], histtype='step', label=key, **line_opts[key])
 
-    plt.legend(loc=1, prop={'size': 18}, fancybox=True)
-    plt.ylim(0, ylims[0])
+    plt.legend(loc=1, prop={'size': 20}, fancybox=True)
+    # plt.ylim(0, ylims[0])
 
     fig.add_subplot(3, 4, i * 4 + 2)
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
@@ -131,15 +142,15 @@ for dataset in samples_dict.keys():
 
     for key in line_opts.keys():
         samples, mask = samples_dict[dataset][key]
-        if key == 'MP' or key == 'Real':
+        if key == 'MP' or key == 'Generated' or key == 'Real':
             parts = samples[mask]
         else:
             parts = samples.reshape(-1, 3)
 
         _ = plt.hist(parts[:, 2], pbins[1], histtype='step', label=key, **line_opts[key])
 
-    plt.legend(loc=1, prop={'size': 18}, fancybox=True)
-    plt.ylim(0, ylims[1])
+    plt.legend(loc=1, prop={'size': 20}, fancybox=True)
+    # plt.ylim(0, ylims[1])
 
     fig.add_subplot(3, 4, i * 4 + 3)
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
@@ -152,7 +163,7 @@ for dataset in samples_dict.keys():
 
         _ = plt.hist(masses, mbins, histtype='step', label=key, **line_opts[key])
 
-    plt.legend(loc=1, prop={'size': 18}, fancybox=True)
+    plt.legend(loc=1, prop={'size': 20}, fancybox=True)
     # plt.ylim(0, ylims[1])
 
 
@@ -165,11 +176,11 @@ for dataset in samples_dict.keys():
     for key in line_opts.keys():
         _ = plt.hist(efps[dataset][key], efpbins, histtype='step', label=key, **line_opts[key])
 
-    plt.legend(loc=1, prop={'size': 18}, fancybox=True)
-    plt.ylim(0, ylims[3])
+    plt.legend(loc=1, prop={'size': 20}, fancybox=True)
+    # plt.ylim(0, ylims[3])
 
     i += 1
 
 plt.tight_layout(pad=0.5)
-plt.savefig('final_figure.pdf', bbox_inches='tight')
+plt.savefig('final_figure_only_mp.pdf', bbox_inches='tight')
 plt.show()

@@ -182,6 +182,7 @@ def parse_args():
     # evaluation
 
     utils.add_bool_arg(parser, "fpnd", "calc fpnd", default=True)
+    utils.add_bool_arg(parser, "fjpnd", "calc Frechet Joint ParticleNet Distance (for conditional GAN evaluation)", default=True)
     # parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
     parser.add_argument("--fpnd-batch-size", type=int, default=256, help="batch size when generating samples for fpnd eval")
     parser.add_argument("--gpu-batch", type=int, default=50, help="")
@@ -195,7 +196,7 @@ def parse_args():
     parser.add_argument("--cov-mmd-num-batches", type=int, default=10, help='# of batches to average coverage and MMD over')
 
     parser.add_argument("--jf", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
-
+    utils.add_bool_arg(parser, "efp", "calculate EFPs for evaluation (will cause memory spikes so off by default)", default=False)
 
     # ext models
 
@@ -324,6 +325,8 @@ def check_args(args):
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
+    if not args.clabels: args.fjpnd = False
+
     if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c or args.mask_learn_sep: args.mask = True
     else: args.mask = False
 
@@ -375,7 +378,6 @@ def check_args(args):
             args.num_epochs = 1000
             if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
             if args.rgand_fc == 0: args.rgand_fc = [128, 64]
-
 
         args.loss = 'w'
         args.gp = 10
@@ -571,6 +573,7 @@ def losses(args):
 
     if args.eval:
         ekeys = ['fpnd', 'mmd', 'coverage']
+        if args.fjpnd: ekeys.append('fjpnd')
         for k in range(len(args.w1_num_samples)):
             ekeys.append(f'w1_{args.w1_num_samples[k]}m')
             ekeys.append(f'w1_{args.w1_num_samples[k]}std')

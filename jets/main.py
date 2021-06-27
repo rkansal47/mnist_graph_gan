@@ -40,7 +40,12 @@ def main():
 
     losses = setup.losses(args)
 
-    if args.fpnd: C, mu2, sigma2 = evaluation.load(args, X_test_loaded)
+    if args.fpnd or args.fjpnd:
+        C = evaluation.get_C(args)
+        if args.fpnd:
+            mu2, sigma2 = evaluation.load(args, C, X_test_loaded)
+        if args.fjpnd:
+            cmu2, csigma2 = evaluation.load_fjpnd(args, C, X_test_loaded)
 
     Y_real = torch.ones(args.batch_size, 1).to(args.device)
     Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
