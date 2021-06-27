@@ -21,13 +21,17 @@ import logging
 from particlenet import ParticleNet
 
 
-def get_mu2_sigma2(args, C, X_loaded, fullpath):
+def calc_mu2_sigma2(args, C, X_loaded, fullpath, fjpnd=False):
     logging.info("Getting mu2, sigma2")
 
     C.eval()
     for i, jet in tqdm(enumerate(X_loaded), total=len(X_loaded)):
-        if(i == 0): activations = C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach()
-        else: activations = torch.cat((C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+        if(i == 0):
+            if not fjpnd: activations = C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach()
+            else: activations = torch.cat((C(jet[0][:, :, :3].to(args.device), ret_activations=True), jet[1][:, :args.clabels]), axis=1).cpu().detach()
+        else:
+            if not fjpnd: activations = torch.cat((C(jet[0][:, :, :3].to(args.device), ret_activations=True).cpu().detach(), activations), axis=0)
+            else: activations = torch.cat((torch.cat((C(jet[0][:, :, :3].to(args.device), ret_activations=True), jet[1][:, :args.clabels]), axis=1).cpu().detach(), activations), axis=0)
 
     activations = activations.numpy()
 
@@ -40,19 +44,37 @@ def get_mu2_sigma2(args, C, X_loaded, fullpath):
     return mu, sigma
 
 
-def load(args, X_loaded):
+def get_C(args):
     C = ParticleNet(args.num_hits, args.node_feat_size, device=args.device).to(args.device)
     C.load_state_dict(torch.load(args.evaluation_path + "C_state_dict.pt", map_location=args.device))
+    return C
 
+
+def load(args, C, X_loaded=None):
     fullpath = args.evaluation_path + args.jets
     logging.debug(fullpath)
-    if path.exists(fullpath + "mu2.txt"):
+    if path.exists(fullpath + "mu2.txt") and path.exists(fullpath + "sigma2.txt"):
         mu2 = np.loadtxt(fullpath + "mu2.txt")
         sigma2 = np.loadtxt(fullpath + "sigma2.txt")
     else:
-        mu2, sigma2 = get_mu2_sigma2(args, C, X_loaded, fullpath)
+        mu2, sigma2 = calc_mu2_sigma2(args, C, X_loaded, fullpath, fjpnd=False)
 
-    return (C, mu2, sigma2)
+    return (mu2, sigma2)
+
+
+def load_fjpnd(args, C, X_loaded=None):
+    fullpath = args.evaluation_path + "fjpnd_pt_" + args.jets
+    logging.debug(fullpath)
+    if args.clabels == 1:
+        if path.exists(fullpath + "mu2.txt") and path.exists(fullpath + "sigma2.txt"):
+            cmu2 = np.loadtxt(fullpath + "mu2.txt")
+            csigma2 = np.loadtxt(fullpath + "sigma2.txt")
+        else:
+            cmu2, csigma2 = calc_mu2_sigma2(args, C, X_loaded, fullpath, fjpnd=True)
+    elif args.clabels == 2:
+        logging.info("FJPND not yet implemented for eta condition")
+
+    return (cmu2, csigma2)
 
 
 rng = np.random.default_rng()
@@ -103,20 +125,17 @@ def calc_w1(args, X, G, losses, X_loaded=None):
 
     if args.jf:
         realjf = utils.jet_features(X_rn, mask=mask_real)
-
         logging.info("Obtained real jet features")
 
         genjf = utils.jet_features(gen_out_rn, mask=mask_gen)
-
         logging.info("Obtained gen jet features")
 
-        realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+        if args.efp:
+            realefp = utils.efp(args, X_rn, mask=mask_real, real=True)
+            logging.info("Obtained Real EFPs")
 
-        logging.info("Obtained Real EFPs")
-
-        genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
-
-        logging.info("Obtained Gen EFPs")
+            genefp = utils.efp(args, gen_out_rn, mask=mask_gen, real=False)
+            logging.info("Obtained Gen EFPs")
 
     num_batches = np.array(args.eval_tot_samples / np.array(args.w1_num_samples), dtype=int)
 
@@ -147,15 +166,14 @@ def calc_w1(args, X, G, losses, X_loaded=None):
             if args.jf:
                 realjf_sample = realjf[X_rand_sample]
                 genjf_sample = genjf[G_rand_sample]
-
-                realefp_sample = realefp[X_rand_sample]
-                genefp_sample = genefp[X_rand_sample]
-
                 w1jf = [wasserstein_distance(realjf_sample[:, i], genjf_sample[:, i]) for i in range(2)]
-                w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
 
-                w1js.append([i for t in (w1jf, w1jefp) for i in t])
-                # w1js.append(w1jf)
+                if args.efp:
+                    realefp_sample = realefp[X_rand_sample]
+                    genefp_sample = genefp[X_rand_sample]
+                    w1jefp = [wasserstein_distance(realefp_sample[:, i], genefp_sample[:, i]) for i in range(5)]
+                    w1js.append([i for t in (w1jf, w1jefp) for i in t])
+                else: w1js.append(w1jf)
 
         losses['w1_' + str(args.w1_num_samples[k]) + 'm'].append(np.mean(np.array(w1s), axis=0))
         losses['w1_' + str(args.w1_num_samples[k]) + 'std'].append(np.std(np.array(w1s), axis=0))
@@ -172,7 +190,7 @@ def get_fpnd(args, C, gen_out, mu2, sigma2):
 
     gen_out_loaded = DataLoader(TensorDataset(torch.tensor(gen_out)), batch_size=args.fpnd_batch_size)
 
-    logging.info("Getting ParticleNet Acivations")
+    logging.info("Getting ParticleNet Activations")
     C.eval()
     for i, gen_jets in tqdm(enumerate(gen_out_loaded), total=len(gen_out_loaded)):
         gen_jets = gen_jets[0]

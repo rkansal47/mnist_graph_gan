@@ -10,10 +10,11 @@ import os
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 dirs = os.listdir('final_models')
-if '.DS_Store' in dirs: del dirs[0]
+# if '.DS_Store' in dirs: del dirs[0]
 
 for dir in dirs:
     print(dir)
+    if dir == '.DS_Store': continue
 
     path = 'final_models/' + dir + '/'
     files = os.listdir(path)
@@ -23,24 +24,27 @@ for dir in dirs:
 
     args = eval(open(path + args_file).read())
     args['device'] = device
-    args['batch_size'] = 1024
+    args['batch_size'] = 512
     args['datasets_path'] = 'datasets/'
     args = utils.objectview(args)
+
+
+    model_name = dir.split('_')[0]
+    print(model_name)
+
+    if model_name[:2] == 'fc':
+        G = rGANG(args).to(device)
+    elif model_name[:2] == 'gr':
+        G = GraphCNNGANG(args).to(device)
+    elif model_name[:2] == 'mp':
+        G = Graph_GAN(True, args).to(device)
 
     X = JetsDataset(args)
 
     labels = X[:][1].to(device)
 
-    model_name = dir.split('_')[0]
-    print(model_name)
-
-    if model_name == 'fc':
-        G = rGANG(args).to(device)
-    elif model_name == 'graphcnn':
-        G = GraphCNNGANG(args).to(device)
-    elif model_name == 'mp':
-        G = Graph_GAN(True, args).to(device)
-
+    print(G)
+    print(path + G_file)
     G.load_state_dict(torch.load(path + G_file, map_location=device))
 
     G.eval()

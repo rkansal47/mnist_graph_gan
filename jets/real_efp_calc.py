@@ -2,6 +2,10 @@ import numpy as np
 import utils
 from jets_dataset import JetsDataset
 from scipy.stats import wasserstein_distance
+from energyflow.emd import emds
+import evaluation
+import torch
+from torch.utils.data import DataLoader
 
 num_samples = 50000
 
@@ -76,4 +80,52 @@ for dataset in samples_dict.keys():
 
 
 
+
+
+
 ave_w1s
+
+
+samples_dict
+
+for dataset in samples_dict.keys():
+    print(dataset)
+    # converting into EFP format
+    X_rn = np.concatenate((np.expand_dims(samples_dict[dataset][0][:, :, 2], 2), samples_dict[dataset][0][:, :, :2], np.zeros((samples_dict[dataset][0].shape[0], samples_dict[dataset][0].shape[1], 1))), axis=2)
+
+    covs = []
+    mmds = []
+
+    for j in range(10):
+        X_rand_sample = rng.choice(50000, size=100)
+        X_rand_sample2 = rng.choice(50000, size=100)
+
+        Xsample = X_rn[X_rand_sample]
+        Xsample2 = X_rn[X_rand_sample2]
+
+        dists = emds(Xsample, Xsample2)
+
+        mmds.append(np.mean(np.min(dists, axis=0)))
+        covs.append(np.unique(np.argmin(dists, axis=1)).size / 100)
+
+    print(f"mmds: {np.mean(mmds)}")
+    print(f"cov: {np.mean(covs)}")
+
+
+args_txt = {'g': 'args/236_g30_dea_no_pos_diffs_graphcnngang_mpgand.txt', 't': 'args/237_t30_lrx2_dea_no_pos_diffs_graphcnngang_mpgand.txt', 'q': 'args/238_q30_lrx05_dea_no_pos_diffs_graphcnngang_mpgand.txt'}
+
+
+for dataset in samples_dict.keys():
+    print(dataset)
+    args = eval(open(args_txt[dataset]).read())
+    args['device'] = torch.device('cpu')
+    args['datasets_path'] = './datasets/'
+    args['evaluation_path'] = './evaluation/'
+    args = utils.objectview(args)
+
+    X = JetsDataset(args, train=False)
+    X = X[:][0]
+    X_test_loaded = DataLoader(X, batch_size=128)
+    C, mu2, sigma2 = evaluation.load(args, X_test_loaded)
+
+    print(evaluation.get_fpnd(args, C, samples_dict[dataset][0], mu2, sigma2))

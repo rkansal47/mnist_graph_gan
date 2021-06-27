@@ -8,7 +8,7 @@ from os.path import exists, dirname, realpath
 import torch
 
 from model import Graph_GAN
-from ext_models import rGANG, rGAND, GraphCNNGANG
+from ext_models import rGANG, rGAND, GraphCNNGANG, PointNetMixD
 from copy import deepcopy
 
 import torch.optim as optim
@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("--ttsplit", type=float, default=0.7, help="ratio of train/test split")
 
     parser.add_argument("--model", type=str, default="mpgan", help="model to run", choices=['mpgan', 'rgan', 'graphcnngan'])
-    parser.add_argument("--model-D", type=str, default="", help="model discriminator, mpgan default is mpgan, rgan and graphcnngan default is rgan", choices=['mpgan', 'rgan'])
+    parser.add_argument("--model-D", type=str, default="", help="model discriminator, mpgan default is mpgan, rgan and graphcnngan default is rgan", choices=['mpgan', 'rgan', 'pointnet'])
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=True)
     utils.add_bool_arg(parser, "override-load-check", "override check for whether name has already been used", default=False)
@@ -182,6 +182,7 @@ def parse_args():
     # evaluation
 
     utils.add_bool_arg(parser, "fpnd", "calc fpnd", default=True)
+    utils.add_bool_arg(parser, "fjpnd", "calc Frechet Joint ParticleNet Distance (for conditional GAN evaluation)", default=True)
     # parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
     parser.add_argument("--fpnd-batch-size", type=int, default=256, help="batch size when generating samples for fpnd eval")
     parser.add_argument("--gpu-batch", type=int, default=50, help="")
@@ -195,7 +196,7 @@ def parse_args():
     parser.add_argument("--cov-mmd-num-batches", type=int, default=10, help='# of batches to average coverage and MMD over')
 
     parser.add_argument("--jf", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
-
+    utils.add_bool_arg(parser, "efp", "calculate EFPs for evaluation (will cause memory spikes so off by default)", default=False)
 
     # ext models
 
@@ -204,6 +205,9 @@ def parse_args():
     parser.add_argument("--rgang-fc", type=int, nargs='+', default=[64, 128], help='rGAN generator layer node sizes')
     parser.add_argument("--rgand-sfc", type=int, nargs='*', default=0, help='rGAN discriminator convolutional layer node sizes')
     parser.add_argument("--rgand-fc", type=int, nargs='*', default=0, help='rGAN discriminator layer node sizes')
+
+    parser.add_argument("--pointnetd-pointfc", type=int, nargs='*', default=[64, 128, 1024], help='pointnet discriminator point layer node sizes')
+    parser.add_argument("--pointnetd-fc", type=int, nargs='*', default=[512], help='pointnet discriminator final layer node sizes')
 
     parser.add_argument("--graphcnng-layers", type=int, nargs='+', default=[32, 24], help='GraphCNN-GAN generator layer node sizes')
     utils.add_bool_arg(parser, "graphcnng-tanh", "use tanh activation for final graphcnn generator output", default=False)
@@ -321,6 +325,8 @@ def check_args(args):
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
+    if not args.clabels: args.fjpnd = False
+
     if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c or args.mask_learn_sep: args.mask = True
     else: args.mask = False
 
@@ -370,12 +376,12 @@ def check_args(args):
         if args.model_D == 'rgan':
             args.batch_size = 50
             args.num_epochs = 1000
+            if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
+            if args.rgand_fc == 0: args.rgand_fc = [128, 64]
+
         args.loss = 'w'
         args.gp = 10
         args.num_critic = 5
-
-        if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
-        if args.rgand_fc == 0: args.rgand_fc = [128, 64]
 
         args.leaky_relu_alpha = 0.2
 
@@ -507,6 +513,8 @@ def models(args):
         D = Graph_GAN(gen=False, args=deepcopy(args))
     elif args.model_D == 'rgan':
         D = rGAND(args=deepcopy(args))
+    elif args.model_D == 'pointnet':
+        D = PointNetMixD(args=deepcopy(args))
 
 
     if(args.load_model):
@@ -565,6 +573,7 @@ def losses(args):
 
     if args.eval:
         ekeys = ['fpnd', 'mmd', 'coverage']
+        if args.fjpnd: ekeys.append('fjpnd')
         for k in range(len(args.w1_num_samples)):
             ekeys.append(f'w1_{args.w1_num_samples[k]}m')
             ekeys.append(f'w1_{args.w1_num_samples[k]}std')
