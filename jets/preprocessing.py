@@ -9,8 +9,8 @@ import numpy as np
 
 import sys
 
-# dir_path = '/graphganvol/datasets/jets/150p/train/'
-dir_path = '/Users/raghav/Documents/Work/CERN/datasets/'
+dir_path = '/graphganvol/datasets/jets/150p/train/'
+# dir_path = '/Users/raghav/Documents/Work/CERN/datasets/'
 
 rootfiles = [dir_path + f for f in listdir(dir_path) if isfile(join(dir_path, f))]
 
@@ -23,7 +23,7 @@ print(len(rootfiles))
 pfbool = False  # particle features or jet features
 print(sys.argv[1])
 jet_type = sys.argv[1]
-particle_features = ['etarel', 'phirel', 'ptrel']
+particle_features = ['eta', 'phi', 'pt']
 jet_features = ['pt', 'eta', 'mass']
 
 n = 0
@@ -58,5 +58,4 @@ for f in rootfiles:
     n += 1
     file.close()
 
-    torch.save(torch.tensor(jetpfs), './datasets/all_' + jet_type + '_jets_150p_polarrel.pt')
-    torch.save(torch.tensor(jetjfs), './datasets/all_' + jet_type + '_jets_150p_jetptetamass.pt')
+    torch.save(torch.tensor(jetpfs), './datasets/all_' + jet_type + '_jets_150p_polar.pt')
