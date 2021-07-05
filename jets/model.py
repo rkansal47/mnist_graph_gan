@@ -265,8 +265,7 @@ class Graph_GAN(nn.Module):
 
             if (A != A).any(): logging.warning("Nan values in A \n x: \n {} \n A: \n {}".format(x, A))
 
-            # NEED TO FIX FOR MASK-FNE-NP + CLABELS (probably just labels --> labels[:, :self.args.clabels])
-            if clabel_iter: A = torch.cat((A, labels.repeat(self.args.num_hits * num_knn, 1)), axis=1)
+            if clabel_iter: A = torch.cat((A, labels[:, :self.args.clabels].repeat(self.args.num_hits * num_knn, 1)), axis=1)
             if self.args.mask_fne_np: A = torch.cat((A, nump.repeat(self.args.num_hits * num_knn, 1)), axis=1)
 
             for j in range(len(self.fe[i])):
@@ -289,7 +288,7 @@ class Graph_GAN(nn.Module):
 
             if (x != x).any(): logging.warning("Nan values in x after message passing \n x: \n {} \n A: \n {}".format(x, A))
 
-            if clabel_iter: x = torch.cat((x, labels.repeat(self.args.num_hits, 1)), axis=1)
+            if clabel_iter: x = torch.cat((x, labels[:, :self.args.clabels].repeat(self.args.num_hits, 1)), axis=1)
             if self.args.mask_fne_np: x = torch.cat((x, nump.repeat(self.args.num_hits, 1)), axis=1)
 
             for j in range(len(self.fn[i]) - 1):
