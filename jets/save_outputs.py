@@ -418,7 +418,7 @@ def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None)
 
         plot_jet_mass_pt(args, realjf, genjf, name + 'mpt')
 
-        plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name + 'c', cregions, losses=losses)
+        if args.clabels: plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name + 'c', cregions, losses=losses)
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)
