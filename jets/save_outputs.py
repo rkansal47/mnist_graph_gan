@@ -163,7 +163,7 @@ def plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, 
             _ = axs[j, i].hist(parts_real[j][:, i], pbins[i], histtype='step', label='Real', color='red')
             _ = axs[j, i].hist(parts_gen[j][:, i], pbins[i], histtype='step', label='Generated', color='blue')
             axs[j, i].set_xlabel('Particle ' + plabels[i])
-            if i == 0: axs[j, i].set_ylabel(f'{pt_regions[j]} ≤ $p_T$ ≤ {pt_regions[j + 1]} GeV' + ' \t \t Particles')
+            if i == 0: axs[j, i].set_ylabel(f'{pt_regions[j]} $\leq p_T < $ {pt_regions[j + 1]} GeV' + ' \t Particles')
             else: axs[j, i].set_ylabel('Particles')
             axs[j, i].legend(loc=1, prop={'size': 18})
 
@@ -418,7 +418,7 @@ def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None)
 
         plot_jet_mass_pt(args, realjf, genjf, name + 'mpt')
 
-        plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name + 'cregions', cregions, losses=losses)
+        plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name + 'c', cregions, losses=losses)
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)
