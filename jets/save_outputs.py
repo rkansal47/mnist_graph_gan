@@ -11,13 +11,13 @@ plt.switch_backend('agg')
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
 
-from guppy import hpy
-h = hpy()
+
+# split regions for cGAN - make sure to change in evaluation as well
+pt_regions = [0, 1045, 1175, 3000]
+num_regions = len(pt_regions) - 1
 
 
 def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None, show=False):
-    # logging.info("part feats")
-    # logging.info(h.heap())
     if args.coords == 'cartesian':
         plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
         bin = np.arange(-500, 500, 10)
@@ -29,10 +29,10 @@ def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None,
                 if args.num_hits == 100:
                     pbins = [np.arange(-0.5, 0.5, 0.005), np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
                 else:
-                    pbins = [np.linspace(-0.3, 0.3, 100), np.linspace(-0.3, 0.3, 100), np.linspace(0, 0.2, 100)]
+                    pbins = [np.linspace(-0.3, 0.3, 101), np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.2, 101)]
                     ylims = [3e5, 3e5, 3e5]
             elif args.jets == 't':
-                pbins = [np.linspace(-0.5, 0.5, 100), np.linspace(-0.5, 0.5, 100), np.linspace(0, 0.2, 100)]
+                pbins = [np.linspace(-0.5, 0.5, 101), np.linspace(-0.5, 0.5, 101), np.linspace(0, 0.2, 101)]
         elif args.dataset == 'jets-lagan':
             plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
             pbins = [np.linspace(-1.25, 1.25, 25 + 1), np.linspace(-1.25, 1.25, 25 + 1), np.linspace(0, 1, 51)]
@@ -68,7 +68,7 @@ def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None,
     else: plt.close()
 
 
-def plot_part_feats_jet_mass(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name, losses=None, show=False):
+def plot_part_feats_jet_mass(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name, losses=None, cregions=None, show=False):
     if args.coords == 'cartesian':
         plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
         bin = np.arange(-500, 500, 10)
@@ -116,6 +116,63 @@ def plot_part_feats_jet_mass(args, X_rn, mask_real, gen_out, mask_gen, realjf, g
     plt.ylabel('Jets')
     plt.legend(loc=1, prop={'size': 18})
     if losses is not None: plt.title('$W_1$ = {:.2e}'.format(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'][-1][0]), fontsize=16)
+
+    plt.tight_layout(2.0)
+    plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
+    if show: plt.show()
+    else: plt.close()
+
+
+def plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name, cregions, losses=None, show=False):
+    if args.coords == 'cartesian':
+        plabels = ['$p_x$ (GeV)', '$p_y$ (GeV)', '$p_z$ (GeV)']
+        bin = np.arange(-500, 500, 10)
+        pbins = [bin, bin, bin]
+    elif args.coords == 'polarrel':
+        plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T^{rel}$']
+        if args.jets == 'g' or args.jets == 'q' or args.jets == 'w' or args.jets == 'z':
+            if args.num_hits == 100:
+                pbins = [np.linspace(-0.5, 0.5, 101), np.linspace(-0.5, 0.5, 101), np.linspace(0, 0.1, 101)]
+            else:
+                pbins = [np.linspace(-0.3, 0.3, 101), np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.2, 101)]
+        elif args.jets == 't':
+            pbins = [np.linspace(-0.5, 0.5, 101), np.linspace(-0.5, 0.5, 101), np.linspace(0, 0.2, 101)]
+    elif args.coords == 'polarrelabspt':
+        plabels = ['$\eta^{rel}$', '$\phi^{rel}$', '$p_T (GeV)$']
+        pbins = [np.arange(-0.5, 0.5, 0.01), np.arange(-0.5, 0.5, 0.01), np.arange(0, 400, 4)]
+
+    if args.jets == 'g' or args.jets == 'q' or args.jets == 't': mbins = np.linspace(0, 0.225, 51)
+    else: mbins = np.linspace(0, 0.12, 51)
+
+    parts_real = []
+    parts_gen = []
+
+    for i in range(num_regions):
+        if args.mask:
+            parts_real.append(X_rn[cregions[i]][mask_real[cregions[i]]])
+            parts_gen.append(gen_out[cregions[i]][mask_gen[cregions[i]]])
+        else:
+            parts_real.append(X_rn[cregions[i]].reshape(-1, args.node_feat_size))
+            parts_gen.append(gen_out[cregions[i]].reshape(-1, args.node_feat_size))
+
+    fig, axs = plt.subplots(num_regions, 4, figsize=(30, num_regions * 7))
+
+    for j in range(num_regions):
+        for i in range(3):
+            axs[j, i].ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+            _ = axs[j, i].hist(parts_real[j][:, i], pbins[i], histtype='step', label='Real', color='red')
+            _ = axs[j, i].hist(parts_gen[j][:, i], pbins[i], histtype='step', label='Generated', color='blue')
+            axs[j, i].set_xlabel('Particle ' + plabels[i])
+            if i == 0: axs[j, i].set_ylabel(f'{pt_regions[j]} ≤ $p_T$ ≤ {pt_regions[j + 1]} GeV' + ' \t \t Particles')
+            else: axs[j, i].set_ylabel('Particles')
+            axs[j, i].legend(loc=1, prop={'size': 18})
+
+        axs[j, 3].ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
+        _ = axs[j, 3].hist(realjf[cregions[i]][:, 0], bins=mbins, histtype='step', label='Real', color='red')
+        _ = axs[j, 3].hist(genjf[cregions[i]][:, 0], bins=mbins, histtype='step', label='Generated', color='blue')
+        axs[j, 3].set_xlabel('Jet $m/p_{T}$')
+        axs[j, 3].set_ylabel('Jets')
+        axs[j, 3].legend(loc=1, prop={'size': 18})
 
     plt.tight_layout(2.0)
     plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
@@ -241,11 +298,19 @@ def plot_eval(args, losses, name, epoch, show=False):
         if args.jf: fig.add_subplot(3, 3, i + 1)
         else: fig.add_subplot(2, 3, i + 1)
 
-        for k in range(len(args.w1_num_samples)):
-            plt.plot(x, np.log10(np.array(losses['w1_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
-            # plt.fill_between(x, np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] - np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] + np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), color=colors[k], alpha=0.2)
-            # plt.plot(x, np.ones(len(x)) * np.log10(realw1m[k][i]), '--', label=str(args.num_samples[k]) + ' Real $W_1$', color=colors[k])
-            # plt.fill_between(x, np.log10(np.ones(len(x)) * (realw1m[k][i] - realw1std[k][i])), np.log10(np.ones(len(x)) * (realw1m[k][i] + realw1std[k][i])), color=colors[k], alpha=0.2)
+        if not args.clabels:
+            for k in range(len(args.w1_num_samples)):
+                plt.plot(x, np.log10(np.array(losses['w1_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
+                # plt.fill_between(x, np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] - np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), np.log10(np.array(losses['w1_' + str(args.num_samples[k]) + 'm'])[:, i] + np.array(losses['w1_' + str(args.num_samples[k]) + 'std'])[:, i]), color=colors[k], alpha=0.2)
+                # plt.plot(x, np.ones(len(x)) * np.log10(realw1m[k][i]), '--', label=str(args.num_samples[k]) + ' Real $W_1$', color=colors[k])
+                # plt.fill_between(x, np.log10(np.ones(len(x)) * (realw1m[k][i] - realw1std[k][i])), np.log10(np.ones(len(x)) * (realw1m[k][i] + realw1std[k][i])), color=colors[k], alpha=0.2)
+        else:
+            for k in range(num_regions):
+                plt.plot(x, np.log10(np.array(losses[f'intra_w1_{args.w1_num_samples[0]}m'])[:, i + k * num_regions]), label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
+
+            plt.plot(x, np.log10(np.array(losses[f'w1_{args.w1_num_samples[0]}m'])[:, i]), label='All Regions', color=colors[num_regions])
+
+
         plt.legend(loc=1)
         plt.xlabel('Epoch')
         plt.ylabel('Particle ' + plabels[i] + ' Log$W_1$')
@@ -255,8 +320,16 @@ def plot_eval(args, losses, name, epoch, show=False):
 
         for i in range(2):
             fig.add_subplot(3, 3, i + 4)
-            for k in range(len(args.w1_num_samples)):
-                plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
+
+            if not args.clabels:
+                for k in range(len(args.w1_num_samples)):
+                    plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
+            else:
+                for k in range(num_regions):
+                    plt.plot(x, np.log10(np.array(losses[f'intra_w1j_{args.w1_num_samples[0]}m'])[:, i + k * num_regions]), label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
+
+                plt.plot(x, np.log10(np.array(losses[f'w1_{args.w1j_num_samples[0]}m'])[:, i]), label='All Regions', color=colors[num_regions])
+
             plt.legend(loc=1)
             plt.xlabel('Epoch')
             plt.ylabel(jlabels[i] + ' Log$W_1$')
@@ -274,8 +347,18 @@ def plot_eval(args, losses, name, epoch, show=False):
     metrics = {'mmd': (1, 'LogMMD'), 'coverage': (2, 'Coverage')}
     for key, (i, label) in metrics.items():
         fig.add_subplot(paxis, 3, i + (paxis - 1) * 3)
-        if key == 'coverage': plt.plot(x, np.array(losses[key]))
-        else: plt.plot(x, np.log10(np.array(losses[key])))
+
+        if not args.clabels:
+            if key == 'coverage': plt.plot(x, np.array(losses[key]))
+            else: plt.plot(x, np.log10(np.array(losses[key])))
+        else:
+            for k in range(num_regions):
+                plot_thing = np.array(losses['intra_' + key][k * num_regions]) if key == 'coverage' else np.log10(np.array(losses['intra_' + key][k * num_regions]))
+                plt.plot(x, plot_thing, label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
+
+            plot_thing = np.array(losses[key]) if key == 'coverage' else np.log10(np.array(losses[key]))
+            plt.plot(x, plot_thing, label='All Regions', color=colors[num_regions])
+
         plt.xlabel('Epoch')
         plt.ylabel(label)
 
@@ -289,20 +372,24 @@ def plot_eval(args, losses, name, epoch, show=False):
     else: plt.close()
 
 
-def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=None):
+def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None):
     logging.info("drawing figs")
 
     # Generating data
     G.eval()
     if gen_out is None:
         logging.info("gen out none")
-        gen_out = utils.gen_multi_batch(args, G, args.num_samples, X_loaded=X_loaded)
+        gen_out = utils.gen_multi_batch(args, G, args.num_samples, labels=labels)
     elif args.eval_tot_samples < args.num_samples:
         logging.info("gen out not large enough: size {}".format(len(gen_out)))
-        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.eval_tot_samples, X_loaded=X_loaded)), 0)
+        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.eval_tot_samples, labels=labels)), 0)
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
     gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.num_samples], real=False)
+
+    if args.clabels == 1:
+        abs_labels = (labels[:args.eval_tot_samples, 0] * args.maxjf[0]).detach().numpy()
+        cregions = [((abs_labels >= pt_regions[i]) * (abs_labels < pt_regions[i + 1])).squeeze() for i in range(len(pt_regions) - 1)]
 
     logging.info("real, gen outputs: \n {} \n {} \n {} \n {}".format(X_rn.shape, gen_out.shape, X_rn[0][:10], gen_out[0][:10]))
 
@@ -320,6 +407,8 @@ def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=Non
             plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
 
         plot_jet_mass_pt(args, realjf, genjf, name + 'mpt')
+
+        plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name + 'cregions', cregions, losses=losses)
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)

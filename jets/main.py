@@ -1,6 +1,7 @@
 # import setGPU
 
 import torch
+import numpy as np
 import setup, utils, save_outputs, evaluation, augment
 from jets_dataset import JetsDataset
 from torch.utils.data import DataLoader
@@ -10,9 +11,6 @@ from tqdm import tqdm
 # from parallel import DataParallelModel, DataParallelCriterion
 
 import logging
-
-from guppy import hpy
-h = hpy()
 
 
 def main():
@@ -45,6 +43,10 @@ def main():
         if args.fpnd:
             mu2, sigma2 = evaluation.load(args, C, X_test_loaded)
         if args.fjpnd:
+            # scaling factor for conditioning embedding - recommended as ratio between average L2 norm of data and condition embedding
+            args.fjpnd_alpha = np.linalg.norm(mu2) / np.linalg.norm(np.mean(X_test[:][1][:args.clabels].numpy(), axis=1))
+            logging.debug(f"mu2 norm {np.linalg.norm(mu2)}")
+            logging.debug(f"cond embedding norm { np.linalg.norm(np.mean(X_test[:][1][:args.clabels].numpy(), axis=1))}")
             cmu2, csigma2 = evaluation.load_fjpnd(args, C, X_test_loaded)
 
     Y_real = torch.ones(args.batch_size, 1).to(args.device)
@@ -117,18 +119,15 @@ def main():
         return G_loss.item()
 
     def train():
-        logging.info(h.heap())
-
         if(args.start_epoch == 0 and args.save_zero):
             if args.eval:
-                gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
+                gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, labels=X_test[:][1])
                 if args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
-                evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
+                if args.fjpnd: losses['fjpnd'].append(evaluation.get_fpnd(args, C, gen_out, cmu2, csigma2, fjpnd=True, labels=X_test[:][1]))
+                evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, labels=X_test[:][1])
             else: gen_out = None
-            save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], 0, losses, X_loaded=X_test_loaded, gen_out=gen_out)
+            save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], 0, losses, labels=X_test[:][1], gen_out=gen_out)
             del(gen_out)
-
-        logging.info(h.heap())
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
@@ -173,14 +172,13 @@ def main():
 
             if((i + 1) % args.save_epochs == 0):
                 if args.eval:
-                    gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded)
+                    gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, labels=X_test[:][1])
                     if args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
-                    evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
+                    if args.fjpnd: losses['fjpnd'].append(evaluation.get_fpnd(args, C, gen_out, cmu2, csigma2, fjpnd=True, labels=X_test[:][1]))
+                    evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, labels=X_test[:][1])
                 else: gen_out = None
-                save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], i + 1, losses, X_loaded=X_test_loaded, gen_out=gen_out)
+                save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], i + 1, losses, labels=X_test[:][1], gen_out=gen_out)
                 del(gen_out)
-
-            logging.info(h.heap())
 
     train()
 

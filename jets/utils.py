@@ -16,7 +16,7 @@ import energyflow as ef
 
 from sys import platform
 if platform == 'linux': import awkward as ak
-else: import awkward1 as ak
+else: import awkward as ak
 from coffea.nanoevents.methods import vector
 ak.behavior.update(vector.behavior)
 

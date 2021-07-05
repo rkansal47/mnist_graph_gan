@@ -190,7 +190,7 @@ def parse_args():
     utils.add_bool_arg(parser, "eval", "calculate the evaluation metrics: W1, FNPD, coverage, mmd", default=True)
     parser.add_argument("--eval-tot-samples", type=int, default=50000, help='tot # of jets to generate to sample from')
 
-    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
+    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[10000], help='array of # of jet samples to test')
 
     parser.add_argument("--cov-mmd-num-samples", type=int, default=100, help='size of samples to use for calculating coverage and MMD')
     parser.add_argument("--cov-mmd-num-batches", type=int, default=10, help='# of batches to average coverage and MMD over')
@@ -342,7 +342,7 @@ def check_args(args):
 
     if args.low_samples:
         args.eval_tot_samples = 1000
-        args.w1_num_samples = [10, 100]
+        args.w1_num_samples = [100]
         args.num_samples = 1000
 
     if args.dataset == 'jets-lagan' and args.jets == 'g':
@@ -574,12 +574,21 @@ def losses(args):
     if args.eval:
         ekeys = ['fpnd', 'mmd', 'coverage']
         if args.fjpnd: ekeys.append('fjpnd')
+        if args.clabels: ekeys += ['intra_mmd', 'intra_coverage']
+
         for k in range(len(args.w1_num_samples)):
             ekeys.append(f'w1_{args.w1_num_samples[k]}m')
             ekeys.append(f'w1_{args.w1_num_samples[k]}std')
             if args.jf:
                 ekeys.append(f'w1j_{args.w1_num_samples[k]}m')
                 ekeys.append(f'w1j_{args.w1_num_samples[k]}std')
+
+            if args.clabels:
+                ekeys.append(f'intra_w1_{args.w1_num_samples[k]}m')
+                ekeys.append(f'intra_w1_{args.w1_num_samples[k]}std')
+                if args.jf:
+                    ekeys.append(f'intra_w1j_{args.w1_num_samples[k]}m')
+                    ekeys.append(f'intra_w1j_{args.w1_num_samples[k]}std')
 
         for key in ekeys:
             if args.load_model:
