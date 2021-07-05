@@ -306,10 +306,9 @@ def plot_eval(args, losses, name, epoch, show=False):
                 # plt.fill_between(x, np.log10(np.ones(len(x)) * (realw1m[k][i] - realw1std[k][i])), np.log10(np.ones(len(x)) * (realw1m[k][i] + realw1std[k][i])), color=colors[k], alpha=0.2)
         else:
             for k in range(num_regions):
-                plt.plot(x, np.log10(np.array(losses[f'intra_w1_{args.w1_num_samples[0]}m'])[:, i + k * num_regions]), label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
+                plt.plot(x, np.log10(np.array(losses[f'intra_w1_{args.w1_num_samples[0]}m'])[:, i + (k * 3)]), label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
 
             plt.plot(x, np.log10(np.array(losses[f'w1_{args.w1_num_samples[0]}m'])[:, i]), label='All Regions', color=colors[num_regions])
-
 
         plt.legend(loc=1)
         plt.xlabel('Epoch')
@@ -326,9 +325,9 @@ def plot_eval(args, losses, name, epoch, show=False):
                     plt.plot(x, np.log10(np.array(losses['w1j_' + str(args.w1_num_samples[k]) + 'm'])[:, i]), label=str(args.w1_num_samples[k]) + ' Jet Samples', color=colors[k])
             else:
                 for k in range(num_regions):
-                    plt.plot(x, np.log10(np.array(losses[f'intra_w1j_{args.w1_num_samples[0]}m'])[:, i + k * num_regions]), label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
+                    plt.plot(x, np.log10(np.array(losses[f'intra_w1j_{args.w1_num_samples[0]}m'])[:, i + (k * 2)]), label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
 
-                plt.plot(x, np.log10(np.array(losses[f'w1_{args.w1j_num_samples[0]}m'])[:, i]), label='All Regions', color=colors[num_regions])
+                plt.plot(x, np.log10(np.array(losses[f'w1j_{args.w1_num_samples[0]}m'])[:, i]), label='All Regions', color=colors[num_regions])
 
             plt.legend(loc=1)
             plt.xlabel('Epoch')
@@ -353,17 +352,25 @@ def plot_eval(args, losses, name, epoch, show=False):
             else: plt.plot(x, np.log10(np.array(losses[key])))
         else:
             for k in range(num_regions):
-                plot_thing = np.array(losses['intra_' + key][k * num_regions]) if key == 'coverage' else np.log10(np.array(losses['intra_' + key][k * num_regions]))
+                plot_thing = np.array(losses['intra_' + key])[:, k] if key == 'coverage' else np.log10(np.array(losses['intra_' + key])[:, k])
                 plt.plot(x, plot_thing, label=f'Region {k + 1}', color=colors[k], linestyle='dashed')
 
             plot_thing = np.array(losses[key]) if key == 'coverage' else np.log10(np.array(losses[key]))
             plt.plot(x, plot_thing, label='All Regions', color=colors[num_regions])
+            plt.legend(loc=1)
 
         plt.xlabel('Epoch')
         plt.ylabel(label)
 
     fig.add_subplot(paxis, 3, (paxis) * 3)
-    plt.plot(x, np.log10(np.array(losses['fpnd'])))
+
+    if not args.clabels:
+        plt.plot(x, np.log10(np.array(losses['fpnd'])))
+    else:
+        plt.plot(x, np.log10(np.array(losses['fpnd'])), label='FPND', color=colors[0])
+        plt.plot(x, np.log10(np.array(losses['fjpnd'])), label='FJPND', color=colors[1])
+        plt.legend(loc=1)
+
     plt.xlabel('Epoch')
     plt.ylabel('LogFPND')
 
@@ -374,6 +381,9 @@ def plot_eval(args, losses, name, epoch, show=False):
 
 def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None):
     logging.info("drawing figs")
+
+    # save loss arrays
+    for key in losses: np.savetxt(args.losses_path + args.name + "/" + key + '.txt', losses[key])
 
     # Generating data
     G.eval()
@@ -412,12 +422,12 @@ def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None)
 
     if len(losses['G']) > 1: plot_losses(args, losses, name)
     # if args.fid: plot_fid(args, losses, name)
+
+    # UNCOMMENT!!
     if args.eval and len(losses['w1_' + str(args.w1_num_samples[-1]) + 'm']) > 1:
         plot_eval(args, losses, name + '_eval', epoch)
 
-    # save losses and remove earlier ones
-    for key in losses: np.savetxt(args.losses_path + args.name + "/" + key + '.txt', losses[key])
-
+    # remove previous plots
     try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
     except: logging.info("couldn't remove loss file")
 
