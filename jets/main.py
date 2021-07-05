@@ -126,9 +126,13 @@ def main():
         if(args.start_epoch == 0 and args.save_zero):
             if args.eval:
                 gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, labels=X_test[:][1])
+                logging.info(f"After w1 calc {h.heap()}")
                 if args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
+                logging.info(f"After fpnd calc {h.heap()}")
                 if args.fjpnd: losses['fjpnd'].append(evaluation.get_fpnd(args, C, gen_out, cmu2, csigma2, fjpnd=True, labels=X_test[:][1]))
+                logging.info(f"After fjpnd calc {h.heap()}")
                 evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, labels=X_test[:][1])
+                logging.info(f"After cov mmd calc {h.heap()}")
             else: gen_out = None
             save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], 0, losses, labels=X_test[:][1], gen_out=gen_out)
             del(gen_out)
