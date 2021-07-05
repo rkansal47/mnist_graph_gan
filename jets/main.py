@@ -176,9 +176,13 @@ def main():
             losses['G'].append(epoch_loss['G'] / (lenX / args.num_critic))
             for key in epoch_loss.keys(): logging.info("{} loss: {:.3f}".format(key, losses[key][-1]))
 
+            logging.info(f"Training loop finished {h.heap()}")
+
             if((i + 1) % args.save_model_epochs == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
+                logging.info(f"After saving models {h.heap()}")
+
 
             if((i + 1) % args.save_epochs == 0):
                 if args.eval:
@@ -189,6 +193,8 @@ def main():
                 else: gen_out = None
                 save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], i + 1, losses, labels=X_test[:][1], gen_out=gen_out)
                 del(gen_out)
+                logging.info(f"After eval {h.heap()}")
+
 
     train()
 

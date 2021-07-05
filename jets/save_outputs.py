@@ -7,6 +7,9 @@ import mplhep as hep
 
 import logging
 
+from guppy import hpy
+h = hpy()
+
 plt.switch_backend('agg')
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
@@ -62,7 +65,7 @@ def plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name, losses=None,
         if losses is not None: plt.title('$W_1$ = {:.2e}'.format(losses['w1_' + str(args.w1_num_samples[-1]) + 'm'][-1][i]), fontsize=12)
         plt.legend(loc=1, prop={'size': 18})
 
-    plt.tight_layout(2.0)
+    plt.tight_layout(pad=2.0)
     plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
     if show: plt.show()
     else: plt.close()
@@ -117,7 +120,7 @@ def plot_part_feats_jet_mass(args, X_rn, mask_real, gen_out, mask_gen, realjf, g
     plt.legend(loc=1, prop={'size': 18})
     if losses is not None: plt.title('$W_1$ = {:.2e}'.format(losses['w1j_' + str(args.w1_num_samples[-1]) + 'm'][-1][0]), fontsize=16)
 
-    plt.tight_layout(2.0)
+    plt.tight_layout(pad=2.0)
     plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
     if show: plt.show()
     else: plt.close()
@@ -174,7 +177,7 @@ def plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, 
         axs[j, 3].set_ylabel('Jets')
         axs[j, 3].legend(loc=1, prop={'size': 18})
 
-    plt.tight_layout(2.0)
+    plt.tight_layout(pad=2.0)
     plt.savefig(args.figs_path + name + ".pdf", bbox_inches='tight')
     if show: plt.show()
     else: plt.close()
@@ -405,7 +408,11 @@ def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None)
 
     name = args.name + "/" + str(epoch)
 
+    logging.info(f"pre-plotting {h.heap()}")
+
     plot_part_feats(args, X_rn, mask_real, gen_out, mask_gen, name + 'p', losses)
+
+    logging.info(f"plotted particle feats {h.heap()}")
 
     if args.jf:
         realjf = utils.jet_features(X_rn, mask=mask_real)
@@ -416,16 +423,25 @@ def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None)
             genefp = utils.efp(args, gen_out, mask=mask_gen, real=False)
             plot_jet_feats(args, realjf, genjf, realefp, genefp, name + 'j', losses)
 
+            logging.info(f"plotted jet feats feats {h.heap()}")
+
         plot_jet_mass_pt(args, realjf, genjf, name + 'mpt')
 
-        if args.clabels: plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name + 'c', cregions, losses=losses)
+        logging.info(f"plotted jet mass pt {h.heap()}")
 
-    if len(losses['G']) > 1: plot_losses(args, losses, name)
+        if args.clabels:
+            plot_part_feats_jet_mass_cregions(args, X_rn, mask_real, gen_out, mask_gen, realjf, genjf, name + 'c', cregions, losses=losses)
+            logging.info(f"plotted cregions {h.heap()}")
+
+    if len(losses['G']) > 1:
+        plot_losses(args, losses, name)
+        logging.info(f"plotted losses {h.heap()}")
     # if args.fid: plot_fid(args, losses, name)
 
     # UNCOMMENT!!
     if args.eval and len(losses['w1_' + str(args.w1_num_samples[-1]) + 'm']) > 1:
         plot_eval(args, losses, name + '_eval', epoch)
+        logging.info(f"plotted eval {h.heap()}")
 
     # remove previous plots
     try: remove(args.losses_path + args.name + "/" + str(epoch - args.save_epochs) + ".pdf")
