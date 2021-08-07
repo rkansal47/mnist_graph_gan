@@ -15,8 +15,8 @@ from torch.distributions.normal import Normal
 import energyflow as ef
 
 from sys import platform
-if platform == 'linux': import awkward as ak
-else: import awkward1 as ak
+import awkward as ak
+
 from coffea.nanoevents.methods import vector
 ak.behavior.update(vector.behavior)
 
@@ -138,6 +138,7 @@ class objectview(object):
 
 def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
     dist = Normal(torch.tensor(0.).to(args.device), torch.tensor(args.sd).to(args.device))
+
     if(noise is None):
         if args.model == 'mpgan':
             if args.lfc:
@@ -147,6 +148,9 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None):
                 noise = dist.sample((num_samples, args.num_hits + extra_noise_p, args.latent_node_size if args.latent_node_size else args.hidden_node_size))
         elif args.model == 'rgan' or args.model == 'graphcnngan':
             noise = dist.sample((num_samples, args.latent_dim))
+        elif args.model == 'treegan':
+            noise = [dist.sample((num_samples, 1, args.treegang_features[0]))]
+
     else: num_samples = noise.size(0)
 
     if (args.clabels or args.mask_c) and labels is None:

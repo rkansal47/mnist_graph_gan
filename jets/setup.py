@@ -8,7 +8,7 @@ from os.path import exists, dirname, realpath
 import torch
 
 from model import Graph_GAN
-from ext_models import rGANG, rGAND, GraphCNNGANG, PointNetMixD
+from ext_models import rGANG, rGAND, GraphCNNGANG, PointNetMixD, TreeGANG
 from copy import deepcopy
 
 import torch.optim as optim
@@ -29,8 +29,8 @@ def parse_args():
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.7, help="ratio of train/test split")
 
-    parser.add_argument("--model", type=str, default="mpgan", help="model to run", choices=['mpgan', 'rgan', 'graphcnngan'])
-    parser.add_argument("--model-D", type=str, default="", help="model discriminator, mpgan default is mpgan, rgan and graphcnngan default is rgan", choices=['mpgan', 'rgan', 'pointnet'])
+    parser.add_argument("--model", type=str, default="mpgan", help="model to run", choices=['mpgan', 'rgan', 'graphcnngan', 'treegan'])
+    parser.add_argument("--model-D", type=str, default="", help="model discriminator, mpgan default is mpgan, rgan. graphcnngan, treegan default is rgan", choices=['mpgan', 'rgan', 'pointnet'])
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=True)
     utils.add_bool_arg(parser, "override-load-check", "override check for whether name has already been used", default=False)
@@ -211,6 +211,10 @@ def parse_args():
     parser.add_argument("--graphcnng-layers", type=int, nargs='+', default=[32, 24], help='GraphCNN-GAN generator layer node sizes')
     utils.add_bool_arg(parser, "graphcnng-tanh", "use tanh activation for final graphcnn generator output", default=False)
 
+    parser.add_argument("--treegang-degrees", type=int, nargs='+', default=[2, 2, 2, 2, 2], help='TreeGAN generator upsampling per layer')
+    parser.add_argument("--treegang-features", type=int, nargs='+', default=[96, 64, 64, 64, 64, 3], help='TreeGAN generator features per node per layer')
+    parser.add_argument("--treegang-support", type=int, default=10, help='Support value for TreeGCN loop term.')
+
     args = parser.parse_args()
 
     return args
@@ -376,7 +380,6 @@ def check_args(args):
             if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
             if args.rgand_fc == 0: args.rgand_fc = [128, 64]
 
-
         args.loss = 'w'
         args.gp = 10
         args.num_critic = 5
@@ -384,6 +387,33 @@ def check_args(args):
         args.leaky_relu_alpha = 0.2
 
         args.num_knn = 20
+
+    if args.model == 'treegan':
+
+        # for treegan pad num hits to the next power of 2 (i.e. 30 -> 32)
+        import math
+        next_pow2 = 2 ** math.ceil(math.log2(args.num_hits))
+        args.pad_hits = next_pow2 - args.num_hits
+        args.num_hits = next_pow2
+
+        args.optimizer = 'adam'
+        args.beta1 = 0
+        args.beta2 = 0.99
+        args.lr_disc = 0.0001
+        args.lr_gen = 0.0001
+        if args.model_D == 'rgan':
+            args.batch_size = 50
+            args.num_epochs = 1000
+            if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
+            if args.rgand_fc == 0: args.rgand_fc = [128, 64]
+
+
+        args.loss = 'w'
+        args.gp = 10
+        args.num_critic = 5
+
+        args.leaky_relu_alpha = 0.2
+
 
     if args.model_D == 'rgan' and args.model == 'mpgan':
         if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
@@ -506,6 +536,8 @@ def models(args):
         G = rGANG(args=deepcopy(args))
     elif args.model == 'graphcnngan':
         G = GraphCNNGANG(args=deepcopy(args))
+    elif args.model == 'treegan':
+        G = TreeGANG(args.treegang_features, args.treegang_degrees, args.treegang_support)
 
     if args.model_D == 'mpgan':
         D = Graph_GAN(gen=False, args=deepcopy(args))
