@@ -9,6 +9,7 @@ import torch
 
 from model import Graph_GAN
 from ext_models import rGANG, rGAND, GraphCNNGANG, PointNetMixD, TreeGANG
+from pcgan_model import latent_G, latent_D, G_inv_Tanh, G
 from copy import deepcopy
 
 import torch.optim as optim
@@ -29,8 +30,8 @@ def parse_args():
     utils.add_bool_arg(parser, "train", "use training or testing dataset for model", default=True, no_name="test")
     parser.add_argument("--ttsplit", type=float, default=0.7, help="ratio of train/test split")
 
-    parser.add_argument("--model", type=str, default="mpgan", help="model to run", choices=['mpgan', 'rgan', 'graphcnngan', 'treegan'])
-    parser.add_argument("--model-D", type=str, default="", help="model discriminator, mpgan default is mpgan, rgan. graphcnngan, treegan default is rgan", choices=['mpgan', 'rgan', 'pointnet'])
+    parser.add_argument("--model", type=str, default="mpgan", help="model to run", choices=['mpgan', 'rgan', 'graphcnngan', 'treegan', 'pcgan'])
+    parser.add_argument("--model-D", type=str, default="", help="model discriminator, mpgan default is mpgan, rgan. graphcnngan, treegan default is rgan, pcgan default is pcgan", choices=['mpgan', 'rgan', 'pointnet', 'pcgan'])
 
     utils.add_bool_arg(parser, "load-model", "load a pretrained model", default=True)
     utils.add_bool_arg(parser, "override-load-check", "override check for whether name has already been used", default=False)
@@ -215,6 +216,13 @@ def parse_args():
     parser.add_argument("--treegang-features", type=int, nargs='+', default=[96, 64, 64, 64, 64, 3], help='TreeGAN generator features per node per layer')
     parser.add_argument("--treegang-support", type=int, default=10, help='Support value for TreeGCN loop term.')
 
+    parser.add_argument("--pcgan-latent-dim", type=int, default=128, help='Latent dim for object representatio sampling')
+    parser.add_argument("--pcgan-z1-dim", type=int, default=256, help='Object representation latent dim - has to be the same as the pre-trained point sampling network')
+    parser.add_argument("--pcgan-z2-dim", type=int, default=10, help='Point latent dim - has to be the same as the pre-trained point sampling network')
+    parser.add_argument("--pcgan-d-dim", type=int, default=256, help='PCGAN hidden dim - has to be the same as the pre-trained network')
+    parser.add_argument("--pcgan-pool", type=str, default='max1', choices=['max', 'max1', 'mean'], help='PCGAN inference network pooling - has to be the same as the pre-trained network')
+
+
     args = parser.parse_args()
 
     return args
@@ -328,7 +336,7 @@ def check_args(args):
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
-    if args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c or args.mask_learn_sep: args.mask = True
+    if args.model == 'mpgan' and (args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c or args.mask_learn_sep): args.mask = True
     else: args.mask = False
 
     if args.noise_padding and not args.mask:
@@ -351,6 +359,7 @@ def check_args(args):
 
     if args.model_D == "":
         if args.model == 'mpgan': args.model_D = 'mpgan'
+        elif args.model == 'pcgan': args.model_D = 'pcgan'
         else: args.model_D = 'rgan'
 
     if args.model == 'rgan':
@@ -408,6 +417,18 @@ def check_args(args):
             if args.rgand_fc == 0: args.rgand_fc = [128, 64]
 
 
+        args.loss = 'w'
+        args.gp = 10
+        args.num_critic = 5
+
+        args.leaky_relu_alpha = 0.2
+
+    if args.model == 'pcgan':
+        args.optimizer = 'adam'
+        args.lr_disc = 0.0001
+        args.lr_gen = 0.0001
+
+        args.batch_size = 256
         args.loss = 'w'
         args.gp = 10
         args.num_critic = 5
@@ -538,6 +559,8 @@ def models(args):
         G = GraphCNNGANG(args=deepcopy(args))
     elif args.model == 'treegan':
         G = TreeGANG(args.treegang_features, args.treegang_degrees, args.treegang_support)
+    elif args.model == 'pcgan':
+        G = latent_G(args.pcgan_latent_dim, args.pcgan_z1_dim)
 
     if args.model_D == 'mpgan':
         D = Graph_GAN(gen=False, args=deepcopy(args))
@@ -545,6 +568,8 @@ def models(args):
         D = rGAND(args=deepcopy(args))
     elif args.model_D == 'pointnet':
         D = PointNetMixD(args=deepcopy(args))
+    elif args.model_D == 'pcgan':
+        D = latent_D(args.pcgan_z1_dim)
 
 
     if(args.load_model):
@@ -566,6 +591,26 @@ def models(args):
     D = D.to(args.device)
 
     return G, D
+
+
+
+def pcgan_models(args):
+    G_inv = G_inv_Tanh(args.node_feat_size, args.pcgan_d_dim, args.pcgan_z1_dim, args.pcgan_pool)
+    G_pc = G(args.node_feat_size, args.pcgan_z1_dim, args.pcgan_z2_dim)
+
+    G_inv.load_state_dict(torch.load(args.models_path + f"pcgan/pcgan_G_inv_{args.jets}.pt", map_location=args.device))
+    G_pc.load_state_dict(torch.load(args.models_path + f"pcgan/pcgan_G_pc_{args.jets}.pt", map_location=args.device))
+
+
+    if args.multi_gpu:
+        logging.info("Using", torch.cuda.device_count(), "GPUs")
+        G_inv = torch.nn.DataParallel(G_inv)
+        G_pc = torch.nn.DataParallel(G_pc)
+
+    G_inv = G_inv.to(args.device)
+    G_pc = G_pc.to(args.device)
+
+    return G_inv, G_pc
 
 
 def optimizers(args, G, D):

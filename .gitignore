@@ -9,4 +9,7 @@
 **/lagan/*
 !**/lagan/*.py
 **/*test*
+!jets/models/
+jets/models/*
+!jets/models/pcgan
 .DS_Store
