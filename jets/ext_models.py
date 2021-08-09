@@ -268,6 +268,23 @@ class TreeGANG(nn.Module):
 
 
 
+#PC-GAN models
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from torch.nn.modules.utils import _pair
 
 # from https://discuss.pytorch.org/t/locally-connected-layers/26979
