@@ -1,4 +1,4 @@
-# import setGPU
+import setGPU
 
 import torch
 import setup, utils, save_outputs, evaluation, augment
