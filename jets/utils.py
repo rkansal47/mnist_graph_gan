@@ -168,6 +168,7 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None, pcgan_ar
     if args.model == 'pcgan' and pcgan_args['sample_points']:
         gen_data = pcgan_args['G_pc'](gen_data.unsqueeze(1), point_noise)
 
+    logging.debug(gen_data[0, :10])
     return gen_data
 
 
