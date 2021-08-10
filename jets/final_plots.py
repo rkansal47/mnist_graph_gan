@@ -4,7 +4,7 @@ import utils
 import os
 from jets_dataset import JetsDataset
 import mplhep as hep
-from skhep.math.vectors import LorentzVector
+# from skhep.math.vectors import LorentzVector
 from tqdm import tqdm
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -26,12 +26,8 @@ for dir in dirs:
 
     model_name = dir.split('_')[0]
 
-    if not (model_name == 'fcpnet' or model_name == 'graphcnnpnet' or model_name == 'mp' or model_name == 'mppnet'):
+    if not (model_name == 'fcpnet' or model_name == 'graphcnnpnet' or model_name == 'mp' or model_name == 'treeganpnet' or model_name == 'pcgan' or model_name == 'mppnet'):
         continue
-
-    if not (model_name == 'mppnet'):
-        continue
-
 
     samples = np.load('final_models/' + dir + '/samples.npy')[:num_samples]
 
@@ -54,19 +50,40 @@ for dir in dirs:
         samples_dict[dataset]['FC'] = (gen_out_rn, mask_gen)
     elif model_name == 'graphcnnpnet':
         samples_dict[dataset]['GraphCNN'] = (gen_out_rn, mask_gen)
+    elif model_name == 'treeganpnet':
+        samples_dict[dataset]['TreeGAN'] = (gen_out_rn, mask_gen)
+    elif model_name == 'pcgan':
+        samples_dict[dataset]['PCGAN'] = (gen_out_rn, mask_gen)
     elif model_name == 'mp':
         samples_dict[dataset]['MP'] = (gen_out_rn, mask_gen)
     elif model_name == 'mppnet':
         samples_dict[dataset]['MPPNET'] = (gen_out_rn, mask_gen)
 
+
+
 for dataset in samples_dict.keys():
-    args = utils.objectview({'datasets_path': 'datasets/', 'ttsplit': 0.7, 'node_feat_size': 3, 'num_hits': 30, 'coords': 'polarrel', 'dataset': 'jets', 'clabels': 0, 'jets': dataset, 'norm': 1, 'mask': True, 'real_only': False})
+    args = utils.objectview({'datasets_path': 'datasets/', 'ttsplit': 0.7, 'node_feat_size': 3, 'num_hits': 30, 'coords': 'polarrel', 'dataset': 'jets', 'clabels': 0, 'jets': dataset, 'norm': 1, 'mask': True, 'real_only': False, 'model': 'mpgan'})
     X = JetsDataset(args, train=False)
     X = X[:][0]
     X_rn, mask_real = utils.unnorm_data(args, X[:num_samples].cpu().detach().numpy(), real=True)
     samples_dict[dataset]['Real'] = (X_rn, mask_real)
 
-samples_dict
+samples_dict['g'].keys()
+
+
+
+
+plt.rcParams.update({'font.size': 16})
+plt.style.use(hep.style.CMS)
+
+line_opts = {'Real': {'color': 'red', 'linewidth': 3, 'linestyle': 'solid'},
+                'FC': {'color': 'green', 'linewidth': 3, 'linestyle': 'dashdot'},
+                'GraphCNN': {'color': 'brown', 'linewidth': 3, 'linestyle': 'dashed'},
+                'TreeGAN': {'color': 'orange', 'linewidth': 3, 'linestyle': 'dashdot'},
+                'PCGAN': {'color': 'purple', 'linewidth': 3, 'linestyle': (0, (5, 10))},
+                'MP': {'color': 'blue', 'linewidth': 3, 'linestyle': 'dashed'},
+                # 'MPPNET': {'color': 'purple', 'linewidth': 2, 'linestyle': (0, (5, 10))},
+            }
 
 efps = {}
 for dataset in samples_dict.keys():
@@ -79,15 +96,7 @@ for dataset in samples_dict.keys():
 
 %matplotlib inline
 
-plt.rcParams.update({'font.size': 16})
-plt.style.use(hep.style.CMS)
 
-line_opts = {'Real': {'color': 'red', 'linewidth': 3, 'linestyle': 'solid'},
-                'FC': {'color': 'green', 'linewidth': 3, 'linestyle': 'dashdot'},
-                'GraphCNN': {'color': 'brown', 'linewidth': 3, 'linestyle': 'dashed'},
-                'MP': {'color': 'blue', 'linewidth': 3, 'linestyle': 'dashed'},
-                # 'MPPNET': {'color': 'purple', 'linewidth': 2, 'linestyle': (0, (5, 10))},
-            }
 
 fig = plt.figure(figsize=(36, 24))
 i = 0
@@ -95,15 +104,15 @@ for dataset in samples_dict.keys():
     if dataset == 'g':
         efpbins = np.linspace(0, 0.0013, 51)
         pbins = [np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.1, 101)]
-        ylims = [1.3e5, 0.7e5, 0, 1.75e4]
+        ylims = [1.3e5, 0.7e5, 4.2e3, 1.75e4]
     elif dataset == 't':
         efpbins = np.linspace(0, 0.0045, 51)
         pbins = [np.arange(-0.5, 0.5, 0.005), np.arange(0, 0.1, 0.001)]
-        ylims = [0.35e5, 0.8e5, 0, 0.35e4]
+        ylims = [0.35e5, 0.8e5, 3.6e3, 0.35e4]
     else:
         efpbins = np.linspace(0, 0.002, 51)
         pbins = [np.linspace(-0.3, 0.3, 101), np.linspace(0, 0.15, 101)]
-        ylims = [2e5, 2.2e5, 0, 2.5e4]
+        ylims = [2e5, 2.2e5, 6.5e3, 2.5e4]
 
     mbins = np.linspace(0, 0.225, 51)
 
@@ -153,7 +162,7 @@ for dataset in samples_dict.keys():
         _ = plt.hist(masses, mbins, histtype='step', label=key, **line_opts[key])
 
     plt.legend(loc=1, prop={'size': 18}, fancybox=True)
-    # plt.ylim(0, ylims[1])
+    plt.ylim(0, ylims[2])
 
 
     fig.add_subplot(3, 4, i * 4 + 4)
@@ -171,5 +180,5 @@ for dataset in samples_dict.keys():
     i += 1
 
 plt.tight_layout(pad=0.5)
-plt.savefig('final_figure.pdf', bbox_inches='tight')
+plt.savefig('final_figure_update.pdf', bbox_inches='tight')
 plt.show()
