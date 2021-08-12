@@ -9,6 +9,7 @@ from tqdm import tqdm
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import save_outputs
+from copy import copy
 # plt.switch_backend('macosx')
 plt.rcParams.update({'font.size': 16})
 plt.style.use(hep.style.CMS)
@@ -182,3 +183,91 @@ for dataset in samples_dict.keys():
 plt.tight_layout(pad=0.5)
 plt.savefig('final_figure_update.pdf', bbox_inches='tight')
 plt.show()
+
+
+
+
+
+def pixelate(jet, mask, im_size, maxR):
+    bins = np.linspace(-maxR, maxR, im_size + 1)
+    binned_eta = np.digitize(jet[:, 0], bins) - 1
+    binned_phi = np.digitize(jet[:, 1], bins) - 1
+    pt = jet[:, 2]
+    if mask is not None: pt *= mask
+
+    jet_image = np.zeros((im_size, im_size))
+
+    for eta, phi, pt in zip(binned_eta, binned_phi, pt):
+        if eta >= 0 and eta < im_size and phi >= 0 and phi < im_size:
+            jet_image[phi, eta] += pt
+
+    return jet_image
+
+
+
+
+average_images = {'g': {}, 't': {}, 'q': {}}
+
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+plt.rcParams.update({'font.size': 16})
+plt.style.use(hep.style.CMS)
+
+order = ['Real', 'MP', 'FC', 'GraphCNN', 'TreeGAN', 'PCGAN']
+
+
+num_images = 4
+np.random.seed(2021)
+rand_sample = np.random.randint(num_samples, size=num_images)
+
+im_size = 25
+maxR = 0.4
+ave_maxR = 0.5
+
+cm = copy(plt.cm.jet)
+cm.set_under(color='white')
+
+for dataset in ['g', 't', 'q']:
+    fig, axes = plt.subplots(nrows=len(order), ncols=num_images + 1, figsize=(40, 48), gridspec_kw = {'wspace': 0.25, 'hspace':0})
+
+    for j in range(len(order)):
+        key = order[j]
+        axes[j][0].annotate(key, xy=(0, -1), xytext=(-axes[j][0].yaxis.labelpad - 15, 0),
+                    xycoords=axes[j][0].yaxis.label, textcoords='offset points',
+                    ha='right', va='center')
+
+        samples, mask = samples_dict[dataset][key]
+
+        rand_samples = samples[rand_sample]
+        if mask is not None: rand_mask = mask[rand_sample]
+
+        for i in range(num_images):
+            im = axes[j][i].imshow(pixelate(np.flip(rand_samples[i], axis=0), None if mask is None else rand_mask[i], im_size, maxR), cmap=cm, interpolation='nearest', vmin=1e-8, extent=[-maxR, maxR,-maxR, maxR], vmax=0.05)
+            axes[j][i].tick_params(which='both', bottom=False, top=False, left=False, right=False)
+            axes[j][i].set_xlabel('$\phi^{rel}$')
+            axes[j][i].set_ylabel('$\eta^{rel}$')
+            # if i == num_images - 1:
+            # divider = make_axes_locatable(axes[j][i])
+            # cax = divider.append_axes("right", size="5%", pad=0.3)
+
+        # average jet image
+
+        if key not in average_images[dataset]:
+            ave_im = np.zeros((im_size, im_size))
+            for i in tqdm(range(10000)):
+                ave_im += pixelate(samples[i], None if mask is None else mask[i], im_size, ave_maxR)
+            ave_im /= 10000
+            average_images[dataset][key] = ave_im
+
+        im = axes[j][-1].imshow(average_images[dataset][key], cmap=plt.cm.jet, interpolation='nearest', vmin=1e-8, extent=[-ave_maxR, ave_maxR,-ave_maxR, ave_maxR], vmax=0.05)
+        axes[j][-1].set_title('Average Jet Image', pad=5)
+        axes[j][-1].tick_params(which='both', bottom=False, top=False, left=False, right=False)
+        axes[j][-1].set_xlabel('$\phi^{rel}$')
+        axes[j][-1].set_ylabel('$\eta^{rel}$')
+
+        cbar = fig.colorbar(im, ax=axes[j].ravel().tolist(), fraction=0.007)
+        cbar.set_label('$p_T^{rel}$')
+
+    fig.tight_layout()
+    plt.savefig(f'jet_images_{dataset}.pdf', bbox_inches='tight')
+    plt.show()
