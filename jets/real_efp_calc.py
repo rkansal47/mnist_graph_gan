@@ -123,6 +123,8 @@ for dataset in samples_dict.keys():
     args['evaluation_path'] = './evaluation/'
     args = utils.objectview(args)
 
+    X = JetsDataset(args, train=False)
+    X = X[:][0]
     X_test_loaded = DataLoader(X, batch_size=128)
     C, mu2, sigma2 = evaluation.load(args, X_test_loaded)
 

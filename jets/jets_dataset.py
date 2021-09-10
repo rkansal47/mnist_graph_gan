@@ -91,6 +91,8 @@ class JetsDataset(Dataset):
         return len(self.X)
 
     def __getitem__(self, idx):
+        # if not mask_c: jet features are jet pt, jet eta (clabels = 2)
+        # if mask_c: jet features are pt, eta, num_particles
         return self.X[idx], self.jet_features[idx]
 
 

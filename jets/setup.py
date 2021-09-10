@@ -97,15 +97,15 @@ def parse_args():
     utils.add_bool_arg(parser, "sum", "mean or sum in models", default=True, no_name="mean")
 
     utils.add_bool_arg(parser, "int-diffs", "use int diffs", default=False)
-    utils.add_bool_arg(parser, "pos-diffs", "use pos diffs", default=True)
-    utils.add_bool_arg(parser, "all-ef", "use all node features for edge distance", default=True)
+    utils.add_bool_arg(parser, "pos-diffs", "use pos diffs", default=False)
+    utils.add_bool_arg(parser, "all-ef", "use all node features for edge distance", default=False)
     # utils.add_bool_arg(parser, "scalar-diffs", "use scalar diff (as opposed to vector)", default=True)
-    utils.add_bool_arg(parser, "deltar", "use delta r as an edge feature", default=True)
+    utils.add_bool_arg(parser, "deltar", "use delta r as an edge feature", default=False)
     utils.add_bool_arg(parser, "deltacoords", "use delta coords as edge features", default=False)
 
     parser.add_argument("--leaky-relu-alpha", type=float, default=0.2, help="leaky relu alpha")
 
-    utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=False)
+    utils.add_bool_arg(parser, "dea", "use early averaging discriminator", default=True)
     parser.add_argument("--fnd", type=int, nargs='*', default=[], help="hidden disc output layers e.g. 128 64")
 
     utils.add_bool_arg(parser, "lfc", "use a fully connected network to go from noise vector to initial graph", default=False)
@@ -131,7 +131,7 @@ def parse_args():
     utils.add_bool_arg(parser, "mask-learn-sep", "learn mask from separate noise vector", default=False)
     utils.add_bool_arg(parser, "mask-disc-sep", "separate disc network for # particles", default=False)
     utils.add_bool_arg(parser, "mask-fnd-np", "use num masked particles as an additional arg in D (dea will automatically be set true)", default=False)
-    utils.add_bool_arg(parser, "mask-c", "conditional mask", default=False)
+    utils.add_bool_arg(parser, "mask-c", "conditional mask", default=True)
     utils.add_bool_arg(parser, "mask-fne-np", "pass num particles as features into fn and fe", default=False)
     parser.add_argument("--mask-epoch", type=int, default=0, help="# of epochs after which to start masking")
 
@@ -183,6 +183,7 @@ def parse_args():
     # evaluation
 
     utils.add_bool_arg(parser, "fpnd", "calc fpnd", default=True)
+    utils.add_bool_arg(parser, "fjpnd", "calc Frechet Joint ParticleNet Distance (for conditional GAN evaluation)", default=True)
     # parser.add_argument("--fid-eval-size", type=int, default=8192, help="number of samples generated for evaluating fid")
     parser.add_argument("--fpnd-batch-size", type=int, default=256, help="batch size when generating samples for fpnd eval")
     parser.add_argument("--gpu-batch", type=int, default=50, help="")
@@ -190,13 +191,13 @@ def parse_args():
     utils.add_bool_arg(parser, "eval", "calculate the evaluation metrics: W1, FNPD, coverage, mmd", default=True)
     parser.add_argument("--eval-tot-samples", type=int, default=50000, help='tot # of jets to generate to sample from')
 
-    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[100, 1000, 10000], help='array of # of jet samples to test')
+    parser.add_argument("--w1-num-samples", type=int, nargs='+', default=[10000], help='array of # of jet samples to test')
 
     parser.add_argument("--cov-mmd-num-samples", type=int, default=100, help='size of samples to use for calculating coverage and MMD')
     parser.add_argument("--cov-mmd-num-batches", type=int, default=10, help='# of batches to average coverage and MMD over')
 
     parser.add_argument("--jf", type=str, nargs='*', default=['mass', 'pt'], help='jet level features to evaluate')
-
+    utils.add_bool_arg(parser, "efp", "calculate EFPs for evaluation (will cause memory spikes so off by default)", default=False)
 
     # ext models
 
@@ -336,6 +337,8 @@ def check_args(args):
     args.clabels_first_layer = args.clabels if args.clabels_fl else 0
     args.clabels_hidden_layers = args.clabels if args.clabels_hl else 0
 
+    if not args.clabels: args.fjpnd = False
+    
     if args.model == 'mpgan' and (args.mask_feat or args.mask_manual or args.mask_learn or args.mask_real_only or args.mask_c or args.mask_learn_sep): args.mask = True
     else: args.mask = False
 
@@ -351,7 +354,7 @@ def check_args(args):
 
     if args.low_samples:
         args.eval_tot_samples = 1000
-        args.w1_num_samples = [10, 100]
+        args.w1_num_samples = [100]
         args.num_samples = 1000
 
     if args.dataset == 'jets-lagan' and args.jets == 'g':
@@ -648,12 +651,22 @@ def losses(args):
 
     if args.eval:
         ekeys = ['fpnd', 'mmd', 'coverage']
+        if args.fjpnd: ekeys.append('fjpnd')
+        if args.clabels: ekeys += ['intra_mmd', 'intra_coverage']
+
         for k in range(len(args.w1_num_samples)):
             ekeys.append(f'w1_{args.w1_num_samples[k]}m')
             ekeys.append(f'w1_{args.w1_num_samples[k]}std')
             if args.jf:
                 ekeys.append(f'w1j_{args.w1_num_samples[k]}m')
                 ekeys.append(f'w1j_{args.w1_num_samples[k]}std')
+
+            if args.clabels:
+                ekeys.append(f'intra_w1_{args.w1_num_samples[k]}m')
+                ekeys.append(f'intra_w1_{args.w1_num_samples[k]}std')
+                if args.jf:
+                    ekeys.append(f'intra_w1j_{args.w1_num_samples[k]}m')
+                    ekeys.append(f'intra_w1j_{args.w1_num_samples[k]}std')
 
         for key in ekeys:
             if args.load_model:

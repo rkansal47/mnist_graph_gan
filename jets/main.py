@@ -1,6 +1,7 @@
 import setGPU
 
 import torch
+import numpy as np
 import setup, utils, save_outputs, evaluation, augment
 from jets_dataset import JetsDataset
 from torch.utils.data import DataLoader
@@ -13,7 +14,6 @@ import logging
 
 from guppy import hpy
 h = hpy()
-
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -50,7 +50,16 @@ def main():
 
     losses = setup.losses(args)
 
-    if args.fpnd: C, mu2, sigma2 = evaluation.load(args, X_test_loaded)
+    if args.fpnd or args.fjpnd:
+        C = evaluation.get_C(args)
+        if args.fpnd:
+            mu2, sigma2 = evaluation.load(args, C, X_test_loaded)
+        if args.fjpnd:
+            # scaling factor for conditioning embedding - recommended as ratio between average L2 norm of data and condition embedding
+            args.fjpnd_alpha = np.linalg.norm(mu2) / np.linalg.norm(np.mean(X_test[:][1][:args.clabels].numpy(), axis=1))
+            logging.debug(f"mu2 norm {np.linalg.norm(mu2)}")
+            logging.debug(f"cond embedding norm { np.linalg.norm(np.mean(X_test[:][1][:args.clabels].numpy(), axis=1))}")
+            cmu2, csigma2 = evaluation.load_fjpnd(args, C, X_test_loaded)
 
     Y_real = torch.ones(args.batch_size, 1).to(args.device)
     Y_fake = torch.zeros(args.batch_size, 1).to(args.device)
@@ -123,18 +132,23 @@ def main():
         return G_loss.item()
 
     def train():
-        logging.info(h.heap())
+        logging.info(f"Pretraining {h.heap()}")
 
         if(args.start_epoch == 0 and args.save_zero):
             if args.eval:
                 gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded, pcgan_args=pcgan_eval_args)
+                logging.info(f"After w1 calc {h.heap()}")
                 if args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
-                evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
+                logging.info(f"After fpnd calc {h.heap()}")
+                if args.fjpnd: losses['fjpnd'].append(evaluation.get_fpnd(args, C, gen_out, cmu2, csigma2, fjpnd=True, labels=X_test[:][1]))
+                logging.info(f"After fjpnd calc {h.heap()}")
+                evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, labels=X_test[:][1])
+                logging.info(f"After cov mmd calc {h.heap()}")
             else: gen_out = None
             save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], 0, losses, X_loaded=X_test_loaded, gen_out=gen_out, pcgan_args=pcgan_eval_args)
             del(gen_out)
 
-        logging.info(h.heap())
+        logging.info(f"After first eval {h.heap()}")
 
         for i in range(args.start_epoch, args.num_epochs):
             logging.info("Epoch {} starting".format(i + 1))
@@ -173,20 +187,25 @@ def main():
             losses['G'].append(epoch_loss['G'] / (lenX / args.num_critic))
             for key in epoch_loss.keys(): logging.info("{} loss: {:.3f}".format(key, losses[key][-1]))
 
+            logging.info(f"Training loop finished {h.heap()}")
+
             if((i + 1) % args.save_model_epochs == 0):
                 optimizers = (D_optimizer, G_optimizer)
                 save_outputs.save_models(args, D, G, optimizers, args.name, i + 1)
+                logging.info(f"After saving models {h.heap()}")
+
 
             if((i + 1) % args.save_epochs == 0):
                 if args.eval:
                     gen_out = evaluation.calc_w1(args, X_test[:][0], G, losses, X_loaded=X_test_loaded, pcgan_args=pcgan_eval_args)
                     if args.fpnd: losses['fpnd'].append(evaluation.get_fpnd(args, C, gen_out, mu2, sigma2))
-                    evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, X_loaded=X_test_loaded)
+                    if args.fjpnd: losses['fjpnd'].append(evaluation.get_fpnd(args, C, gen_out, cmu2, csigma2, fjpnd=True, labels=X_test[:][1]))
+                    evaluation.calc_cov_mmd(args, X_test[:][0], gen_out, losses, labels=X_test[:][1])
                 else: gen_out = None
                 save_outputs.save_sample_outputs(args, D, G, X_test[:args.num_samples][0], i + 1, losses, X_loaded=X_test_loaded, gen_out=gen_out, pcgan_args=pcgan_eval_args)
                 del(gen_out)
+                logging.info(f"After eval {h.heap()}")
 
-            logging.info(h.heap())
 
     train()
 

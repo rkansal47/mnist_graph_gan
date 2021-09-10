@@ -94,9 +94,7 @@ for dataset in samples_dict.keys():
         efps[dataset][key] = utils.efp(utils.objectview({'mask': key == 'Real' or key == 'MP', 'num_hits': 30}), samples, mask, key == 'Real')[:, 0]
 
 
-
 %matplotlib inline
-
 
 
 fig = plt.figure(figsize=(36, 24))
@@ -124,15 +122,15 @@ for dataset in samples_dict.keys():
 
     for key in line_opts.keys():
         samples, mask = samples_dict[dataset][key]
-        if key == 'MP' or key == 'Real':
+        if key == 'MP' or key == 'Generated' or key == 'Real':
             parts = samples[mask]
         else:
             parts = samples.reshape(-1, 3)
 
         _ = plt.hist(parts[:, 0], pbins[0], histtype='step', label=key, **line_opts[key])
 
-    plt.legend(loc=1, prop={'size': 18}, fancybox=True)
-    plt.ylim(0, ylims[0])
+    plt.legend(loc=1, prop={'size': 20}, fancybox=True)
+    # plt.ylim(0, ylims[0])
 
     fig.add_subplot(3, 4, i * 4 + 2)
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
@@ -141,15 +139,15 @@ for dataset in samples_dict.keys():
 
     for key in line_opts.keys():
         samples, mask = samples_dict[dataset][key]
-        if key == 'MP' or key == 'Real':
+        if key == 'MP' or key == 'Generated' or key == 'Real':
             parts = samples[mask]
         else:
             parts = samples.reshape(-1, 3)
 
         _ = plt.hist(parts[:, 2], pbins[1], histtype='step', label=key, **line_opts[key])
 
-    plt.legend(loc=1, prop={'size': 18}, fancybox=True)
-    plt.ylim(0, ylims[1])
+    plt.legend(loc=1, prop={'size': 20}, fancybox=True)
+    # plt.ylim(0, ylims[1])
 
     fig.add_subplot(3, 4, i * 4 + 3)
     plt.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
@@ -175,17 +173,14 @@ for dataset in samples_dict.keys():
     for key in line_opts.keys():
         _ = plt.hist(efps[dataset][key], efpbins, histtype='step', label=key, **line_opts[key])
 
-    plt.legend(loc=1, prop={'size': 18}, fancybox=True)
-    plt.ylim(0, ylims[3])
+    plt.legend(loc=1, prop={'size': 20}, fancybox=True)
+    # plt.ylim(0, ylims[3])
 
     i += 1
 
 plt.tight_layout(pad=0.5)
 plt.savefig('final_figure_update.pdf', bbox_inches='tight')
 plt.show()
-
-
-
 
 
 def pixelate(jet, mask, im_size, maxR):

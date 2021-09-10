@@ -16,7 +16,6 @@ import energyflow as ef
 
 from sys import platform
 import awkward as ak
-
 from coffea.nanoevents.methods import vector
 ak.behavior.update(vector.behavior)
 
@@ -158,12 +157,12 @@ def gen(args, G, num_samples=0, noise=None, labels=None, X_loaded=None, pcgan_ar
     else: num_samples = noise.size(0)
 
     if (args.clabels or args.mask_c) and labels is None:
-        labels = next(iter(X_loaded))[1].to(args.device)
+        labels = next(iter(X_loaded))[1]
         while(labels.size(0) < num_samples):
             labels = torch.cat((labels, next(iter(X_loaded))[1]), axis=0)
         labels = labels[:num_samples]
 
-    gen_data = G(noise, labels)
+    gen_data = G(noise, labels.to(args.device))
     if args.mask_manual: gen_data = mask_manual(args, gen_data)
     if args.model == 'pcgan' and pcgan_args['sample_points']:
         gen_data = pcgan_args['G_pc'](gen_data.unsqueeze(1), point_noise)
