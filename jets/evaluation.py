@@ -112,11 +112,11 @@ def calc_jsd(args, X, G):
 pt_regions = [0, 1045, 1175, 3000]
 
 # make sure to deepcopy G passing in
-def calc_w1(args, X, G, losses, labels=None):
+def calc_w1(args, X, G, losses, X_loaded=None, pcgan_args=None):
     logging.info("Evaluating 1-WD")
 
     G.eval()
-    gen_out = utils.gen_multi_batch(args, G, args.eval_tot_samples, labels=labels)
+    gen_out = utils.gen_multi_batch(args, G, args.eval_tot_samples, X_loaded=X_loaded, pcgan_args=pcgan_args)
 
     logging.info("Generated Data")
 

@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import pandas as pd
+import shutil
 
 dirs = os.listdir('losses')
 
@@ -11,12 +12,9 @@ loss_keys = ['fpnd', 'coverage', 'mmd']
 scores = []
 names = []
 
-<<<<<<< HEAD
-for i in range(170, 201):
-=======
-for i in range(263, 269):
->>>>>>> d714c15319a4cfc8a3d5b0718e7b7adc39ff8733
+for i in range(270, 279):
     name = loss_map[str(i)]
+    print(name)
     names.append(name)
     score_arr = []
     loss_dir = 'losses/' + name + '/'
@@ -26,6 +24,24 @@ for i in range(263, 269):
     w1m = w1j[:, 0]
     w1mstd = w1jstd[:, 0]
     min_epoch = np.argmin(w1m)
+
+    final_models_dir = 'final_models/'
+    if 'treegang_rgand' in name: final_models_dir += 'treeganfc_'
+    if 'treegang_pointnetd' in name: final_models_dir += 'treeganpnet_'
+    if 'pcgang' in name: final_models_dir += 'pcgan_'
+
+    if 'g30' in name: final_models_dir += 'g/'
+    if 't30' in name: final_models_dir += 't/'
+    if 'q30' in name: final_models_dir += 'q/'
+
+    print(final_models_dir)
+
+    if not os.path.exists(final_models_dir): os.makedirs(final_models_dir)
+    shutil.copy(f"args/{name}.txt", final_models_dir)
+    shutil.copy(f"models/{name}/G_{min_epoch * 5}.pt", final_models_dir)
+    shutil.copy(f"models/{name}/D_{min_epoch * 5}.pt", final_models_dir)
+
+
     score_arr.append(min_epoch * 5)
     score_arr.append(w1m[min_epoch])
     score_arr.append(w1mstd[min_epoch])
@@ -48,4 +64,4 @@ for i in range(263, 269):
     scores.append(score_arr)
 
 
-pd.DataFrame(scores, names).to_csv('scores.csv')
+pd.DataFrame(scores, names).to_csv('scores2.csv')

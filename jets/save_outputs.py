@@ -382,7 +382,7 @@ def plot_eval(args, losses, name, epoch, show=False):
     else: plt.close()
 
 
-def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None):
+def save_sample_outputs(args, D, G, X, epoch, losses, X_loaded=None, gen_out=None, pcgan_args=None):
     logging.info("drawing figs")
 
     # save loss arrays
@@ -392,10 +392,10 @@ def save_sample_outputs(args, D, G, X, epoch, losses, labels=None, gen_out=None)
     G.eval()
     if gen_out is None:
         logging.info("gen out none")
-        gen_out = utils.gen_multi_batch(args, G, args.num_samples, labels=labels)
+        gen_out = utils.gen_multi_batch(args, G, args.num_samples, X_loaded=X_loaded, pcgan_args=pcgan_args)
     elif args.eval_tot_samples < args.num_samples:
         logging.info("gen out not large enough: size {}".format(len(gen_out)))
-        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.eval_tot_samples, labels=labels)), 0)
+        gen_out = np.concatenate((gen_out, utils.gen_multi_batch(args, G, args.num_samples - args.eval_tot_samples, X_loaded=X_loaded, pcgan_args=pcgan_args)), 0)
 
     X_rn, mask_real = utils.unnorm_data(args, X.cpu().detach().numpy()[:args.num_samples], real=True)
     gen_out, mask_gen = utils.unnorm_data(args, gen_out[:args.num_samples], real=False)

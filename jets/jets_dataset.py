@@ -8,7 +8,11 @@ class JetsDataset(Dataset):
         if args.dataset == 'jets':
             if args.real_only: dataset = torch.load(args.datasets_path + 'all_t_jets_30p_polarrel_30only.pt')
             else:
-                dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + '_mask.pt').float()[:, :args.num_hits, :]
+                if not args.model == 'treegan':
+                    dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + '_mask.pt').float()[:, :args.num_hits, :]
+                else:
+                    dataset = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_' + args.coords + '_mask.pt').float()[:, :args.num_hits - args.pad_hits, :]
+                    dataset = torch.nn.functional.pad(dataset, (0, 0, 0, args.pad_hits), "constant", 0)  # for treegan zero-pad num hits to the next power 2 (i.e. 30 -> 32)
                 if not args.mask: dataset = dataset[:, :, :args.node_feat_size]
 
             jet_features = torch.load(args.datasets_path + 'all_' + args.jets + '_jets_150p_jetptetamass.pt').float()[:, :args.clabels]
