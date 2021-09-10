@@ -11,11 +11,7 @@ loss_keys = ['fpnd', 'coverage', 'mmd']
 scores = []
 names = []
 
-<<<<<<< HEAD
-for i in range(170, 201):
-=======
 for i in range(263, 269):
->>>>>>> d714c15319a4cfc8a3d5b0718e7b7adc39ff8733
     name = loss_map[str(i)]
     names.append(name)
     score_arr = []
