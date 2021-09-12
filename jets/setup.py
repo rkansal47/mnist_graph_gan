@@ -435,7 +435,6 @@ def check_args(args):
 
         args.leaky_relu_alpha = 0.2
 
-
     if args.model_D == 'rgan' and args.model == 'mpgan':
         if args.rgand_sfc == 0: args.rgand_sfc = [64, 128, 256, 512]
         if args.rgand_fc == 0: args.rgand_fc = [128, 64]
@@ -591,7 +590,6 @@ def models(args):
     D = D.to(args.device)
 
     return G, D
-
 
 
 def pcgan_models(args):
